@@ -5,4 +5,5 @@ git clone https://github.com/nanoscopic/stf.git repos/stf --branch ios-support
 git clone https://github.com/nanoscopic/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
 git clone https://github.com/nanoscopic/WebDriverAgent.git repos/WebDriverAgent --branch video-stream-control
 git clone https://github.com/nanoscopic/osx_ios_device_trigger.git repos/osx_ios_device_trigger
+git clone https://github.com/nanoscopic/osx_ios_video_enabler.git repos/osx_ios_video_enabler
 mkfifo pipe
