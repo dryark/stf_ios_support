@@ -1,9 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	//"net"
-	//"ioutil"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +16,18 @@ import (
 	"html/template"
 )
 
-// coordinate activities
+type Config struct {
+	DeviceTrigger string `json:"device_trigger"`
+	VideoEnabler string `json:"video_enabler"`
+	SupportRoot string `json:"support_root"`
+	MirrorFeedRoot string `json:"mirrorfeed_root"`
+	WDARoot string `json:"wda_root"`
+	CoordinatorHost string `json:"coordinator_host"`
+	CoordinatorPort int `json:"coordinator_port"`
+	WDAProxyPort string `json:"wda_proxy_port"`
+	MirrorFeedPort int `json:"mirrorfeed_port"`
+	Pipe string `json:"pipe"`
+}
 
 type DevEvent struct {
     action int
@@ -36,21 +48,32 @@ type BaseProgs struct {
 	stf        *os.Process
 }
 
-var listen_addr = "localhost:8027"
-
 func main() {
+	// Read in config
+	configFile := "config.json"
+	configFh, err := os.Open(configFile)   
+    if err != nil {
+        log.Panicf("failed reading file: %s", err)
+    }
+    defer configFh.Close()
+    
+	jsonBytes, _ := ioutil.ReadAll( configFh )
+	var config Config
+	json.Unmarshal( jsonBytes, &config )
+	
 	devEventCh := make( chan DevEvent, 2 )
 	runningDevs := make( map [string] RunningDev )
 	baseProgs := BaseProgs{}
 	
 	// start web server waiting for trigger http command for device connect and disconnect
 	
-	go startServer( devEventCh )
+	var listen_addr = fmt.Sprintf( "%s:%d", config.CoordinatorHost, config.CoordinatorPort ) // "localhost:8027"
+	go startServer( devEventCh, listen_addr )
 	
 	// start the 'osx_ios_device_trigger'
 	go func() {
 		fmt.Printf("Starting osx_ios_device_trigger\n");
-		triggerCmd := exec.Command("/Users/davidh/Library/Developer/Xcode/DerivedData/osx_ios_device_trigger-gtbavziplbdrhwbqcybrqiziemot/Build/Products/Debug/osx_ios_device_trigger")
+		triggerCmd := exec.Command( config.DeviceTrigger )
 		
 		//triggerOut, _ := triggerCmd.StdoutPipe()
 		//triggerCmd.Stdout = os.Stdout
@@ -74,7 +97,7 @@ func main() {
 	// start the video enabler
 	go func() {
 		fmt.Printf("Starting video-enabler\n");
-		enableCmd := exec.Command("/Users/davidh/Library/Developer/Xcode/DerivedData/enableusbmirror-abkoopbctzrcahcrqcyuwqknzvfm/Build/Products/Debug/enableusbmirror")
+		enableCmd := exec.Command(config.VideoEnabler)
 		err := enableCmd.Start()
 		if err != nil {
 			fmt.Println(err.Error())
@@ -131,10 +154,13 @@ func main() {
 				fmt.Printf("Device name: %s\n", devName)
 				
 				// start mirrorfeed
-				mirrorPort := 8000
-				pipeName := "/Users/davidh/git/stf_ios_support/pipe"
+				mirrorPort := config.MirrorFeedPort // 8000
+				pipeName := config.Pipe
 				fmt.Printf("Starting mirrorfeed\n");
-				mirrorCmd := exec.Command("../stf_ios_mirrorfeed/mirrorfeed/mirrorfeed", strconv.Itoa( mirrorPort ), pipeName )
+				
+				mirrorFeedBin := fmt.Sprintf( "%s/mirrorfeed/mirrorfeed", config.MirrorFeedRoot )
+				
+				mirrorCmd := exec.Command(mirrorFeedBin, strconv.Itoa( mirrorPort ), pipeName )
 				mirrorCmd.Stdout = os.Stdout
 				mirrorCmd.Stderr = os.Stderr
 				go func() {
@@ -152,8 +178,11 @@ func main() {
 				
 				// start ffmpeg
 				fmt.Printf("Starting ffmpeg\n")
-				ffCmd := exec.Command("/bin/bash", "../stf_ios_mirrorfeed/mirrorfeed/halfres.sh", devName, pipeName )
-				ffCmd.Stdout = os.Stdout
+				
+				halfresScript := fmt.Sprintf( "%s/mirrorfeed/halfres.sh", config.MirrorFeedRoot )
+				
+				ffCmd := exec.Command("/bin/bash", halfresScript, devName, pipeName )
+				//ffCmd.Stdout = os.Stdout
 				ffCmd.Stderr = os.Stderr
 				go func() {
 					err := ffCmd.Start()
@@ -171,11 +200,9 @@ func main() {
 				time.Sleep( time.Second * 9 )
 				
 				// start wdaproxy
-				wdaPort := "8100"
-				wdaFolder := "/Users/davidh/git/openstf-ios-extended/WebDriverAgent/"
-				//wdaCmdLine := fmt.Sprintf( "wdaproxy -p %i -d -W %s -u %s", wdaPort, wdaFolder, uuid )
+				wdaPort := config.WDAProxyPort // "8100"
 				fmt.Printf("Starting wdaproxy\n")
-				proxyCmd := exec.Command( "wdaproxy", "-p", wdaPort, "-d", "-W", wdaFolder, "-u", uuid )
+				proxyCmd := exec.Command( "wdaproxy", "-p", wdaPort, "-d", "-W", config.WDARoot, "-u", uuid )
 				proxyCmd.Stdout = os.Stdout
 				proxyCmd.Stderr = os.Stderr
 				go func() {
@@ -260,7 +287,7 @@ func getDeviceName( uuid string ) (string) {
 	return nameStr
 }
 	
-func startServer( devEventCh chan<- DevEvent ) {
+func startServer( devEventCh chan<- DevEvent, listen_addr string ) {
     fmt.Printf("Starting server\n");
     http.HandleFunc( "/", handleRoot )
     connectClosure := func( w http.ResponseWriter, r *http.Request ) {

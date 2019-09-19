@@ -1,0 +1,16 @@
+{
+	"support_root": "/Users/davidh/git/stf_ios_support",
+	"device_trigger": "/Users/davidh/Library/Developer/Xcode/DerivedData/osx_ios_device_trigger-gtbavziplbdrhwbqcybrqiziemot/Build/Products/Debug/osx_ios_device_trigger",
+	"video_enabler": "/Users/davidh/Library/Developer/Xcode/DerivedData/enableusbmirror-abkoopbctzrcahcrqcyuwqknzvfm/Build/Products/Debug/enableusbmirror",
+	"pipe": "/Users/davidh/git/stf_ios_support/pipe",
+	"mirrorfeed_root": "/Users/davidh/git/stf_ios_mirrorfeed",
+	"wda_root": "/Users/davidh/git/openstf-ios-extended/WebDriverAgent/",
+	"wda_proxy_port": "8100",
+	"coordinator_host": "localhost",
+	"coordinator_port": 8027,
+	"mirrorfeed_port": 8000,
+	"stf_ip": "192.168.255.1",
+	"stf_hostname": "[your stf server hostname]",
+	"stf_root": "/Users/davidh/git/openstf-ios-extended/stf",
+	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]"
+}
