@@ -1,20 +1,22 @@
 #!/bin/sh
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source $DIR"/config.sh"
-echo "OpenSTF HOME: ${OPENSTF_HOME}"
+export SUPPORT_ROOT=`jq .support_root config.json -j`
+export MYSTF_ROOT=`jq .stf_root config.json -j`
+export STF_URI=`jq .stf_ip config.json -j` # "192.168.255.1"
+export STF_URI_DNS=`jq .stf_hostname config.json -j`
+
+source "$SUPPORT_ROOT/config.sh"
+echo "STF ROOT: ${MYSTF_ROOT}"
 
 echo "Start stf:"
 cd ${STF_ROOT}
-echo "npm install/link"
+#echo "npm install/link"
 #npm install
 #npm link
 
 export MIN_PORT=7400
 export MAX_PORT=7700
 export FQDN_OR_IP=`ifconfig utun1 | grep inet | cut -d\  -f2`
-export STF_URI=`jq .stf_ip config.json -j` # "192.168.255.1"
-export STF_URI_DNS=`jq .stf_hostname config.json -j`
 export STF_SERVER_IP="$STF_URI"
 export STF_CLIENT_IP="$FQDN_OR_IP"
 export PROVIDER_IDENT=`hostname | tr -d "\n"`
