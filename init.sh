@@ -2,6 +2,7 @@
 mkdir -p repos
 
 GR="\033[32m"
+RED="\033[91m"
 RST="\033[0m"
 
 if [ ! -d "repos/fake_libimobiledevice" ]; then
@@ -78,15 +79,24 @@ function assert_has_node8() {
   fi
   
   if [ ! $NODE_MAJOR_VERSION == "8" ]; then
-    echo "Node 8 not installed; installed node version: \"$NODE_MAJOR_VERSION\""
+    echo -e "${RED}Node 8 not installed; installed node version: \"$NODE_MAJOR_VERSION\"$RST"
     exit 1
+  else
+    echo -e "${GR}Node 8 installed$RST"
   fi
 }
 
 function assert_has_xcodebuild() {
-  if ! command -v xcodebuild > /dev/null; then
-    echo "Please make sure that you have [Xcode 10.0+] and Xcode command line tools installed (https://developer.apple.com/xcode/)"
+  XCODE_VERSION="none"
+  if command -v xcodebuild > /dev/null; then
+    XCODE_VERSION=`xcodebuild -version | grep Xcode | tr -d "\n"`
+  fi
+  
+  if [ ! "$XCODE_VERSION" == "Xcode 10.3" ]; then
+    echo -e "${RED}Xcode 10.3 not installed$RST"
     exit 1
+  else
+    echo -e "${GR}Xcode 10.3 installed$RST"
   fi
 }
 
@@ -95,7 +105,6 @@ assert_has_node8
 assert_has_xcodebuild
 
 # Check and install dependencies
-echo "Check dependencies:"
 installed=( $(brew list) )
 not_installed=()
 i=0
@@ -106,10 +115,10 @@ for dependency in ${STF_DEPENDENCIES[@]}; do
   fi
 done
 if [ ${#not_installed[@]} == 0 ]; then
-  echo -e "${GR}All dependencies installed$RST"
+  echo -e "${GR}All brew dependencies installed$RST"
 else
   for lib in ${not_installed[@]}; do
-    echo "Install ${lib}"
+    echo "Installing brew ${lib}"
     brew install ${lib}
   done
 fi
