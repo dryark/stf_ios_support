@@ -12,5 +12,6 @@
 	"stf_ip": "192.168.255.1",
 	"stf_hostname": "[your stf server hostname]",
 	"stf_root": "/Users/davidh/git/openstf-ios-extended/stf",
-	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]"
+	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
+	"skip_video": false
 }
