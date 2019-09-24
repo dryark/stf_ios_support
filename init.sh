@@ -48,22 +48,6 @@ else
     echo -e "${GR}Pipe exists$RST"
 fi
 
-# STF dependencies
-STF_DEPENDENCIES=("jq" "rethinkdb" "graphicsmagick" "zeromq" "protobuf" "yasm" "pkg-config" "carthage" "automake" "autoconf" "libtool" "wget" "libimobiledevice")
-
-# --- FUNCTIONS ---
-
-function in_array() {
-  local array=${1}[@]
-  local needle=${2}
-  for i in ${!array}; do
-    if [[ ${i} == ${needle} ]]; then
-        return 0
-    fi
-  done
-  return 1
-}
-
 function assert_has_brew() {
   if ! command -v brew > /dev/null; then
     echo "Please make sure that you have homebrew installed (https://brew.sh/)"
@@ -88,28 +72,47 @@ function assert_has_node8() {
 
 function assert_has_xcodebuild() {
   XCODE_VERSION="none"
+  XCODE_MAJOR_VERSION="0"
+  XCODE_MINOR_VERSION="0"
   if command -v xcodebuild > /dev/null; then
-    XCODE_VERSION=`xcodebuild -version | grep Xcode | tr -d "\n"`
+    XCODE_VERSION=`xcodebuild -version | grep Xcode | tr -d "\n" | perl -pe 's/Xcode //'`
+    XCODE_MAJOR_VERSION=`echo $XCODE_VERSION | perl -pe 's/([0-9]+)\.[0-9]+/$1/'`
+    XCODE_MINOR_VERSION=`echo $XCODE_VERSION | perl -pe 's/[0-9]+\.([0-9]+)/$1/'`
   fi
   
-  if [ ! "$XCODE_VERSION" == "Xcode 10.3" ]; then
-    echo -e "${RED}Xcode 10.3 not installed$RST"
-    exit 1
-  else
+  echo "XCODE Version: $XCODE_VERSION"
+  echo "XCODE Version: Major = $XCODE_MAJOR_VERSION, Minor = $XCODE_MINOR_VERSION"
+  
+  if [ $XCODE_MAJOR_VERSION > 10 ]; then
+    echo -e "${GR}Xcode $XCODE_VERSION installed$RST"
+  elif [ "$XCODE_VERSION" == "10.3" ]; then
     echo -e "${GR}Xcode 10.3 installed$RST"
+  else
+    echo -e "${RED}Xcode 10.3+ not installed$RST"
+    exit 1
   fi
+}
+
+function contained() {
+  local e match="$1"
+  shift
+  for e; do [[ "$e" == "$match" ]] && return 0; done
+  return 1
 }
 
 assert_has_brew
 assert_has_node8
 assert_has_xcodebuild
 
+# STF dependencies
+declare -a deps=("jq" "rethinkdb" "graphicsmagick" "zeromq" "protobuf" "yasm" "pkg-config" "carthage" "automake" "autoconf" "libtool" "wget" "libimobiledevice")
+
 # Check and install dependencies
-installed=( $(brew list) )
+declare -a installed=( $(brew list) )
 not_installed=()
 i=0
 for dependency in ${STF_DEPENDENCIES[@]}; do
-  if ! in_array installed ${dependency}; then
+  if ! contained ${dependency} "${installed[@]}"; then
     not_installed[$i]=${dependency}
     i=$(($i+1))
   fi
