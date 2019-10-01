@@ -1,6 +1,7 @@
 package main
 
 import (
+    "bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -342,11 +343,13 @@ func main() {
             // start wdaproxy
             wdaPort := config.WDAProxyPort // "8100"
             fmt.Printf("Starting wdaproxy\n")
+            
             fmt.Printf("  wdaproxy -p %s -d -W %s -u %s\n", wdaPort, config.WDARoot, uuid )
             proxyCmd := exec.Command( "wdaproxy", "-p", wdaPort, "-d", "-W", config.WDARoot, "-u", uuid )
-            proxyCmd.Stdout = os.Stdout
+            //proxyCmd.Stdout = os.Stdout
             proxyCmd.Stderr = os.Stderr
             go func() {
+                proxyPipe, _ := proxyCmd.StdoutPipe()
                 err := proxyCmd.Start()
                 if err != nil {
                     fmt.Println(err.Error())
@@ -364,7 +367,25 @@ func main() {
                 pubEvent.name = devName
                 pubEventCh <- pubEvent
                 
-                proxyCmd.Wait()
+                //proxyCmd.Wait()
+                //wdaReader := bufio.NewReader( proxyPipe )
+                wdaScanner := bufio.NewScanner( proxyPipe )
+                //var line string
+                for wdaScanner.Scan() {
+                    //line, err := wdaReader.ReadString('\n')
+                    //line, err := ioutil.Read(proxyPipe)
+                    line := wdaScanner.Text()
+                    
+                    /*if err != nil {
+                        break
+                    }*/
+                    if strings.Contains( line, "is implemented in both" ) {
+                    } else if strings.Contains( line, "Couldn't write value" ) {
+                    } else {
+                        fmt.Println( line )
+                    }
+                }
+                
                 fmt.Printf("wdaproxy ended\n")
             }()
             
@@ -567,7 +588,7 @@ func SetupCloseHandler( runningDevs map [string] RunningDev, baseProgs *BaseProg
 
 func getDeviceName( uuid string ) (string) {
 	name, _ := exec.Command( "idevicename", "-u", uuid ).Output()
-	if name == nil {
+	if name == nil || len(name) == 0 {
 	    fmt.Printf("idevicename returned nothing for uuid %s\n", uuid)
 	}
 	nameStr := string(name)
@@ -593,12 +614,25 @@ func handleRoot( w http.ResponseWriter, r *http.Request ) {
     rootTpl.Execute( w, "ws://"+r.Host+"/echo" )
 }
 
+func fixUuid( uuid string ) (string) {
+    //fmt.Printf("len:%d\n", len(uuid) )
+    if len(uuid) == 24 {
+	    p1 := uuid[:8]
+	    p2 := uuid[8:]
+	    uuid = fmt.Sprintf("%s-%s",p1,p2)
+	    //fmt.Printf("fixed:%s\n", uuid )
+	}
+    return uuid
+}
+
 func deviceConnect( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
 	// signal device loop of device connect
 	devEvent := DevEvent{}
 	devEvent.action = 0
 	r.ParseForm()
-	devEvent.uuid = r.Form.Get("uuid")
+	uuid := r.Form.Get("uuid")
+	uuid = fixUuid( uuid )
+	devEvent.uuid = uuid	
 	devEventCh <- devEvent
 }
 
@@ -607,7 +641,9 @@ func deviceDisconnect( w http.ResponseWriter, r *http.Request, devEventCh chan<-
 	devEvent := DevEvent{}
 	devEvent.action = 1
 	r.ParseForm()
-	devEvent.uuid = r.Form.Get("uuid")
+	uuid := r.Form.Get("uuid")
+	uuid = fixUuid( uuid )
+	devEvent.uuid = uuid
 	devEventCh <- devEvent
 }
 
