@@ -7,7 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
+	//"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -154,39 +154,14 @@ func main() {
 	json.Unmarshal( jsonBytes, &config )
 	
 	var vpnMissing bool = true
-	ifaces, _ := net.Interfaces()
-	for _, iface := range ifaces {
-	    //fmt.Printf( "iface %v\n", iface.Name )
-	    if iface.Name == "utun1" {
-	        vpnMissing = false
-	    }
+	tunName := getTunName()
+	fmt.Printf("Tunnel name: %s\n", tunName)
+	if tunName != "none" {
+	    vpnMissing = false
 	}
-	//os.Exit(0)
-	
-	// Cleanup hanging processes if any
-    procs := ps.GetAllProcessesInfo()
-    for _, proc := range procs {
-        cmd := proc.CommandLine
-        //fmt.Printf("Proc: pid=%d %s\n", proc.Pid, proc.CommandLine )
-        cmdFlat := strings.Join( cmd, " " )
-        if cmdFlat == "/bin/bash run-stf.sh" {
-            fmt.Printf("Leftover STF - Sending SIGTERM\n")
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
-        }
-        if cmdFlat == config.VideoEnabler {
-            fmt.Printf("Leftover Video enabler - Sending SIGTERM\n")
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
-        }
-        if cmdFlat == config.DeviceTrigger {
-            fmt.Printf("Leftover Device trigger - Sending SIGTERM\n")
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
-        }
-        if cmd[0] == "node" && cmd[1] == "--inspect=127.0.0.1:9230" {
-            fmt.Printf("Leftover STF(via node) - Sending SIGTERM\n")
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
-        }
-    }
-    
+
+	cleanup_procs( config )
+	    
 	devEventCh := make( chan DevEvent, 2 )
 	runningDevs := make( map [string] RunningDev )
 	baseProgs := BaseProgs{}
@@ -262,7 +237,7 @@ func main() {
         }()
     }
 	
-	SetupCloseHandler( runningDevs, &baseProgs )
+	SetupCloseHandler( runningDevs, &baseProgs, config )
 	
 	/*go func() {
 		// repeatedly check vpn connection
@@ -297,7 +272,7 @@ func main() {
                 
                 mirrorFeedBin := fmt.Sprintf( "%s/mirrorfeed/mirrorfeed", config.MirrorFeedRoot )
                 
-                mirrorCmd := exec.Command(mirrorFeedBin, strconv.Itoa( mirrorPort ), pipeName )
+                mirrorCmd := exec.Command( mirrorFeedBin, strconv.Itoa( mirrorPort ), pipeName, tunName )
                 mirrorCmd.Stdout = os.Stdout
                 mirrorCmd.Stderr = os.Stderr
                 go func() {
@@ -320,8 +295,8 @@ func main() {
                 fmt.Printf("  /bin/bash %s \"%s\" %s\n", halfresScript, devName, pipeName )
             
                 ffCmd := exec.Command("/bin/bash", halfresScript, devName, pipeName )
-                //ffCmd.Stdout = os.Stdout
-                //ffCmd.Stderr = os.Stderr
+                ffCmd.Stdout = os.Stdout
+                ffCmd.Stderr = os.Stderr
                 go func() {
                     err := ffCmd.Start()
                     if err != nil {
@@ -367,6 +342,37 @@ func main() {
                 pubEvent.name = devName
                 pubEventCh <- pubEvent
                 
+                count := 1
+                
+                stopChannel := make(chan bool)
+                
+                // Start heartbeat
+                go func() {
+                    done := false
+                    for {
+                        select {
+                            case _ = <-stopChannel:
+                                done = true
+                            default:
+                        }
+                        if done {
+                            break
+                        }
+    
+                        if count >= 10 {
+                            count = 0
+                            
+                            beatEvent := PubEvent{}
+                            beatEvent.action = 2
+                            beatEvent.uuid = devEvent.uuid
+                            beatEvent.name = ""
+                            pubEventCh <- beatEvent
+                        }
+                        time.Sleep( time.Second * 1 )
+                        count++;
+                    }
+                }()
+                
                 //proxyCmd.Wait()
                 //wdaReader := bufio.NewReader( proxyPipe )
                 wdaScanner := bufio.NewScanner( proxyPipe )
@@ -386,6 +392,8 @@ func main() {
                     }
                 }
                 
+                stopChannel<- true
+                
                 fmt.Printf("wdaproxy ended\n")
             }()
             
@@ -403,6 +411,60 @@ func main() {
             pubEventCh <- pubEvent
         }
     }
+}
+
+func cleanup_procs(config Config) {
+    // Cleanup hanging processes if any
+    procs := ps.GetAllProcessesInfo()
+    for _, proc := range procs {
+        cmd := proc.CommandLine
+        //fmt.Printf("Proc: pid=%d %s\n", proc.Pid, proc.CommandLine )
+        cmdFlat := strings.Join( cmd, " " )
+        if cmdFlat == "/bin/bash run-stf.sh" {
+            fmt.Printf("Leftover STF - Sending SIGTERM\n")
+            syscall.Kill( proc.Pid, syscall.SIGTERM )
+        }
+        if cmdFlat == config.VideoEnabler {
+            fmt.Printf("Leftover Video enabler - Sending SIGTERM\n")
+            syscall.Kill( proc.Pid, syscall.SIGTERM )
+        }
+        if cmdFlat == config.DeviceTrigger {
+            fmt.Printf("Leftover Device trigger - Sending SIGTERM\n")
+            syscall.Kill( proc.Pid, syscall.SIGTERM )
+        }
+        if cmd[0] == "node" && cmd[1] == "--inspect=127.0.0.1:9230" {
+            fmt.Printf("Leftover STF(via node) - Sending SIGTERM\n")
+            syscall.Kill( proc.Pid, syscall.SIGTERM )
+        }
+    }
+}
+
+func getTunName() string {
+    i := 0
+    iface := "none"
+    for {
+        cmd := fmt.Sprintf( "echo show State:/Network/Interface/utun%d/IPv4 | scutil | grep ' Addresses' -A 1 | tail -1 | awk '{print $3;}'", i )
+        out, _ := exec.Command( "bash", "-c", cmd ).Output()
+        if len( out ) > 0 {
+            iface = fmt.Sprintf( "utun%d", i )
+            break
+        }
+        i++
+        if i > 1 {
+            break
+        }
+    }
+    
+    /*cmd := "echo show State:/Network/OpenVPN | scutil | grep TunnelDevice | awk '{print $3}' | tr -d \"\\n\""
+    out, err := exec.Command( "bash", "-c", cmd ).Output()
+    if err != nil {
+        return "none"
+    }
+    ret := string( out )
+    if ret == "" {
+        ret = "none"
+    }*/
+    return iface
 }
 
 func zmqPub( pubEventCh <-chan PubEvent ) {
@@ -442,7 +504,9 @@ func zmqPub( pubEventCh <-chan PubEvent ) {
             
             if pubEvent.action == 0 {
                 test.Type = "connect"
-            } else {
+            } else if pubEvent.action == 2 {
+                test.Type = "heartbeat"
+            } else if pubEvent.action == 1 {
                 test.Type = "disconnect"
             }
             
@@ -569,18 +633,22 @@ func closeBaseProgs( baseProgs *BaseProgs ) {
 	}
 }
 
-func SetupCloseHandler( runningDevs map [string] RunningDev, baseProgs *BaseProgs ) {
+func SetupCloseHandler( runningDevs map [string] RunningDev, baseProgs *BaseProgs, config Config ) {
     c := make(chan os.Signal, 2)
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)
     go func() {
         <- c
-        fmt.Println("\r- Ctrl+C pressed in Terminal")
+        fmt.Println("\nShutting down...\n")
         closeBaseProgs( baseProgs )
         closeAllRunningDevs( runningDevs )
         
         // This triggers zmq to stop receiving
         // We don't actually wait after this to ensure it has finished cleanly... oh well :)
         gStop = true
+        
+        time.Sleep( time.Millisecond * 1000 )
+        cleanup_procs( config)
+        fmt.Println("Shutdown ok\n")
         
         os.Exit(0)
     }()
