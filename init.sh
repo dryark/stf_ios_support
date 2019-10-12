@@ -5,49 +5,6 @@ GR="\033[32m"
 RED="\033[91m"
 RST="\033[0m"
 
-if [ ! -d "repos/fake_libimobiledevice" ]; then
-	git clone https://github.com/nanoscopic/fake_libimobiledevice.git repos/fake_libimobiledevice
-else
-    echo -e "${GR}repos/fake_libimobiledevice exists$RST"
-fi
-
-if [ ! -d "repos/stf" ]; then
-	git clone https://github.com/nanoscopic/stf.git repos/stf --branch ios-support
-else
-    echo -e "${GR}repos/stf exists$RST"
-fi
-
-if [ ! -d "repos/stf_ios_mirrorfeed" ]; then
-	git clone https://github.com/nanoscopic/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
-else
-    echo -e "${GR}repos/stf_ios_mirrorfeed exists$RST"
-fi
-
-if [ ! -d "repos/WebDriverAgent" ]; then
-	git clone https://github.com/nanoscopic/WebDriverAgent.git repos/WebDriverAgent --branch video-stream-control
-else
-    echo -e "${GR}repos/WebDriverAgent exists$RST"
-fi
-
-if [ ! -d "repos/osx_ios_device_trigger" ]; then
-	git clone https://github.com/nanoscopic/osx_ios_device_trigger.git repos/osx_ios_device_trigger
-else
-    echo -e "${GR}repos/osx_ios_device_trigger exists$RST"
-fi
-
-if [ ! -d "repos/osx_ios_video_enabler" ]; then
-	git clone https://github.com/nanoscopic/osx_ios_video_enabler.git repos/osx_ios_video_enabler
-else
-    echo -e "${GR}repos/osx_ios_video_enabler exists$RST"
-fi
-
-if [ ! -p "pipe" ]; then
-    echo "Pipe does not exist; creating"
-    mkfifo pipe
-else
-    echo -e "${GR}Pipe exists$RST"
-fi
-
 function assert_has_brew() {
   if ! command -v brew > /dev/null; then
     echo "Please make sure that you have homebrew installed (https://brew.sh/)"
@@ -105,7 +62,7 @@ assert_has_node8
 assert_has_xcodebuild
 
 # STF dependencies
-declare -a deps=("jq" "rethinkdb" "graphicsmagick" "zeromq" "protobuf" "yasm" "pkg-config" "carthage" "automake" "autoconf" "libtool" "wget" "libimobiledevice")
+declare -a deps=("jq" "rethinkdb" "graphicsmagick" "zeromq" "protobuf" "yasm" "pkg-config" "carthage" "automake" "autoconf" "libtool" "wget" "libimobiledevice" "golang")
 
 # Check and install dependencies
 declare -a installed=( $(brew list) )
@@ -125,3 +82,4 @@ else
     brew install ${lib}
   done
 fi
+
