@@ -5,14 +5,14 @@ GR="\033[32m"
 RED="\033[91m"
 RST="\033[0m"
 
-function assert_has_brew() {
+function install_brew_if_needed() {
   if ! command -v brew > /dev/null; then
-    echo "Please make sure that you have homebrew installed (https://brew.sh/)"
-    exit 1
+    echo "Brew not installed; installing"
+    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
   fi
 }
 
-function assert_has_node8() {
+function install_node8_if_needed() {
   NODE_MAJOR_VERSION="none"
   if command -v node > /dev/null; then
     NODE_VERSION=`node --version | tr -d "\n"`
@@ -21,7 +21,9 @@ function assert_has_node8() {
   
   if [ ! $NODE_MAJOR_VERSION == "8" ]; then
     echo -e "${RED}Node 8 not installed; installed node version: \"$NODE_MAJOR_VERSION\"$RST"
-    exit 1
+    echo -e "Installing Node 8 and setting up symlink"
+    brew install node@8
+    echo 'export PATH="/usr/local/opt/node@8/bin:$PATH"' >> ~/.bash_profile
   else
     echo -e "${GR}Node 8 installed$RST"
   fi
@@ -46,6 +48,7 @@ function assert_has_xcodebuild() {
     echo -e "${GR}Xcode 10.3 installed$RST"
   else
     echo -e "${RED}Xcode 10.3+ not installed$RST"
+    echo -e "${RED}You need to install it and then rerun init.sh$RST"
     exit 1
   fi
 }
@@ -57,29 +60,10 @@ function contained() {
   return 1
 }
 
-assert_has_brew
-assert_has_node8
+install_brew_if_needed
+install_node8_if_needed
 assert_has_xcodebuild
 
-# STF dependencies
-declare -a deps=("jq" "rethinkdb" "graphicsmagick" "zeromq" "protobuf" "yasm" "pkg-config" "carthage" "automake" "autoconf" "libtool" "wget" "libimobiledevice" "golang")
-
-# Check and install dependencies
-declare -a installed=( $(brew list) )
-not_installed=()
-i=0
-for dependency in ${STF_DEPENDENCIES[@]}; do
-  if ! contained ${dependency} "${installed[@]}"; then
-    not_installed[$i]=${dependency}
-    i=$(($i+1))
-  fi
-done
-if [ ${#not_installed[@]} == 0 ]; then
-  echo -e "${GR}All brew dependencies installed$RST"
-else
-  for lib in ${not_installed[@]}; do
-    echo "Installing brew ${lib}"
-    brew install ${lib}
-  done
-fi
-
+CACHE_FILE=$(brew --cache -s ./deps.rb|tr -d "\n")
+cp empty.tgz "${CACHE_FILE}"
+HOMEBREW_NO_AUTO_UPDATE=1 brew install --build-from-source ./deps.rb
