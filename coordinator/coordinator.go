@@ -7,7 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	//"net"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,7 +27,7 @@ type Config struct {
 	DeviceTrigger string `json:"device_trigger"`
 	VideoEnabler string `json:"video_enabler"`
 	SupportRoot string `json:"support_root"`
-	MirrorFeedRoot string `json:"mirrorfeed_root"`
+	MirrorFeedBin string `json:"mirrorfeed_bin"`
 	WDARoot string `json:"wda_root"`
 	CoordinatorHost string `json:"coordinator_host"`
 	CoordinatorPort int `json:"coordinator_port"`
@@ -35,6 +35,8 @@ type Config struct {
 	MirrorFeedPort int `json:"mirrorfeed_port"`
 	Pipe string `json:"pipe"`
 	SkipVideo bool `json:"skip_video"`
+	Ffmpeg string `json:"ffmpeg"`
+	STFIP string `json:"stf_ip"`
 }
 
 type DevEvent struct {
@@ -51,9 +53,10 @@ type PubEvent struct {
 type RunningDev struct {
 	uuid string
 	name string
-    mirror *os.Process
-    ff     *os.Process
-    proxy  *os.Process
+  mirror *os.Process
+  ff     *os.Process
+  proxy  *os.Process
+  device *os.Process
 }
 
 type BaseProgs struct {
@@ -141,79 +144,81 @@ func main() {
     zmqReqRep()
     zmqPub( pubEventCh )
     
-	// Read in config
-	configFile := "config.json"
-	configFh, err := os.Open(configFile)   
-    if err != nil {
-        log.Panicf("failed reading file: %s", err)
-    }
-    defer configFh.Close()
+    // Read in config
+    configFile := "config.json"
+    configFh, err := os.Open(configFile)   
+      if err != nil {
+          log.Panicf("failed reading file: %s", err)
+      }
+      defer configFh.Close()
+      
+    jsonBytes, _ := ioutil.ReadAll( configFh )
+    var config Config
+    json.Unmarshal( jsonBytes, &config )
     
-	jsonBytes, _ := ioutil.ReadAll( configFh )
-	var config Config
-	json.Unmarshal( jsonBytes, &config )
+    var vpnMissing bool = true
+    tunName := getTunName()
+    fmt.Printf("Tunnel name: %s\n", tunName)
+    if tunName != "none" {
+        vpnMissing = false
+    }
+    curIP := ifaceCurIP( tunName )
+    fmt.Printf("Current IP on VPN: %s\n", curIP)
+  
+    cleanup_procs( config )
+        
+    devEventCh := make( chan DevEvent, 2 )
+    runningDevs := make( map [string] RunningDev )
+    baseProgs := BaseProgs{}
+    
+    // start web server waiting for trigger http command for device connect and disconnect
+    
+    var listen_addr = fmt.Sprintf( "%s:%d", config.CoordinatorHost, config.CoordinatorPort ) // "localhost:8027"
+    go startServer( devEventCh, listen_addr )
+    
+    // start the 'osx_ios_device_trigger'
+    go func() {
+        fmt.Printf("Starting osx_ios_device_trigger\n");
+        triggerCmd := exec.Command( config.DeviceTrigger )
+        
+        //triggerOut, _ := triggerCmd.StdoutPipe()
+        //triggerCmd.Stdout = os.Stdout
+        //triggerCmd.Stderr = os.Stderr
+        err := triggerCmd.Start()
+        if err != nil {
+            fmt.Println(err.Error())
+        } else {
+            baseProgs.trigger = triggerCmd.Process
+        }
+        /*for {
+          line, err := ioutil.Read(triggerOut)
+          if err != nil {
+            break
+          }
+        }*/
+        triggerCmd.Wait()
+        fmt.Printf("Ended: osx_ios_device_trigger\n");
+    }()
 	
-	var vpnMissing bool = true
-	tunName := getTunName()
-	fmt.Printf("Tunnel name: %s\n", tunName)
-	if tunName != "none" {
-	    vpnMissing = false
-	}
-
-	cleanup_procs( config )
-	    
-	devEventCh := make( chan DevEvent, 2 )
-	runningDevs := make( map [string] RunningDev )
-	baseProgs := BaseProgs{}
+    // start the video enabler
+    go func() {
+        fmt.Printf("Starting video-enabler\n");
+        enableCmd := exec.Command(config.VideoEnabler)
+        err := enableCmd.Start()
+        if err != nil {
+           fmt.Println(err.Error())
+           baseProgs.vidEnabler = nil
+        } else {
+            baseProgs.vidEnabler = enableCmd.Process 
+        }
+        enableCmd.Wait()
+        fmt.Printf("Ended: video-enabler\n")
+    }()
 	
-	// start web server waiting for trigger http command for device connect and disconnect
-	
-	var listen_addr = fmt.Sprintf( "%s:%d", config.CoordinatorHost, config.CoordinatorPort ) // "localhost:8027"
-	go startServer( devEventCh, listen_addr )
-	
-	// start the 'osx_ios_device_trigger'
-	go func() {
-		fmt.Printf("Starting osx_ios_device_trigger\n");
-		triggerCmd := exec.Command( config.DeviceTrigger )
-		
-		//triggerOut, _ := triggerCmd.StdoutPipe()
-		//triggerCmd.Stdout = os.Stdout
-		//triggerCmd.Stderr = os.Stderr
-		err := triggerCmd.Start()
-		if err != nil {
-			fmt.Println(err.Error())
-		} else {
-			baseProgs.trigger = triggerCmd.Process
-		}
-		/*for {
-			line, err := ioutil.Read(triggerOut)
-			if err != nil {
-				break
-			}
-		}*/
-		triggerCmd.Wait()
-		fmt.Printf("Ended: osx_ios_device_trigger\n");
-	}()
-	
-	// start the video enabler
-	go func() {
-		fmt.Printf("Starting video-enabler\n");
-		enableCmd := exec.Command(config.VideoEnabler)
-		err := enableCmd.Start()
-		if err != nil {
-			fmt.Println(err.Error())
-			baseProgs.vidEnabler = nil
-		} else {
-			baseProgs.vidEnabler = enableCmd.Process 
-		}
-		enableCmd.Wait()
-		fmt.Printf("Ended: video-enabler\n")
-	}()
-	
-	if vpnMissing {
-	    fmt.Printf("VPN not enabled; skipping start of STF\n")
-	    baseProgs.stf = nil
-	} else {
+    if vpnMissing {
+        fmt.Printf("VPN not enabled; skipping start of STF\n")
+        baseProgs.stf = nil
+    } else {
         // start stf and restart it when needed
         // TODO: if it doesn't restart / crashes again; give up
         go func() {
@@ -225,6 +230,7 @@ func main() {
                 
                 err := stfCmd.Start()
                 if err != nil {
+                    fmt.Println("Could not start stf")
                     fmt.Println(err.Error())
                     baseProgs.stf = nil
                 } else {
@@ -237,16 +243,16 @@ func main() {
         }()
     }
 	
-	SetupCloseHandler( runningDevs, &baseProgs, config )
-	
-	/*go func() {
-		// repeatedly check vpn connection
-				
-		// when vpn goes down
-			// log an error
-			// wait for it to come back up
-			// restart the various things to use the new IP
-	}*/
+    SetupCloseHandler( runningDevs, &baseProgs, config )
+    
+    /*go func() {
+      // repeatedly check vpn connection
+          
+      // when vpn goes down
+        // log an error
+        // wait for it to come back up
+        // restart the various things to use the new IP
+    }*/
 
     for {
         // receive message
@@ -268,16 +274,18 @@ func main() {
                 // start mirrorfeed
                 mirrorPort := config.MirrorFeedPort // 8000
                 pipeName := config.Pipe
-                fmt.Printf("Starting mirrorfeed\n");
+                fmt.Printf("Starting mirrorfeed: %s\n", config.MirrorFeedBin);
                 
-                mirrorFeedBin := fmt.Sprintf( "%s/mirrorfeed/mirrorfeed", config.MirrorFeedRoot )
+                mirrorFeedBin := config.MirrorFeedBin
                 
                 mirrorCmd := exec.Command( mirrorFeedBin, strconv.Itoa( mirrorPort ), pipeName, tunName )
+                
                 mirrorCmd.Stdout = os.Stdout
                 mirrorCmd.Stderr = os.Stderr
                 go func() {
                     err := mirrorCmd.Start()
                     if err != nil {
+                        fmt.Println("Could not start mirrorfeed")
                         fmt.Println(err.Error())
                         devd.mirror = nil
                     } else {
@@ -288,18 +296,28 @@ func main() {
                     devd.mirror = nil
                 }()
             
-                halfresScript := fmt.Sprintf( "%s/mirrorfeed/halfres.sh", config.MirrorFeedRoot )
-            
-                // start ffmpeg
                 fmt.Printf("Starting ffmpeg\n")
-                fmt.Printf("  /bin/bash %s \"%s\" %s\n", halfresScript, devName, pipeName )
-            
-                ffCmd := exec.Command("/bin/bash", halfresScript, devName, pipeName )
+                
+                ffCmd := exec.Command( "./run-ffmpeg.sh", 
+                    config.Ffmpeg,
+                    pipeName,
+                    devName,
+                    "-pixel_format", "bgr0",
+                    "-f", "mjpeg",
+                    "-bsf:v", "mjpegadump",
+                    "-bsf:v", "mjpeg2jpeg",
+                    "-r", "1", // framerate
+                    "-vsync", "2",
+                    "pipe:1" )
+                
+                //pipeHandle, _ := os.OpenFile( pipeName, os.O_RDWR, 0600 )
+                
                 ffCmd.Stdout = os.Stdout
                 ffCmd.Stderr = os.Stderr
                 go func() {
                     err := ffCmd.Start()
                     if err != nil {
+                        fmt.Println("Could not start ffmpeg")
                         fmt.Println(err.Error())
                         devd.ff = nil
                     } else {
@@ -397,6 +415,31 @@ func main() {
                 fmt.Printf("wdaproxy ended\n")
             }()
             
+            time.Sleep( time.Second * 3 )
+            
+            // Start the stf device-ios unit
+            fmt.Printf("Starting device-ios unit\n")
+            
+            pushStr := fmt.Sprintf("tcp://%s:7270", config.STFIP)
+            subStr := fmt.Sprintf("tcp://%s:7250", config.STFIP)
+            fmt.Printf("  ./run-device-ios.sh --serial %s --connect-push %s --connect-sub %s --public-ip $s", pushStr, subStr )
+            deviceCmd := exec.Command( "./run-device-ios.sh", "--serial", uuid, "--connect-push", pushStr, "--connect-sub", subStr, "--public-ip", curIP )
+            deviceCmd.Stdout = os.Stdout
+            deviceCmd.Stderr = os.Stderr
+            go func() {
+                err := deviceCmd.Start()
+                if err != nil {
+                    fmt.Println("Could not start device-ios unit")
+                    fmt.Println(err.Error())
+                    devd.device = nil
+                } else {
+                    devd.device = deviceCmd.Process
+                }
+                deviceCmd.Wait()
+                fmt.Printf("device-ios unit ended\n")
+                devd.device = nil
+            }()
+            
             runningDevs[uuid] = devd
         }
         if devEvent.action == 1 { // device disconnect
@@ -455,6 +498,7 @@ func getTunName() string {
         }
     }
     
+    // The following does not work when DNS is not enabled with Tunnelblick :(
     /*cmd := "echo show State:/Network/OpenVPN | scutil | grep TunnelDevice | awk '{print $3}' | tr -d \"\\n\""
     out, err := exec.Command( "bash", "-c", cmd ).Output()
     if err != nil {
@@ -467,13 +511,55 @@ func getTunName() string {
     return iface
 }
 
+func ifaceCurIP( tunName string ) string {
+    ifaces, err := net.Interfaces()
+    if err != nil {
+        fmt.Printf( err.Error() )
+        os.Exit( 1 )
+    }
+    
+    ipStr := ""
+    
+    foundInterface := false
+    for _, iface := range ifaces {
+        addrs, err := iface.Addrs()
+        if err != nil {
+            fmt.Printf( err.Error() )
+            os.Exit( 1 )
+        }
+        for _, addr := range addrs {
+            var ip net.IP
+            switch v := addr.(type) {
+                case *net.IPNet:
+                    ip = v.IP
+                case *net.IPAddr:
+                    ip = v.IP
+                default:
+                    fmt.Printf("Unknown type\n")
+            }
+            fmt.Printf("Found an interface: %s\n", iface.Name )
+            if iface.Name == tunName {
+                fmt.Printf( "interface '%s' address: %s\n", tunName, ip.String() ) 
+                ipStr = ip.String()
+                foundInterface = true
+            }
+        }
+    }
+    if foundInterface == false {
+        fmt.Printf( "Could not find interface %s\n", tunName )
+        os.Exit( 1 )
+    }
+    
+    return ipStr
+}
+
 func zmqPub( pubEventCh <-chan PubEvent ) {
     var sentDummy bool = false
     
     // start the zmq pub mechanism
-	go func() {
-	    pubSock := zmq.NewSock(zmq.Pub)
-	    //pubSock, _ := zmq.NewPub("tcp://127.0.0.1:7294/x")
+    go func() {
+        pubSock := zmq.NewSock(zmq.Pub)
+        //pubSock, _ := zmq.NewPub("tcp://127.0.0.1:7294/x")
         defer pubSock.Destroy()
         
         _, err := pubSock.Bind("tcp://127.0.0.1:7294")
@@ -523,7 +609,7 @@ func zmqPub( pubEventCh <-chan PubEvent ) {
             }*/
             pubSock.SendMessage( [][]byte{ []byte("devEvent"), reqMsg} )
         }
-	}()
+    }()
 }
 
 func zmqReqRep() {
@@ -593,44 +679,50 @@ func zmqReqRep() {
 }
 
 func closeAllRunningDevs( runningDevs map [string] RunningDev ) {
-	for _, devd := range runningDevs {
-		closeRunningDev( devd )
-	}
+    for _, devd := range runningDevs {
+        closeRunningDev( devd )
+    }
 }
 
 func closeRunningDev( devd RunningDev ) {
-	// stop wdaproxy
-	if devd.proxy != nil {
-		fmt.Printf("Killing wdaproxy\n")
-		devd.proxy.Kill()
-	}
-	
-	// stop ffmpeg
-	if devd.ff != nil {
-		fmt.Printf("Killing ffmpeg\n")
-		devd.ff.Kill()
-	}
-	
-	// stop mirrorfeed
-	if devd.mirror != nil {
-		fmt.Printf("Killing mirrorfeed\n")
-		devd.mirror.Kill()
-	}
+    // stop wdaproxy
+    if devd.proxy != nil {
+        fmt.Printf("Killing wdaproxy\n")
+        devd.proxy.Kill()
+    }
+    
+    // stop ffmpeg
+    if devd.ff != nil {
+        fmt.Printf("Killing ffmpeg\n")
+        devd.ff.Kill()
+    }
+    
+    // stop mirrorfeed
+    if devd.mirror != nil {
+        fmt.Printf("Killing mirrorfeed\n")
+        devd.mirror.Kill()
+    }
+    
+    // stop device-ios unit
+    if devd.device != nil {
+        fmt.Printf("Killing device-ios unit\n")
+        devd.device.Kill()
+    }
 }
 
 func closeBaseProgs( baseProgs *BaseProgs ) {
-	if baseProgs.trigger != nil {
-		fmt.Printf("Killing trigger\n")
-		baseProgs.trigger.Kill()
-	}
-	if baseProgs.vidEnabler != nil {
-		fmt.Printf("Killing vidEnabler\n")
-		baseProgs.vidEnabler.Kill()
-	}
-	if baseProgs.stf != nil {
-		fmt.Printf("Killing stf\n")
-		baseProgs.stf.Kill()
-	}
+    if baseProgs.trigger != nil {
+        fmt.Printf("Killing trigger\n")
+        baseProgs.trigger.Kill()
+    }
+    if baseProgs.vidEnabler != nil {
+        fmt.Printf("Killing vidEnabler\n")
+        baseProgs.vidEnabler.Kill()
+    }
+    if baseProgs.stf != nil {
+        fmt.Printf("Killing stf\n")
+        baseProgs.stf.Kill()
+    }
 }
 
 func SetupCloseHandler( runningDevs map [string] RunningDev, baseProgs *BaseProgs, config Config ) {
@@ -655,23 +747,23 @@ func SetupCloseHandler( runningDevs map [string] RunningDev, baseProgs *BaseProg
 }
 
 func getDeviceName( uuid string ) (string) {
-	name, _ := exec.Command( "idevicename", "-u", uuid ).Output()
-	if name == nil || len(name) == 0 {
-	    fmt.Printf("idevicename returned nothing for uuid %s\n", uuid)
-	}
-	nameStr := string(name)
-	nameStr = nameStr[:len(nameStr)-1]
-	return nameStr
+    name, _ := exec.Command( "idevicename", "-u", uuid ).Output()
+    if name == nil || len(name) == 0 {
+        fmt.Printf("idevicename returned nothing for uuid %s\n", uuid)
+    }
+    nameStr := string(name)
+    nameStr = nameStr[:len(nameStr)-1]
+    return nameStr
 }
 	
 func startServer( devEventCh chan<- DevEvent, listen_addr string ) {
     fmt.Printf("Starting server\n");
     http.HandleFunc( "/", handleRoot )
     connectClosure := func( w http.ResponseWriter, r *http.Request ) {
-    	deviceConnect( w, r, devEventCh )
+    	 deviceConnect( w, r, devEventCh )
     }
     disconnectClosure := func( w http.ResponseWriter, r *http.Request ) {
-    	deviceDisconnect( w, r, devEventCh )
+    	 deviceDisconnect( w, r, devEventCh )
     }
     http.HandleFunc( "/dev_connect", connectClosure )
     http.HandleFunc( "/dev_disconnect", disconnectClosure )
@@ -685,34 +777,34 @@ func handleRoot( w http.ResponseWriter, r *http.Request ) {
 func fixUuid( uuid string ) (string) {
     //fmt.Printf("len:%d\n", len(uuid) )
     if len(uuid) == 24 {
-	    p1 := uuid[:8]
-	    p2 := uuid[8:]
-	    uuid = fmt.Sprintf("%s-%s",p1,p2)
-	    //fmt.Printf("fixed:%s\n", uuid )
-	}
+        p1 := uuid[:8]
+        p2 := uuid[8:]
+        uuid = fmt.Sprintf("%s-%s",p1,p2)
+        //fmt.Printf("fixed:%s\n", uuid )
+	  }
     return uuid
 }
 
 func deviceConnect( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
-	// signal device loop of device connect
-	devEvent := DevEvent{}
-	devEvent.action = 0
-	r.ParseForm()
-	uuid := r.Form.Get("uuid")
-	uuid = fixUuid( uuid )
-	devEvent.uuid = uuid	
-	devEventCh <- devEvent
+    // signal device loop of device connect
+    devEvent := DevEvent{}
+    devEvent.action = 0
+    r.ParseForm()
+    uuid := r.Form.Get("uuid")
+    uuid = fixUuid( uuid )
+    devEvent.uuid = uuid	
+    devEventCh <- devEvent
 }
 
 func deviceDisconnect( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
-	// signal device loop of device disconnect
-	devEvent := DevEvent{}
-	devEvent.action = 1
-	r.ParseForm()
-	uuid := r.Form.Get("uuid")
-	uuid = fixUuid( uuid )
-	devEvent.uuid = uuid
-	devEventCh <- devEvent
+    // signal device loop of device disconnect
+    devEvent := DevEvent{}
+    devEvent.action = 1
+    r.ParseForm()
+    uuid := r.Form.Get("uuid")
+    uuid = fixUuid( uuid )
+    devEvent.uuid = uuid
+    devEventCh <- devEvent
 }
 
 var rootTpl = template.Must(template.New("").Parse(`
