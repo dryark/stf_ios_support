@@ -78,13 +78,14 @@ offline/stf_ios_support.tgz:
 
 offline/repos/stf: repos/stf/node_modules
 	mkdir -p offline/repos/stf
-	rm offline/repos/stf/*
+	rm offline/repos/stf/* & exit 0
 	ln -s ../../../repos/stf/node_modules      offline/repos/stf/node_modules
 	ln -s ../../../repos/stf/package.json      offline/repos/stf/package.json
 	ln -s ../../../repos/stf/package-lock.json offline/repos/stf/package-lock.json
 	ln -s ../../../repos/stf/runmod.js         offline/repos/stf/runmod.js
 	ln -s ../../../repos/stf/res               offline/repos/stf/res
 	ln -s ../../../repos/stf/lib               offline/repos/stf/lib
+	ln -s ../../repos/wdaproxy/web             bin/wda/web
 
 config.json:
 	cp config.json.example config.json
