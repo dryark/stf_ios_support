@@ -2,6 +2,15 @@
 ### Initial steps
 1. Clone this repo down to your provider machine
 1. Install XCode
+1. Install certs for your XCode Developer to sign
+
+    1. Double click your cert files to install them into the cert store
+1. Add your developer Apple ID to XCode
+
+    1. XCode -> XCode menu -> Preferences -> Accounts Tab
+    1. `+` under `Apple IDs` list
+    1. Choose `Apple ID`
+    1. ...
 1. Run `./init.sh`
 
 ### Server side setup:
