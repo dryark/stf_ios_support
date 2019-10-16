@@ -339,9 +339,10 @@ func main() {
             fmt.Printf("Starting wdaproxy\n")
             
             fmt.Printf("  wdaproxy -p %s -d -W %s -u %s\n", wdaPort, config.WDARoot, uuid )
-            proxyCmd := exec.Command( "./bin/wdaproxy", "-p", wdaPort, "-d", "-W", config.WDARoot, "-u", uuid )
+            proxyCmd := exec.Command( "../../bin/wdaproxy", "-p", wdaPort, "-d", "-W", ".", "-u", uuid )
             //proxyCmd.Stdout = os.Stdout
             proxyCmd.Stderr = os.Stderr
+            proxyCmd.Dir = config.WDARoot
             go func() {
                 proxyPipe, _ := proxyCmd.StdoutPipe()
                 err := proxyCmd.Start()

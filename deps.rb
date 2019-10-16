@@ -21,5 +21,5 @@ class Deps < Formula
   depends_on "libimobiledevice"
   depends_on "golang" => :build
   depends_on :xcode => "10.3"
-  depends_on "node" => "8"
+  # depends_on "node" => "8" // commented because this still installs node12 :(
 end

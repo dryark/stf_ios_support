@@ -6,7 +6,17 @@ export STF_URI=`jq .stf_ip config.json -j` # "192.168.255.1"
 export STF_URI_DNS=`jq .stf_hostname config.json -j`
 export OPENSTF_HOME="$MYSTF_ROOT"
 
-source "$SUPPORT_ROOT/config.sh"
+STF_ROOT=`jq .stf_root config.json -j`
+if [ ! -f "${STF_ROOT}/package.json" ]; then
+  echo "STF folder ${STF_ROOT} does not exist!"
+  exit 1
+fi
+# Potentially also the folder could contain a .xctestrun file instead
+# TODO: Write correct code to check for that
+#if [ ! -d "${WDA_ROOT}/WebDriverAgent.xcodeproj" ]; then
+#  echo "WebDriverAgent folder ${WDA_ROOT} does not exist!"
+#  exit 1
+#fi
 
 echo "STF ROOT   : ${MYSTF_ROOT}"
 echo "STF_URI    : ${STF_URI}"
