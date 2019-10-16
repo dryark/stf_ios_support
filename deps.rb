@@ -18,8 +18,13 @@ class Deps < Formula
   depends_on "autoconf"
   depends_on "libtool"
   depends_on "wget"
-  depends_on "libimobiledevice"
+  # depends_on "libimobiledevice" # need to install with --HEAD
   depends_on "golang" => :build
   depends_on :xcode => "10.3"
-  # depends_on "node" => "8" // commented because this still installs node12 :(
+  depends_on "node@8"
+  depends_on "libsodium"
+  depends_on "czmq"
+  depends_on "sdl2"
+  depends_on "x264"
+  depends_on "x265"
 end

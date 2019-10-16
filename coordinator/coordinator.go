@@ -225,7 +225,7 @@ func main() {
         go func() {
             for {
                 fmt.Printf("Starting stf\n");
-                stfCmd := exec.Command("/bin/bash", "run-stf.sh")
+                stfCmd := exec.Command("/bin/bash", "run-stf.sh", tunName)
                 stfCmd.Stdout = os.Stdout
                 stfCmd.Stderr = os.Stderr
                 

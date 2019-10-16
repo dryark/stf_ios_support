@@ -1,5 +1,6 @@
 #!/bin/sh
 
+IFACE=$1
 export SUPPORT_ROOT=`jq .support_root config.json -j`
 export MYSTF_ROOT=`jq .stf_root config.json -j`
 export STF_URI=`jq .stf_ip config.json -j` # "192.168.255.1"
@@ -26,7 +27,7 @@ echo "Start stf:"
 
 export MIN_PORT=7400
 export MAX_PORT=7700
-export FQDN_OR_IP=`ifconfig utun1 | grep inet | cut -d\  -f2`
+export FQDN_OR_IP=`ifconfig $IFACE | grep inet | cut -d\  -f2`
 export STF_SERVER_IP="$STF_URI"
 export STF_CLIENT_IP="$FQDN_OR_IP"
 export PROVIDER_IDENT=`hostname | tr -d "\n"`

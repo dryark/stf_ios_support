@@ -64,6 +64,9 @@ rm pipe
 mkfifo pipe
 
 install_brew_if_needed
+brew install --HEAD usbmuxd
+brew install --HEAD libimobiledevice
+
 install_node8_if_needed
 assert_has_xcodebuild
 
