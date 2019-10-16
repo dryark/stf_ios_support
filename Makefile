@@ -91,7 +91,7 @@ config.json:
 
 offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf config.json
 	$(RM) bin/wda_is_built
-	tar -h -czf offline/dist.tgz deps.rb init.sh bin/ config.json run -C offline repos/
+	tar -h -czf offline/dist.tgz deps.rb init.sh empty.tgz ru* bin/ config.json -C offline repos/
 	touch bin/wda_is_built
 
 pipe:
