@@ -31,7 +31,8 @@ type Config struct {
 	WDARoot string `json:"wda_root"`
 	CoordinatorHost string `json:"coordinator_host"`
 	CoordinatorPort int `json:"coordinator_port"`
-	WDAProxyPort string `json:"wda_proxy_port"`
+	WDAProxyBin string `json:"wdaproxy_bin"`
+	WDAProxyPort string `json:"wdaproxy_port"`
 	MirrorFeedPort int `json:"mirrorfeed_port"`
 	Pipe string `json:"pipe"`
 	SkipVideo bool `json:"skip_video"`
@@ -338,7 +339,7 @@ func main() {
             fmt.Printf("Starting wdaproxy\n")
             
             fmt.Printf("  wdaproxy -p %s -d -W %s -u %s\n", wdaPort, config.WDARoot, uuid )
-            proxyCmd := exec.Command( "wdaproxy", "-p", wdaPort, "-d", "-W", config.WDARoot, "-u", uuid )
+            proxyCmd := exec.Command( "./bin/wdaproxy", "-p", wdaPort, "-d", "-W", config.WDARoot, "-u", uuid )
             //proxyCmd.Stdout = os.Stdout
             proxyCmd.Stderr = os.Stderr
             go func() {
