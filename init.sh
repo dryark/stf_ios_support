@@ -60,6 +60,9 @@ function contained() {
   return 1
 }
 
+rm pipe
+mkfifo pipe
+
 install_brew_if_needed
 install_node8_if_needed
 assert_has_xcodebuild
