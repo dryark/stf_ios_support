@@ -45,6 +45,10 @@
 1. Copy `offline/dist.tgz` to a new provider
 1. On new provider...
 1. Run `tar -xf dist.tgz`
+1. Tweak `config.json` `wda_root` to be `./bin/wda`
 
 ### Working around DNS issues
 1. Add a host entry in OSX mapping your ios server hostname to the VPN IP address of it. ( so that you can visit it when connected to the VPN )
+
+### Handling video not working
+1. Reboot your IOS device and try again
