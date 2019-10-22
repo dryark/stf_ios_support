@@ -6,7 +6,6 @@ import (
     "fmt"
     "io"
     "io/ioutil"
-    "log"
     "net"
     "net/http"
     "os"
@@ -18,8 +17,9 @@ import (
     "time"
     "html/template"
     
-    zmq "github.com/zeromq/goczmq"
+    log "github.com/sirupsen/logrus"
     ps "github.com/jviney/go-proc"
+    zmq "github.com/zeromq/goczmq"
 )
 
 type Config struct {
@@ -71,7 +71,11 @@ func read_config() *Config {
     configFile := "config.json"
     configFh, err := os.Open(configFile)   
     if err != nil {
-        log.Panicf("failed reading file: %s", err)
+        log.WithFields( log.Fields{
+            "type": "err_read_config",
+            "config_file": configFile,
+            "error": err,
+        } ).Fatal("failed reading config file")
     }
     defer configFh.Close()
       
@@ -82,65 +86,97 @@ func read_config() *Config {
 }
 
 func proc_device_trigger( config *Config, baseProgs *BaseProgs ) {
+    plog := log.WithFields( log.Fields{ "proc": "osx_ios_device_trigger" } )
+    
     go func() {
-        fmt.Printf("Starting osx_ios_device_trigger\n");
+        plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Starting: osx_ios_device_trigger")
+        
         triggerCmd := exec.Command( config.DeviceTrigger )
         
         err := triggerCmd.Start()
         if err != nil {
-            fmt.Println(err.Error())
+            plog.WithFields( log.Fields{
+                "type": "proc_err",
+                "error": err,
+            } ).Error("Error starting device_trigger")
+            
+            baseProgs.trigger = nil
         } else {
             baseProgs.trigger = triggerCmd.Process
         }
         
         triggerCmd.Wait()
-        fmt.Printf("Ended: osx_ios_device_trigger\n");
+        
+        plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: osx_ios_device_trigger")
     }()
 }
 
 func proc_video_enabler( config *Config, baseProgs *BaseProgs ) {
+    plog := log.WithFields( log.Fields{ "proc": "video_enabler" } )
+    
     go func() {
-        fmt.Printf("Starting video-enabler\n");
+        plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Starting: video-enabler")
+        
         enableCmd := exec.Command(config.VideoEnabler)
         err := enableCmd.Start()
         if err != nil {
-            fmt.Println(err.Error())
+            plog.WithFields( log.Fields{
+                "type": "proc_err",
+                "error": err,
+            } ).Error("Error starting video_enabler")
+            
             baseProgs.vidEnabler = nil
         } else {
             baseProgs.vidEnabler = enableCmd.Process 
         }
         enableCmd.Wait()
-        fmt.Printf("Ended: video-enabler\n")
+        
+        log.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: video-enabler")
     }()
 }
 
 func proc_stf( baseProgs *BaseProgs, tunName string ) {
+    plog := log.WithFields( log.Fields{ "proc": "stf" } )
+    
     go func() {
         for {
-            fmt.Printf("Starting stf\n");
+            plog.WithFields( log.Fields{
+                "type": "proc_start",
+                "tunnel_name": tunName,
+            } ).Info("Starting: stf")
+        
             stfCmd := exec.Command("/bin/bash", "run-stf.sh", tunName)
             stfCmd.Stdout = os.Stdout
             stfCmd.Stderr = os.Stderr
             
             err := stfCmd.Start()
             if err != nil {
-                fmt.Println("Could not start stf")
-                fmt.Println(err.Error())
+                plog.WithFields( log.Fields{
+                    "type": "proc_err",
+                    "error": err,
+                } ).Error("Error starting stf")
+            
                 baseProgs.stf = nil
             } else {
                 baseProgs.stf = stfCmd.Process
             }
             stfCmd.Wait()
-            fmt.Printf("Ended:stf\n");
-            // log out that it stopped
+            
+            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: stf")
         }
     }()
 }
 
 func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) ( string ) {
+    plog := log.WithFields( log.Fields{ "proc": "mirrorfeed" } )
+  
     mirrorPort := config.MirrorFeedPort
     pipeName := config.Pipe
-    fmt.Printf("Starting mirrorfeed: %s\n", config.MirrorFeedBin);
+    
+    plog.WithFields( log.Fields{
+        "type": "proc_start",
+        "mirrorfeed_bin": config.MirrorFeedBin,
+    } ).Info("Starting: mirrorfeed")
     
     mirrorFeedBin := config.MirrorFeedBin
     
@@ -151,22 +187,28 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) ( strin
     go func() {
         err := mirrorCmd.Start()
         if err != nil {
-            fmt.Println("Could not start mirrorfeed")
-            fmt.Println(err.Error())
+            plog.WithFields( log.Fields{
+                "type": "proc_err",
+                "error": err,
+            } ).Error("Error starting mirrorfeed")
+                
             devd.mirror = nil
         } else {
             devd.mirror = mirrorCmd.Process
         }
         mirrorCmd.Wait()
-        fmt.Printf("mirrorfeed ended\n")
         devd.mirror = nil
+        
+        plog.WithFields( log.Fields{  "type": "proc_end" } ).Warn("Ended: mirrorfeed")
     }()
     
     return pipeName
 }
 
 func proc_ffmpeg( config *Config, devd *RunningDev, pipeName string, devName string ) {
-    fmt.Printf("Starting ffmpeg\n")
+    plog := log.WithFields( log.Fields{ "proc": "ffmpeg" } )
+  
+    plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Starting: ffmpeg")
                 
     ffCmd := exec.Command( "./run-ffmpeg.sh", 
         config.Ffmpeg,
@@ -185,14 +227,19 @@ func proc_ffmpeg( config *Config, devd *RunningDev, pipeName string, devName str
     go func() {
         err := ffCmd.Start()
         if err != nil {
-            fmt.Println("Could not start ffmpeg")
-            fmt.Println(err.Error())
+            plog.WithFields( log.Fields{
+                "type": "proc_err",
+                "error": err,
+            } ).Error("Error starting ffmpeg")
+            
             devd.ff = nil
         } else {
             devd.ff = ffCmd.Process
         }
         ffCmd.Wait()
-        fmt.Printf("ffmpeg ended\n")
+        
+        plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: ffmpeg")
+        
         devd.ff = nil
     }()
 }
@@ -232,11 +279,17 @@ func coro_heartbeat( devEvent *DevEvent, pubEventCh chan<- PubEvent ) ( chan<- b
 }
 
 func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid string, devName string, pubEventCh chan<- PubEvent ) {
+    plog := log.WithFields( log.Fields{ "proc": "wdaproxy" } )
+
     // start wdaproxy
     wdaPort := config.WDAProxyPort // "8100"
-    fmt.Printf("Starting wdaproxy\n")
     
-    fmt.Printf("  wdaproxy -p %s -d -W %s -u %s\n", wdaPort, config.WDARoot, uuid )
+    cmd := fmt.Sprintf("wdaproxy -p %s -d -W %s -u %s", wdaPort, config.WDARoot, uuid )
+    plog.WithFields( log.Fields{
+      "type": "proc_start",
+      "cmd": cmd,
+    } ).Info("Starting wdaproxy")
+    
     proxyCmd := exec.Command( "../../bin/wdaproxy", "-p", wdaPort, "-d", "-W", ".", "-u", uuid )
 
     proxyCmd.Stderr = os.Stderr
@@ -245,7 +298,11 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
         proxyPipe, _ := proxyCmd.StdoutPipe()
         err := proxyCmd.Start()
         if err != nil {
-            fmt.Println(err.Error())
+            plog.WithFields( log.Fields{
+                "type": "proc_err",
+                "error": err,
+            } ).Error("Error starting wdaproxy")
+            
             devd.proxy = nil
         } else {
             devd.proxy = proxyCmd.Process
@@ -275,37 +332,51 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
         
         stopChannel<- true
         
-        fmt.Printf("wdaproxy ended\n")
+        plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: wdaproxy")
     }()
 }
 
 func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP string ) {
-    // Start the stf device-ios unit
-    fmt.Printf("Starting device-ios unit\n")
-    
+    plog := log.WithFields( log.Fields{ "proc": "device_ios_unit" } )
+        
     pushStr := fmt.Sprintf("tcp://%s:7270", config.STFIP)
     subStr := fmt.Sprintf("tcp://%s:7250", config.STFIP)
-    fmt.Printf("  ./run-device-ios.sh --serial %s --connect-push %s --connect-sub %s --public-ip $s", pushStr, subStr )
+    
+    cmd := fmt.Sprintf("./run-device-ios.sh --serial %s --connect-push %s --connect-sub %s --public-ip %s", pushStr, subStr, curIP )
+    
+    plog.WithFields( log.Fields{
+      "type": "proc_start",
+      "cmd": cmd,
+    } ).Info("Starting wdaproxy")
+    
     deviceCmd := exec.Command( "./run-device-ios.sh", "--serial", uuid, "--connect-push", pushStr, "--connect-sub", subStr, "--public-ip", curIP )
     deviceCmd.Stdout = os.Stdout
     deviceCmd.Stderr = os.Stderr
     go func() {
         err := deviceCmd.Start()
         if err != nil {
-            fmt.Println("Could not start device-ios unit")
-            fmt.Println(err.Error())
+            plog.WithFields( log.Fields{
+                "type": "proc_err",
+                "error": err,
+            } ).Error("Error starting device_ios_unit")
+            
             devd.device = nil
         } else {
             devd.device = deviceCmd.Process
         }
         deviceCmd.Wait()
-        fmt.Printf("device-ios unit ended\n")
         devd.device = nil
+        
+        plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: device_ios_unit")
     }()
 }
 
 func main() {
     gStop = false
+    
+    // setup logging
+    log.SetFormatter( &log.JSONFormatter{} )
+    log.SetLevel( log.InfoLevel )
     
     pubEventCh := make( chan PubEvent, 2 )
     
@@ -332,7 +403,7 @@ func main() {
     proc_video_enabler( config, &baseProgs )
     
     if vpnMissing {
-        fmt.Printf("VPN not enabled; skipping start of STF\n")
+        log.WithFields( log.Fields{ "type": "warn_vpn" } ).Warn("VPN not enabled; skipping start of STF")
         baseProgs.stf = nil
     } else {
         // start stf and restart it when needed
@@ -364,12 +435,23 @@ func coro_http_server( config *Config, devEventCh chan<- DevEvent ) {
 func get_net_info() ( string, string, bool ) {
     var vpnMissing bool = true
     tunName := getTunName()
-    fmt.Printf("Tunnel name: %s\n", tunName)
+    
+    log.WithFields( log.Fields{
+        "type": "info_vpn",
+        "tunnel_name": tunName,
+    } ).Info("Tunnel name")
+    
     if tunName != "none" {
         vpnMissing = false
     }
     curIP := ifaceCurIP( tunName )
-    fmt.Printf("Current IP on VPN: %s\n", curIP)
+    
+    log.WithFields( log.Fields{
+        "type": "info_vpn",
+        "tunnel_name": tunName,
+        "ip": curIP,
+    } ).Info("IP on VPN")
+    
     return tunName, curIP, vpnMissing
 }
 
@@ -382,10 +464,15 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
         if devEvent.action == 0 { // device connect
             devd := RunningDev{}
             devd.uuid = uuid
-            fmt.Printf("Setting up device uuid: %s\n", uuid)
+            
             devd.name = getDeviceName( uuid )
             devName := devd.name
-            fmt.Printf("Device name: %s\n", devName)
+            
+            log.WithFields( log.Fields{
+                "type": "dev_connect",
+                "dev_name": devName,
+                "dev_uuid": uuid,
+            } ).Info("Device connected")
             
             if config.SkipVideo {
                 devd.mirror = nil
@@ -422,26 +509,41 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
 }
 
 func cleanup_procs(config *Config) {
+    plog := log.WithFields( log.Fields{
+        "type": "proc_cleanup_kill",
+    } )
+  
     // Cleanup hanging processes if any
     procs := ps.GetAllProcessesInfo()
     for _, proc := range procs {
         cmd := proc.CommandLine
-        //fmt.Printf("Proc: pid=%d %s\n", proc.Pid, proc.CommandLine )
         cmdFlat := strings.Join( cmd, " " )
         if cmdFlat == "/bin/bash run-stf.sh" {
-            fmt.Printf("Leftover STF - Sending SIGTERM\n")
+            plog.WithFields( log.Fields{
+                "proc": "stf",
+            } ).Debug("Leftover Proc - Sending SIGTERM")
+            
             syscall.Kill( proc.Pid, syscall.SIGTERM )
         }
         if cmdFlat == config.VideoEnabler {
-            fmt.Printf("Leftover Video enabler - Sending SIGTERM\n")
+            plog.WithFields( log.Fields{
+                "proc": "video_enabler",
+            } ).Debug("Leftover Proc - Sending SIGTERM")
+            
             syscall.Kill( proc.Pid, syscall.SIGTERM )
         }
         if cmdFlat == config.DeviceTrigger {
-            fmt.Printf("Leftover Device trigger - Sending SIGTERM\n")
+            plog.WithFields( log.Fields{
+                "proc": "device_trigger",
+            } ).Debug("Leftover Proc - Sending SIGTERM")
+            
             syscall.Kill( proc.Pid, syscall.SIGTERM )
         }
         if cmd[0] == "node" && cmd[1] == "--inspect=127.0.0.1:9230" {
-            fmt.Printf("Leftover STF(via node) - Sending SIGTERM\n")
+            plog.WithFields( log.Fields{
+                "proc": "stf_by_cmd,",
+            } ).Debug("Leftover Proc - Sending SIGTERM")
+            
             syscall.Kill( proc.Pid, syscall.SIGTERM )
         }
     }
@@ -490,25 +592,38 @@ func ifaceCurIP( tunName string ) string {
                 case *net.IPAddr:
                     ip = v.IP
                 default:
-                    fmt.Printf("Unknown type\n")
             }
-            fmt.Printf("Found an interface: %s\n", iface.Name )
+            
+            log.WithFields( log.Fields{
+                "type": "net_interface_found",
+                "interface_name": iface.Name,
+            } ).Debug("Found an interface")
+            
             if iface.Name == tunName {
-                fmt.Printf( "interface '%s' address: %s\n", tunName, ip.String() ) 
+                log.WithFields( log.Fields{
+                    "type": "net_interface_info",
+                    "interface_name": tunName,
+                    "ip": ip.String(),
+                } ).Debug("Interface Details")
+            
                 ipStr = ip.String()
                 foundInterface = true
             }
         }
     }
     if foundInterface == false {
-        fmt.Printf( "Could not find interface %s\n", tunName )
-        os.Exit( 1 )
+        log.WithFields( log.Fields{
+            "type": "err_net_interface",
+            "interface_name": tunName,
+        } ).Fatal("Could not find interface")
     }
     
     return ipStr
 }
 
 func coro_zmqPub( pubEventCh <-chan PubEvent ) {
+    plog := log.WithFields( log.Fields{ "coro": "pub" } )
+  
     var sentDummy bool = false
     
     // start the zmq pub mechanism
@@ -516,10 +631,14 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
         pubSock := zmq.NewSock(zmq.Pub)
         defer pubSock.Destroy()
         
-        _, err := pubSock.Bind("tcp://127.0.0.1:7294")
+        spec := "tcp://127.0.0.1:7294"
+        _, err := pubSock.Bind( spec )
         if err != nil {
-            log.Panicf("error binding: %s", err)
-            os.Exit(1)
+            plog.WithFields( log.Fields{
+                "type": "err_zmq",
+                "zmq_spec": spec,
+                "err": err,
+            } ).Fatal("ZMQ binding error")
         }
         
         // Garbage message with delay to avoid late joiner ZeroMQ madness
@@ -553,30 +672,46 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
             // publish a zmq message of the DevEvent
             reqMsg, err := json.Marshal( test )
             if err != nil {
-                log.Panicf("error encoding JSON: %s", err)
-            }
-            fmt.Printf("Publishing to stf: %s\n", reqMsg )
+                plog.WithFields( log.Fields{
+                    "type": "err_zmq_encode",
+                    "err": err,
+                } ).Error("ZMQ JSON encode error")
+            } else {
+                plog.WithFields( log.Fields{
+                    "type": "zmq_pub",
+                    "msg": reqMsg,
+                } ).Debug("Publishing to stf")
             
-            pubSock.SendMessage( [][]byte{ []byte("devEvent"), reqMsg} )
+                pubSock.SendMessage( [][]byte{ []byte("devEvent"), reqMsg} )
+            }
         }
     }()
 }
 
 func coro_zmqReqRep() {
+    plog := log.WithFields( log.Fields{ "coro": "reqrep" } )
+    
     go func() {
         repSock := zmq.NewSock(zmq.Rep)
         defer repSock.Destroy()
         
-        _, err := repSock.Bind("tcp://127.0.0.1:7293")
+        spec := "tcp://127.0.0.1:7293"
+        _, err := repSock.Bind( spec )
         if err != nil {
-            log.Panicf("error binding: %s", err)
-            os.Exit(1)
+            plog.WithFields( log.Fields{
+                "type": "err_zmq",
+                "zmq_spec": spec,
+                "err": err,
+            } ).Fatal("ZMQ binding error")
         }
         
         repOb, err := zmq.NewReadWriter(repSock)
         if err != nil {
-            log.Panicf("error making readwriter: %s", err)
-            os.Exit(1)
+            plog.WithFields( log.Fields{
+                "type": "err_zmq",
+                "zmq_spec": spec,
+                "err": err,
+            } ).Fatal("error making readwriter")
         }
         defer repOb.Destroy()
         
@@ -592,26 +727,32 @@ func coro_zmqReqRep() {
                 continue
             }
             if err != nil && err != io.EOF {
-                log.Panicf("error receiving: %s", err)
-                os.Exit(1)
-            }
-            msg := string( buf )
-            
-            if msg == "quit" {
-                response := []byte("quitting")
-                repSock.SendMessage([][]byte{response})
-                break
-            } else if msg == "devices" {
-                // TODO: get device list
-                // TOOO: turn device list into JSON
-                
-                response := []byte("quitting")
-                repSock.SendMessage([][]byte{response})
+                plog.WithFields( log.Fields{
+                    "type": "err_zmq",
+                    "err": err,
+                } ).Error("Error reading zmq")
             } else {
-                fmt.Printf("Received: %s\n", string( buf ) )
-            
-                response := []byte("response")
-                repSock.SendMessage([][]byte{response})
+                msg := string( buf )
+                
+                if msg == "quit" {
+                    response := []byte("quitting")
+                    repSock.SendMessage([][]byte{response})
+                    break
+                } else if msg == "devices" {
+                    // TODO: get device list
+                    // TOOO: turn device list into JSON
+                    
+                    response := []byte("quitting")
+                    repSock.SendMessage([][]byte{response})
+                } else {
+                    plog.WithFields( log.Fields{
+                        "type": "err_zmq",
+                        "msg": string( buf ),
+                    } ).Error("Received unknown message")
+                                
+                    response := []byte("response")
+                    repSock.SendMessage([][]byte{response})
+                }
             }
         }
     }()
@@ -624,42 +765,43 @@ func closeAllRunningDevs( runningDevs map [string] RunningDev ) {
 }
 
 func closeRunningDev( devd RunningDev ) {
-    // stop wdaproxy
+    plog := log.WithFields( log.Fields{
+        "type": "proc_cleanup_kill",
+    } )
+   
     if devd.proxy != nil {
-        fmt.Printf("Killing wdaproxy\n")
+        plog.WithFields( log.Fields{ "proc": "wdaproxy" } ).Debug("Killing proc")
         devd.proxy.Kill()
     }
-    
-    // stop ffmpeg
     if devd.ff != nil {
-        fmt.Printf("Killing ffmpeg\n")
+        plog.WithFields( log.Fields{ "proc": "ffmpeg" } ).Debug("Killing proc")
         devd.ff.Kill()
     }
-    
-    // stop mirrorfeed
     if devd.mirror != nil {
-        fmt.Printf("Killing mirrorfeed\n")
+        plog.WithFields( log.Fields{ "proc": "mirrorfeed" } ).Debug("Killing proc")
         devd.mirror.Kill()
     }
-    
-    // stop device-ios unit
     if devd.device != nil {
-        fmt.Printf("Killing device-ios unit\n")
+        plog.WithFields( log.Fields{ "proc": "device_ios_unit" } ).Debug("Killing proc")
         devd.device.Kill()
     }
 }
 
 func closeBaseProgs( baseProgs *BaseProgs ) {
+    plog := log.WithFields( log.Fields{
+        "type": "proc_cleanup_kill",
+    } )
+  
     if baseProgs.trigger != nil {
-        fmt.Printf("Killing trigger\n")
+        plog.WithFields( log.Fields{ "proc": "device_trigger" } ).Debug("Killing proc")
         baseProgs.trigger.Kill()
     }
     if baseProgs.vidEnabler != nil {
-        fmt.Printf("Killing vidEnabler\n")
+        plog.WithFields( log.Fields{ "proc": "video_enabler" } ).Debug("Killing proc")
         baseProgs.vidEnabler.Kill()
     }
     if baseProgs.stf != nil {
-        fmt.Printf("Killing stf\n")
+        plog.WithFields( log.Fields{ "proc": "stf" } ).Debug("Killing proc")
         baseProgs.stf.Kill()
     }
 }
@@ -669,7 +811,11 @@ func coro_CloseHandler( runningDevs map [string] RunningDev, baseProgs *BaseProg
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)
     go func() {
         <- c
-        fmt.Println("\nShutting down...\n")
+        log.WithFields( log.Fields{
+            "type": "shutdown",
+            "state": "begun",
+        } ).Info("Shutdown started")
+                    
         closeBaseProgs( baseProgs )
         closeAllRunningDevs( runningDevs )
         
@@ -679,7 +825,11 @@ func coro_CloseHandler( runningDevs map [string] RunningDev, baseProgs *BaseProg
         
         time.Sleep( time.Millisecond * 1000 )
         cleanup_procs( config )
-        fmt.Println("Shutdown ok\n")
+        
+        log.WithFields( log.Fields{
+            "type": "shutdown",
+            "state": "done",
+        } ).Info("Shutdown finished")
         
         os.Exit(0)
     }()
@@ -696,7 +846,10 @@ func getDeviceName( uuid string ) (string) {
 }
 	
 func startServer( devEventCh chan<- DevEvent, listen_addr string ) {
-    fmt.Printf("Starting server\n");
+    log.WithFields( log.Fields{
+        "type": "http_start",
+    } ).Info("HTTP started")
+        
     http.HandleFunc( "/", handleRoot )
     connectClosure := func( w http.ResponseWriter, r *http.Request ) {
         deviceConnect( w, r, devEventCh )
