@@ -25,13 +25,11 @@ import (
 type Config struct {
     DeviceTrigger   string `json:"device_trigger"`
     VideoEnabler    string `json:"video_enabler"`
-    SupportRoot     string `json:"support_root"`
     MirrorFeedBin   string `json:"mirrorfeed_bin"`
     WDARoot         string `json:"wda_root"`
-    CoordinatorHost string `json:"coordinator_host"`
     CoordinatorPort int    `json:"coordinator_port"`
     WDAProxyBin     string `json:"wdaproxy_bin"`
-    WDAProxyPort    string `json:"wdaproxy_port"`
+    WDAProxyPort    int    `json:"wdaproxy_port"`
     MirrorFeedPort  int    `json:"mirrorfeed_port"`
     Pipe            string `json:"pipe"`
     SkipVideo       bool   `json:"skip_video"`
@@ -48,6 +46,8 @@ type PubEvent struct {
     action int
     uuid string
     name string
+    wdaPort int
+    vidPort int
 }
 
 type RunningDev struct {
@@ -80,7 +80,18 @@ func read_config() *Config {
     defer configFh.Close()
       
     jsonBytes, _ := ioutil.ReadAll( configFh )
-    var config Config
+    config := Config{
+        DeviceTrigger: "bin/osx_ios_device_trigger",
+        VideoEnabler: "bin/osx_ios_video_enabler",
+        WDAProxyBin: "bin/wdaproxy",
+        MirrorFeedBin: "bin/mirrorfeed",
+        WDARoot: "./bin/wda",
+        Ffmpeg: "bin/ffmpeg",
+        CoordinatorPort: 8027,
+        MirrorFeedPort: 8000,
+        WDAProxyPort: 8100,
+        Pipe: "pipe",
+    }
     json.Unmarshal( jsonBytes, &config )
     return &config
 }
@@ -145,7 +156,7 @@ func proc_stf( baseProgs *BaseProgs, tunName string ) {
                 "tunnel_name": tunName,
             } ).Info("Starting: stf")
         
-            stfCmd := exec.Command("/bin/bash", "run-stf.sh", tunName)
+            stfCmd := exec.Command("/bin/bash", "run-stf.sh", tunName )
             stfCmd.Stdout = os.Stdout
             stfCmd.Stderr = os.Stderr
             
@@ -170,17 +181,18 @@ func proc_stf( baseProgs *BaseProgs, tunName string ) {
 func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) ( string ) {
     plog := log.WithFields( log.Fields{ "proc": "mirrorfeed" } )
   
-    mirrorPort := config.MirrorFeedPort
+    mirrorPort := strconv.Itoa( config.MirrorFeedPort )
+    mirrorFeedBin := config.MirrorFeedBin
     pipeName := config.Pipe
     
     plog.WithFields( log.Fields{
         "type": "proc_start",
-        "mirrorfeed_bin": config.MirrorFeedBin,
+        "mirrorfeed_bin": mirrorFeedBin,
+        "pipe": pipeName,
+        "port": mirrorPort,
     } ).Info("Starting: mirrorfeed")
     
-    mirrorFeedBin := config.MirrorFeedBin
-    
-    mirrorCmd := exec.Command( mirrorFeedBin, strconv.Itoa( mirrorPort ), pipeName, tunName )
+    mirrorCmd := exec.Command( mirrorFeedBin, mirrorPort, pipeName, tunName )
     
     mirrorCmd.Stdout = os.Stdout
     mirrorCmd.Stderr = os.Stderr
@@ -220,6 +232,8 @@ func proc_ffmpeg( config *Config, devd *RunningDev, pipeName string, devName str
         "-bsf:v", "mjpeg2jpeg",
         "-r", "1", // framerate
         "-vsync", "2",
+        "-nostats",
+        // "-progress", "[url]",
         "pipe:1" )
     
     ffCmd.Stdout = os.Stdout
@@ -268,6 +282,8 @@ func coro_heartbeat( devEvent *DevEvent, pubEventCh chan<- PubEvent ) ( chan<- b
                 beatEvent.action = 2
                 beatEvent.uuid = devEvent.uuid
                 beatEvent.name = ""
+                beatEvent.wdaPort = 0
+                beatEvent.vidPort = 0
                 pubEventCh <- beatEvent
             }
             time.Sleep( time.Second * 1 )
@@ -282,7 +298,7 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
     plog := log.WithFields( log.Fields{ "proc": "wdaproxy" } )
 
     // start wdaproxy
-    wdaPort := config.WDAProxyPort // "8100"
+    wdaPort := config.WDAProxyPort
     
     cmd := fmt.Sprintf("wdaproxy -p %s -d -W %s -u %s", wdaPort, config.WDARoot, uuid )
     plog.WithFields( log.Fields{
@@ -290,7 +306,7 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
       "cmd": cmd,
     } ).Info("Starting wdaproxy")
     
-    proxyCmd := exec.Command( "../../bin/wdaproxy", "-p", wdaPort, "-d", "-W", ".", "-u", uuid )
+    proxyCmd := exec.Command( "../../bin/wdaproxy", "-p", strconv.Itoa( wdaPort ), "-d", "-W", ".", "-u", uuid )
 
     proxyCmd.Stderr = os.Stderr
     proxyCmd.Dir = config.WDARoot
@@ -315,6 +331,8 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
         pubEvent.action = devEvent.action
         pubEvent.uuid = devEvent.uuid
         pubEvent.name = devName
+        pubEvent.wdaPort = config.WDAProxyPort
+        pubEvent.vidPort = config.MirrorFeedPort
         pubEventCh <- pubEvent
         
         stopChannel := coro_heartbeat( devEvent, pubEventCh )
@@ -375,7 +393,7 @@ func main() {
     gStop = false
     
     // setup logging
-    log.SetFormatter( &log.JSONFormatter{} )
+    //log.SetFormatter( &log.JSONFormatter{} )
     log.SetLevel( log.InfoLevel )
     
     pubEventCh := make( chan PubEvent, 2 )
@@ -503,6 +521,8 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
             pubEvent.action = devEvent.action
             pubEvent.uuid = devEvent.uuid
             pubEvent.name = ""
+            pubEvent.wdaPort = 0
+            pubEvent.vidPort = 0
             pubEventCh <- pubEvent
         }
     }
