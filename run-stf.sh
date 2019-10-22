@@ -23,8 +23,6 @@ echo "STF ROOT   : ${MYSTF_ROOT}"
 echo "STF_URI    : ${STF_URI}"
 echo "STF_URI_DNS: ${STF_URI_DNS}"
 
-echo "Start stf:"
-
 export MIN_PORT=7400
 export MAX_PORT=7700
 export FQDN_OR_IP=`ifconfig $IFACE | grep inet | cut -d\  -f2`

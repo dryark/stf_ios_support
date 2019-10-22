@@ -1,2 +1,4 @@
 repos
 bin
+offline/*.tgz
+offline/stf_ios_support
