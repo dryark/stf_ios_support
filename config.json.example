@@ -1,19 +1,8 @@
 {
-	"support_root": "./",
-	"device_trigger": "bin/osx_ios_device_trigger",
-	"video_enabler": "bin/osx_ios_video_enabler",
-	"pipe": "pipe",
-	"wda_root": "./repos/WebDriverAgent/",
-	"ffmpeg": "bin/ffmpeg",
-	"wdaproxy_port": "8100",
-	"wdaproxy_bin": "bin/wdaproxy",
-	"coordinator_host": "localhost",
-	"coordinator_port": 8027,
-	"mirrorfeed_bin": "bin/mirrorfeed",
+	"wdaproxy_port": 8100,
 	"mirrorfeed_port": 8000,
 	"stf_ip": "192.168.255.1",
 	"stf_hostname": "[your stf server hostname]",
-	"stf_root": "repos/stf",
 	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
 	"skip_video": false
 }
