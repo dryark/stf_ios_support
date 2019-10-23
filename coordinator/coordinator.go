@@ -170,7 +170,7 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
                 "server_hostname": serverHostname,
             } ).Info("Starting: stf_provider")
         
-            stfCmd := exec.Command( "node", "--inspect=127.0.0.1:9230", "runmod.js", "provider",
+            cmd := exec.Command( "node", "--inspect=127.0.0.1:9230", "runmod.js", "provider",
                 "--name"         , fmt.Sprintf("macmini/%s", clientHostname),
                 "--connect-sub"  , fmt.Sprintf("tcp://%s:7250", serverIP),
                 "--connect-push" , fmt.Sprintf("tcp://%s:7270", serverIP),
@@ -182,11 +182,11 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
                 "--server-ip"    , serverIP,
                 "--no-cleanup" )
             
-            stfCmd.Dir = "./repos/stf"
-            stfCmd.Stdout = os.Stdout
-            stfCmd.Stderr = os.Stderr
+            outputPipe, _ := cmd.StderrPipe()
+            cmd.Dir = "./repos/stf"
+            cmd.Stdout = os.Stdout
             
-            err := stfCmd.Start()
+            err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
                     "type": "proc_err",
@@ -195,15 +195,23 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
             
                 baseProgs.stf = nil
             } else {
-                baseProgs.stf = stfCmd.Process
+                baseProgs.stf = cmd.Process
             }
-            stfCmd.Wait()
+            
+            scanner := bufio.NewScanner( outputPipe )
+            for scanner.Scan() {
+                line := scanner.Text()
+                fmt.Printf( "[PROVIDER] %s\n", line )
+            }
             
             plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: stf_provider")
             
             if baseProgs.shuttingDown {
                 break
             }
+            
+            // sleep before restart to prevent rapid failing attempts
+            time.Sleep( time.Second * 5 )
         }
     }()
 }
@@ -227,12 +235,12 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) {
                 "port": mirrorPort,
             } ).Info("Starting: mirrorfeed")
             
-            mirrorCmd := exec.Command( mirrorFeedBin, mirrorPort, pipeName, tunName )
+            cmd := exec.Command( mirrorFeedBin, mirrorPort, pipeName, tunName )
             
-            mirrorCmd.Stdout = os.Stdout
-            mirrorCmd.Stderr = os.Stderr
+            outputPipe, _ := cmd.StdoutPipe()
+            cmd.Stderr = os.Stderr
             
-            err := mirrorCmd.Start()
+            err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
                     "type": "proc_err",
@@ -241,9 +249,15 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) {
                     
                 devd.mirror = nil
             } else {
-                devd.mirror = mirrorCmd.Process
+                devd.mirror = cmd.Process
             }
-            mirrorCmd.Wait()
+            
+            scanner := bufio.NewScanner( outputPipe )
+            for scanner.Scan() {
+                line := scanner.Text()
+                fmt.Printf( "[VIDFEED-] %s\n", line )
+            }
+            
             devd.mirror = nil
             
             plog.WithFields( log.Fields{  "type": "proc_end" } ).Warn("Ended: mirrorfeed")
@@ -266,7 +280,7 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string ) {
         for {
             plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Starting: ffmpeg")
           
-            ffCmd := exec.Command( "./run-ffmpeg.sh", 
+            cmd := exec.Command( "./run-ffmpeg.sh", 
                 config.Ffmpeg,
                 config.Pipe,
                 devName,
@@ -280,10 +294,10 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string ) {
                 // "-progress", "[url]",
                 "pipe:1" )
             
-            ffCmd.Stdout = os.Stdout
-            ffCmd.Stderr = os.Stderr
-        
-            err := ffCmd.Start()
+            outputPipe, _ := cmd.StderrPipe()
+            cmd.Stdout = os.Stdout
+            
+            err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
                     "type": "proc_err",
@@ -292,9 +306,20 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string ) {
                 
                 devd.ff = nil
             } else {
-                devd.ff = ffCmd.Process
+                devd.ff = cmd.Process
             }
-            ffCmd.Wait()
+            
+            scanner := bufio.NewScanner( outputPipe )
+            for scanner.Scan() {
+                line := scanner.Text()
+                
+                if strings.Contains( line, "avfoundation @" ) {
+                } else if strings.Contains( line, "swscaler @" ) {
+                } else if strings.HasPrefix( line, "  lib" ) {
+                } else {
+                  fmt.Printf( "[FFMPEG--] %s\n", line )
+                }
+            }
             
             plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: ffmpeg")
             
@@ -353,7 +378,7 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
     // start wdaproxy
     wdaPort := config.WDAProxyPort
     
-    cmd := fmt.Sprintf("wdaproxy -p %s -d -W %s -u %s", wdaPort, config.WDARoot, uuid )
+    cmd := fmt.Sprintf("wdaproxy -p %d -d -W %s -u %s", wdaPort, config.WDARoot, uuid )
     
     if devd.shuttingDown {
         return
@@ -365,13 +390,13 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
               "cmd": cmd,
             } ).Info("Starting wdaproxy")
             
-            proxyCmd := exec.Command( "../../bin/wdaproxy", "-p", strconv.Itoa( wdaPort ), "-d", "-W", ".", "-u", uuid )
+            cmd := exec.Command( "../../bin/wdaproxy", "-p", strconv.Itoa( wdaPort ), "-d", "-W", ".", "-u", uuid )
         
-            proxyCmd.Stderr = os.Stderr
-            proxyCmd.Dir = config.WDARoot
+            cmd.Stderr = os.Stderr
+            cmd.Dir = config.WDARoot
         
-            proxyPipe, _ := proxyCmd.StdoutPipe()
-            err := proxyCmd.Start()
+            outputPipe, _ := cmd.StdoutPipe()
+            err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
                     "type": "proc_err",
@@ -380,7 +405,7 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
                 
                 devd.proxy = nil
             } else {
-                devd.proxy = proxyCmd.Process
+                devd.proxy = cmd.Process
             }
             
             time.Sleep( time.Second * 3 )
@@ -396,14 +421,14 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
             
             stopChannel := coro_heartbeat( devEvent, pubEventCh )
             
-            wdaScanner := bufio.NewScanner( proxyPipe )
-            for wdaScanner.Scan() {
-                line := wdaScanner.Text()
+            scanner := bufio.NewScanner( outputPipe )
+            for scanner.Scan() {
+                line := scanner.Text()
                 
                 if strings.Contains( line, "is implemented in both" ) {
                 } else if strings.Contains( line, "Couldn't write value" ) {
                 } else {
-                    fmt.Println( line )
+                    fmt.Printf( "[WDAPROXY] %s\n", line )
                 }
             }
             
@@ -421,7 +446,7 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
 
 func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP string ) {
     plog := log.WithFields( log.Fields{
-      "proc": "device_ios_unit",
+      "proc": "stf_device_ios",
       "uuid": uuid,
     } )
         
@@ -434,9 +459,9 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
               "type": "proc_start",
               "server_ip": config.STFIP,
               "client_ip": curIP,
-            } ).Info("Starting wdaproxy")
+            } ).Info("Starting stf_device_ios")
             
-            deviceCmd := exec.Command( "node", "runmod.js", "device-ios",
+            cmd := exec.Command( "node", "runmod.js", "device-ios",
                 "--serial", uuid,
                 "--connect-push", pushStr,
                 "--connect-sub", subStr,
@@ -444,11 +469,11 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 "--wda-port", strconv.Itoa( config.WDAProxyPort ), 
                 //"--vid-port", strconv.Itoa( config.MirrorFeedPort ),
             )
-            deviceCmd.Dir = "./repos/stf"
-            deviceCmd.Stdout = os.Stdout
-            deviceCmd.Stderr = os.Stderr
-        
-            err := deviceCmd.Start()
+            cmd.Dir = "./repos/stf"
+            outputPipe, _ := cmd.StderrPipe()
+            cmd.Stdout = os.Stdout
+            
+            err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
                     "type": "proc_err",
@@ -457,12 +482,18 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 
                 devd.device = nil
             } else {
-                devd.device = deviceCmd.Process
+                devd.device = cmd.Process
             }
-            deviceCmd.Wait()
+            
+            scanner := bufio.NewScanner( outputPipe )
+            for scanner.Scan() {
+                line := scanner.Text()
+                fmt.Printf( "[StfDvIos] %s\n", line )
+            }
+            
             devd.device = nil
             
-            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: device_ios_unit")
+            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: stf_device_ios")
             
             devd.lock.Lock()
             exit := devd.shuttingDown
