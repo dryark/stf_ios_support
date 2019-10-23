@@ -62,6 +62,7 @@ type RunningDev struct {
     device *os.Process
     shuttingDown bool
     lock sync.Mutex
+    failed bool
 }
 
 type BaseProgs struct {
@@ -152,7 +153,7 @@ func proc_video_enabler( config *Config, baseProgs *BaseProgs ) {
     }()
 }
 
-func proc_stf( baseProgs *BaseProgs, curIP string, config *Config ) {
+func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
     plog := log.WithFields( log.Fields{ "proc": "stf_provider" } )
     
     go func() {
@@ -419,21 +420,31 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
 }
 
 func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP string ) {
-    plog := log.WithFields( log.Fields{ "proc": "device_ios_unit" } )
+    plog := log.WithFields( log.Fields{
+      "proc": "device_ios_unit",
+      "uuid": uuid,
+    } )
         
     pushStr := fmt.Sprintf("tcp://%s:7270", config.STFIP)
     subStr := fmt.Sprintf("tcp://%s:7250", config.STFIP)
-    
-    cmd := fmt.Sprintf("./run-device-ios.sh --serial %s --connect-push %s --connect-sub %s --public-ip %s", pushStr, subStr, curIP )
     
     go func() {
         for {
             plog.WithFields( log.Fields{
               "type": "proc_start",
-              "cmd": cmd,
+              "server_ip": config.STFIP,
+              "client_ip": curIP,
             } ).Info("Starting wdaproxy")
             
-            deviceCmd := exec.Command( "./run-device-ios.sh", "--serial", uuid, "--connect-push", pushStr, "--connect-sub", subStr, "--public-ip", curIP )
+            deviceCmd := exec.Command( "node", "runmod.js", "device-ios",
+                "--serial", uuid,
+                "--connect-push", pushStr,
+                "--connect-sub", subStr,
+                "--public-ip", curIP,
+                "--wda-port", strconv.Itoa( config.WDAProxyPort ), 
+                //"--vid-port", strconv.Itoa( config.MirrorFeedPort ),
+            )
+            deviceCmd.Dir = "./repos/stf"
             deviceCmd.Stdout = os.Stdout
             deviceCmd.Stderr = os.Stderr
         
@@ -505,7 +516,7 @@ func main() {
     } else {
         // start stf and restart it when needed
         // TODO: if it doesn't restart / crashes again; give up
-        proc_stf( &baseProgs, curIP, config )
+        proc_stf_provider( &baseProgs, curIP, config )
     }
 	
     coro_CloseHandler( runningDevs, &baseProgs, config )
@@ -550,12 +561,22 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
         uuid := devEvent.uuid
         
         if devEvent.action == 0 { // device connect
-            devd := RunningDev{}
-            devd.uuid = uuid
-            devd.shuttingDown = false
+            devd := RunningDev{
+                uuid: uuid,
+                shuttingDown: false,
+                failed: false,
+                mirror: nil,
+                ff: nil,
+                device: nil,
+                proxy: nil,
+            }
             runningDevs[uuid] = &devd
             
             devd.name = getDeviceName( uuid )
+            if devd.name == "" {
+                devd.failed = true
+                continue
+            }
             devName := devd.name
             
             log.WithFields( log.Fields{
@@ -564,10 +585,7 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
                 "dev_uuid": uuid,
             } ).Info("Device connected")
             
-            if config.SkipVideo {
-                devd.mirror = nil
-                devd.ff = nil
-            } else {
+            if !config.SkipVideo {
                 proc_mirrorfeed( config, tunName, &devd )
                 proc_ffmpeg( config, &devd, devName )
             
@@ -584,6 +602,13 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
         }
         if devEvent.action == 1 { // device disconnect
             devd := runningDevs[uuid]
+            
+            log.WithFields( log.Fields{
+                "type": "dev_disconnect",
+                "dev_name": devd.name,
+                "dev_uuid": uuid,
+            } ).Info("Device disconnected")
+            
             closeRunningDev( devd )
             
             // Notify stf that the device is gone
@@ -757,10 +782,14 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
                 Type string
                 UUID string
                 Name string
+                VidPort string
+                WDAPort string
             }
             test := DevTest{}
             test.UUID = pubEvent.uuid
             test.Name = pubEvent.name
+            test.VidPort = strconv.Itoa( pubEvent.vidPort )
+            test.WDAPort = strconv.Itoa( pubEvent.wdaPort )
             
             if pubEvent.action == 0 {
                 test.Type = "connect"
@@ -946,11 +975,25 @@ func coro_CloseHandler( runningDevs map [string] *RunningDev, baseProgs *BasePro
 }
 
 func getDeviceName( uuid string ) (string) {
-    name, _ := exec.Command( "idevicename", "-u", uuid ).Output()
-    if name == nil || len(name) == 0 {
-        fmt.Printf("idevicename returned nothing for uuid %s\n", uuid)
+    i := 0
+    var nameStr string
+    for {
+        i++
+        if i > 10 { return "" }
+        name, _ := exec.Command( "idevicename", "-u", uuid ).Output()
+        if name == nil || len(name) == 0 {
+            log.WithFields( log.Fields{
+                "type": "ilib_getname_fail",
+                "uuid": uuid,
+                "try": i,
+            } ).Debug("idevicename returned nothing")
+    
+            time.Sleep( time.Millisecond * 100 )
+            continue
+        }
+        nameStr = string( name )
+        break
     }
-    nameStr := string( name )
     nameStr = nameStr[:len(nameStr)-1]
     return nameStr
 }
