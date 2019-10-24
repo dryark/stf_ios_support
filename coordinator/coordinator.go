@@ -12,6 +12,7 @@ import (
     "os"
     "os/exec"
     "os/signal"
+    "sort"
     "strconv"
     "strings"
     "sync"
@@ -38,6 +39,8 @@ type Config struct {
     Ffmpeg          string `json:"ffmpeg"`
     STFIP           string `json:"stf_ip"`
     STFHostname     string `json:"stf_hostname"`
+    WDAPorts        string `json:"wda_ports"`
+    VidPorts        string `json:"vid_ports"`
 }
 
 type DevEvent struct {
@@ -63,6 +66,8 @@ type RunningDev struct {
     shuttingDown bool
     lock sync.Mutex
     failed bool
+    wdaPort int
+    vidPort int
 }
 
 type BaseProgs struct {
@@ -70,6 +75,10 @@ type BaseProgs struct {
     vidEnabler *os.Process
     stf        *os.Process
     shuttingDown bool
+}
+
+type PortItem struct {
+    available bool
 }
 
 var gStop bool
@@ -201,7 +210,10 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
             scanner := bufio.NewScanner( outputPipe )
             for scanner.Scan() {
                 line := scanner.Text()
-                fmt.Printf( "[PROVIDER] %s\n", line )
+                if strings.Contains( line, " IOS Heartbeat:" ) {
+                } else {
+                    fmt.Printf( "[PROVIDER] %s\n", line )
+                }
             }
             
             plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: stf_provider")
@@ -373,7 +385,10 @@ func coro_heartbeat( devEvent *DevEvent, pubEventCh chan<- PubEvent ) ( chan<- b
 }
 
 func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid string, devName string, pubEventCh chan<- PubEvent ) {
-    plog := log.WithFields( log.Fields{ "proc": "wdaproxy" } )
+    plog := log.WithFields( log.Fields{
+      "proc": "wdaproxy",
+      "uuid": devd.uuid,
+    } )
 
     // start wdaproxy
     wdaPort := config.WDAProxyPort
@@ -392,10 +407,11 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
             
             cmd := exec.Command( "../../bin/wdaproxy", "-p", strconv.Itoa( wdaPort ), "-d", "-W", ".", "-u", uuid )
         
-            cmd.Stderr = os.Stderr
+            //cmd.Stderr = os.Stderr
             cmd.Dir = config.WDARoot
         
             outputPipe, _ := cmd.StdoutPipe()
+            errPipe, _ := cmd.StderrPipe()
             err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
@@ -421,14 +437,31 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
             
             stopChannel := coro_heartbeat( devEvent, pubEventCh )
             
-            scanner := bufio.NewScanner( outputPipe )
+            go func() {
+                scanner := bufio.NewScanner( outputPipe )
+                for scanner.Scan() {
+                    line := scanner.Text()
+                    
+                    if strings.Contains( line, "is implemented in both" ) {
+                    } else if strings.Contains( line, "Couldn't write value" ) {
+                    } else if strings.Contains( line, "GET /status " ) {
+                    } else if strings.Contains( line, "[WDA] successfully started" ) {
+                        plog.WithFields( log.Fields{ "type": "wda_started" } ).Info("WDA started")
+                        fmt.Printf( "[WDAPROXY] %s\n", line )
+                    } else {
+                        fmt.Printf( "[WDAPROXY] %s\n", line )
+                    }
+                }
+            } ()
+            scanner := bufio.NewScanner( errPipe )
             for scanner.Scan() {
                 line := scanner.Text()
                 
-                if strings.Contains( line, "is implemented in both" ) {
-                } else if strings.Contains( line, "Couldn't write value" ) {
+                if strings.Contains( line, "[WDA] successfully started" ) {
+                    plog.WithFields( log.Fields{ "type": "wda_started" } ).Info("WDA started")
+                    fmt.Printf( "[WDAPROXE] %s\n", line )
                 } else {
-                    fmt.Printf( "[WDAPROXY] %s\n", line )
+                    fmt.Printf( "[WDAPROXE] %s\n", line )
                 }
             }
             
@@ -534,6 +567,8 @@ func main() {
         
     devEventCh := make( chan DevEvent, 2 )
     runningDevs := make( map [string] *RunningDev )
+    wdaPorts := construct_ports( config, config.WDAPorts )
+    vidPorts := construct_ports( config, config.VidPorts )
     baseProgs := BaseProgs{}
     baseProgs.shuttingDown = false
     
@@ -553,7 +588,23 @@ func main() {
     coro_CloseHandler( runningDevs, &baseProgs, config )
     
     // process devEvents
-    event_loop( config, curIP, devEventCh, tunName, pubEventCh, runningDevs )
+    event_loop( config, curIP, devEventCh, tunName, pubEventCh, runningDevs, wdaPorts, vidPorts )
+}
+
+func construct_ports( config *Config, spec string ) ( map [int] *PortItem ) {
+    ports := make( map [int] *PortItem )
+    if strings.Contains( spec, "-" ) {
+        parts := strings.Split( spec, "-" )
+        from, _ := strconv.Atoi( parts[0] )
+        to, _ := strconv.Atoi( parts[1] )
+        for i := from; i <= to; i++ {
+            portItem := PortItem{
+                available: true,
+            }
+            ports[ i ] = &portItem
+        }
+    }
+    return ports
 }
 
 func coro_http_server( config *Config, devEventCh chan<- DevEvent ) {
@@ -585,13 +636,80 @@ func get_net_info() ( string, string, bool ) {
     return tunName, curIP, vpnMissing
 }
 
-func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunName string, pubEventCh chan<- PubEvent, runningDevs map [string] *RunningDev ) {
+func assign_ports( gConfig *Config, wdaPorts map [int] *PortItem, vidPorts map [int] *PortItem ) ( int,int,*Config ) {
+    dupConfig := *gConfig
+    
+    wdaPort := 0
+    vidPort := 0
+    
+    wKeys := make( []int, len(wdaPorts) )
+    wI := 0
+    for k := range wdaPorts {
+        //fmt.Printf("a w port %d\n", k)
+        wKeys[wI] = k
+        wI++
+    }
+    sort.Ints( wKeys )
+    
+    vKeys := make( []int, len(vidPorts) )
+    vI := 0
+    for k := range vidPorts {
+        //fmt.Printf("a v port %d\n", k)
+        vKeys[vI] = k
+        vI++
+    }
+    sort.Ints( vKeys )
+    
+    for _,port := range wKeys {
+        //fmt.Printf("w port %d\n", port)
+        portItem := wdaPorts[port]
+        if portItem.available {
+            portItem.available = false
+            dupConfig.WDAProxyPort = port
+            wdaPort = port
+            break
+        }
+    }
+    
+    for _,port := range vKeys {
+        //fmt.Printf("v port %d\n", port)
+        portItem := vidPorts[port]
+        if portItem.available {
+            portItem.available = false
+            dupConfig.MirrorFeedPort = port
+            vidPort = port
+            break
+        }
+    }
+    
+    return wdaPort, vidPort, &dupConfig
+}
+
+func free_ports( wdaPort int, vidPort int, wdaPorts map [int] *PortItem, vidPorts map [int] *PortItem ) {
+    wdaItem := wdaPorts[ wdaPort ]
+    wdaItem.available = true
+    
+    vidItem := vidPorts[ vidPort ]
+    vidItem.available = true    
+}
+
+func event_loop( 
+        gConfig *Config,
+        curIP string,
+        devEventCh <-chan DevEvent,
+        tunName string,
+        pubEventCh chan<- PubEvent,
+        runningDevs map [string] *RunningDev,
+        wdaPorts map [int] *PortItem,
+        vidPorts map [int] *PortItem ) {
     for {
         // receive message
         devEvent := <- devEventCh
         uuid := devEvent.uuid
         
         if devEvent.action == 0 { // device connect
+            wdaPort, vidPort, config := assign_ports( gConfig, wdaPorts, vidPorts )
+            
             devd := RunningDev{
                 uuid: uuid,
                 shuttingDown: false,
@@ -600,6 +718,8 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
                 ff: nil,
                 device: nil,
                 proxy: nil,
+                wdaPort: wdaPort,
+                vidPort: vidPort,
             }
             runningDevs[uuid] = &devd
             
@@ -614,6 +734,8 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
                 "type": "dev_connect",
                 "dev_name": devName,
                 "dev_uuid": uuid,
+                "vid_port": vidPort,
+                "wda_port": wdaPort,
             } ).Info("Device connected")
             
             if !config.SkipVideo {
@@ -640,7 +762,7 @@ func event_loop( config *Config, curIP string, devEventCh <-chan DevEvent, tunNa
                 "dev_uuid": uuid,
             } ).Info("Device disconnected")
             
-            closeRunningDev( devd )
+            closeRunningDev( devd, wdaPorts, vidPorts )
             
             // Notify stf that the device is gone
             pubEvent := PubEvent{}
@@ -921,14 +1043,18 @@ func coro_zmqReqRep() {
 
 func closeAllRunningDevs( runningDevs map [string] *RunningDev ) {
     for _, devd := range runningDevs {
-        closeRunningDev( devd )
+        closeRunningDev( devd, nil, nil )
     }
 }
 
-func closeRunningDev( devd *RunningDev ) {
+func closeRunningDev( devd *RunningDev, wdaPorts map [int] *PortItem, vidPorts map [int] *PortItem ) {
     devd.lock.Lock()
     devd.shuttingDown = true
     devd.lock.Unlock()
+    
+    if wdaPorts != nil && vidPorts != nil {
+        free_ports( devd.wdaPort, devd.vidPort, wdaPorts, vidPorts )
+    }
     
     plog := log.WithFields( log.Fields{
         "type": "proc_cleanup_kill",
@@ -985,10 +1111,10 @@ func coro_CloseHandler( runningDevs map [string] *RunningDev, baseProgs *BasePro
             "type": "shutdown",
             "state": "begun",
         } ).Info("Shutdown started")
-                    
+        
         closeAllRunningDevs( runningDevs )
         closeBaseProgs( baseProgs )
-        
+          
         // This triggers zmq to stop receiving
         // We don't actually wait after this to ensure it has finished cleanly... oh well :)
         gStop = true
