@@ -2,6 +2,7 @@ package main
 
 import (
     "bufio"
+    "context"
     "encoding/json"
     "flag"
     "fmt"
@@ -41,6 +42,8 @@ type Config struct {
     STFHostname     string `json:"stf_hostname"`
     WDAPorts        string `json:"wda_ports"`
     VidPorts        string `json:"vid_ports"`
+    LogFile         string `json:"log_file"`
+    LinesLogFile    string `json:"lines_log_file"`
 }
 
 type DevEvent struct {
@@ -162,8 +165,11 @@ func proc_video_enabler( config *Config, baseProgs *BaseProgs ) {
     }()
 }
 
-func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
+func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, lineLog *log.Entry ) {
     plog := log.WithFields( log.Fields{ "proc": "stf_provider" } )
+    lineLog = lineLog.WithFields( log.Fields{
+        "proc": "stf_provider",
+    } )
     
     go func() {
         for {
@@ -212,7 +218,8 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
                 line := scanner.Text()
                 if strings.Contains( line, " IOS Heartbeat:" ) {
                 } else {
-                    fmt.Printf( "[PROVIDER] %s\n", line )
+                    //fmt.Printf( "[PROVIDER] %s\n", line )
+                    lineLog.WithFields( log.Fields{ "line": line } ).Info("")
                 }
             }
             
@@ -228,9 +235,16 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config ) {
     }()
 }
 
-func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) {
-    plog := log.WithFields( log.Fields{ "proc": "mirrorfeed" } )
-  
+func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog *log.Entry ) {
+    plog := log.WithFields( log.Fields{
+        "proc": "mirrorfeed",
+        "uuid": devd.uuid,
+    } )
+    lineLog = lineLog.WithFields( log.Fields{
+        "proc": "mirrorfeed",
+        "uuid": devd.uuid,
+    } )
+    
     mirrorPort := strconv.Itoa( config.MirrorFeedPort )
     mirrorFeedBin := config.MirrorFeedBin
     pipeName := config.Pipe
@@ -250,7 +264,8 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) {
             cmd := exec.Command( mirrorFeedBin, mirrorPort, pipeName, tunName )
             
             outputPipe, _ := cmd.StdoutPipe()
-            cmd.Stderr = os.Stderr
+            //cmd.Stderr = os.Stderr
+            errPipe, _ := cmd.StderrPipe()
             
             err := cmd.Start()
             if err != nil {
@@ -264,10 +279,18 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) {
                 devd.mirror = cmd.Process
             }
             
+            go func() {
+                scanner := bufio.NewScanner( errPipe )
+                for scanner.Scan() {
+                    line := scanner.Text()
+                    lineLog.WithFields( log.Fields{ "line": line, "iserr": true } ).Info("")
+                }
+            } ()
             scanner := bufio.NewScanner( outputPipe )
             for scanner.Scan() {
                 line := scanner.Text()
-                fmt.Printf( "[VIDFEED-] %s\n", line )
+                //fmt.Printf( "[VIDFEED-] %s\n", line )
+                lineLog.WithFields( log.Fields{ "line": line } ).Info("")
             }
             
             devd.mirror = nil
@@ -282,8 +305,15 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev ) {
     }()
 }
 
-func proc_ffmpeg( config *Config, devd *RunningDev, devName string ) {
-    plog := log.WithFields( log.Fields{ "proc": "ffmpeg" } )
+func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log.Entry ) {
+    plog := log.WithFields( log.Fields{
+        "proc": "ffmpeg",
+        "uuid": devd.uuid,
+    } )
+    lineLog = lineLog.WithFields( log.Fields{
+        "proc": "ffmpeg",
+        "uuid": devd.uuid,
+    } )
      
     if devd.shuttingDown {
         return
@@ -329,7 +359,8 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string ) {
                 } else if strings.Contains( line, "swscaler @" ) {
                 } else if strings.HasPrefix( line, "  lib" ) {
                 } else {
-                  fmt.Printf( "[FFMPEG--] %s\n", line )
+                    //fmt.Printf( "[FFMPEG--] %s\n", line )
+                    lineLog.WithFields( log.Fields{ "line": line } ).Info("")
                 }
             }
             
@@ -384,16 +415,18 @@ func coro_heartbeat( devEvent *DevEvent, pubEventCh chan<- PubEvent ) ( chan<- b
     return stopChannel
 }
 
-func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid string, devName string, pubEventCh chan<- PubEvent ) {
+func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid string, devName string, pubEventCh chan<- PubEvent, lineLog *log.Entry ) {
     plog := log.WithFields( log.Fields{
-      "proc": "wdaproxy",
-      "uuid": devd.uuid,
+        "proc": "wdaproxy",
+        "uuid": devd.uuid,
+    } )
+    lineLog = lineLog.WithFields( log.Fields{
+        "proc": "wdaproxy",
+        "uuid": devd.uuid,
     } )
 
     // start wdaproxy
     wdaPort := config.WDAProxyPort
-    
-    cmd := fmt.Sprintf("wdaproxy -p %d -d -W %s -u %s", wdaPort, config.WDARoot, uuid )
     
     if devd.shuttingDown {
         return
@@ -402,12 +435,17 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
         for {
             plog.WithFields( log.Fields{
               "type": "proc_start",
-              "cmd": cmd,
+              "port": wdaPort,
+              "wda_folder": config.WDARoot,
             } ).Info("Starting wdaproxy")
             
-            cmd := exec.Command( "../../bin/wdaproxy", "-p", strconv.Itoa( wdaPort ), "-d", "-W", ".", "-u", uuid )
+            cmd := exec.Command( "../../bin/wdaproxy",
+                "-p", strconv.Itoa( wdaPort ),
+                "-d",
+                "-W", ".",
+                "-u", uuid,
+            )
         
-            //cmd.Stderr = os.Stderr
             cmd.Dir = config.WDARoot
         
             outputPipe, _ := cmd.StdoutPipe()
@@ -445,11 +483,9 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
                     if strings.Contains( line, "is implemented in both" ) {
                     } else if strings.Contains( line, "Couldn't write value" ) {
                     } else if strings.Contains( line, "GET /status " ) {
-                    } else if strings.Contains( line, "[WDA] successfully started" ) {
-                        plog.WithFields( log.Fields{ "type": "wda_started" } ).Info("WDA started")
-                        fmt.Printf( "[WDAPROXY] %s\n", line )
                     } else {
-                        fmt.Printf( "[WDAPROXY] %s\n", line )
+                        lineLog.WithFields( log.Fields{ "line": line } ).Info("")
+                        //fmt.Printf( "[WDAPROXY] %s\n", line )
                     }
                 }
             } ()
@@ -459,10 +495,10 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
                 
                 if strings.Contains( line, "[WDA] successfully started" ) {
                     plog.WithFields( log.Fields{ "type": "wda_started" } ).Info("WDA started")
-                    fmt.Printf( "[WDAPROXE] %s\n", line )
-                } else {
-                    fmt.Printf( "[WDAPROXE] %s\n", line )
+                    //fmt.Printf( "[WDAPROXE] %s\n", line )
                 }
+                
+                lineLog.WithFields( log.Fields{ "line": line, "iserr": true } ).Info("")
             }
             
             stopChannel<- true
@@ -477,10 +513,14 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
     }()
 }
 
-func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP string ) {
+func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP string, lineLog *log.Entry ) {
     plog := log.WithFields( log.Fields{
       "proc": "stf_device_ios",
       "uuid": uuid,
+    } )
+    lineLog = lineLog.WithFields( log.Fields{
+        "proc": "stf_device_ios",
+        "uuid": devd.uuid,
     } )
         
     pushStr := fmt.Sprintf("tcp://%s:7270", config.STFIP)
@@ -521,7 +561,31 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
             scanner := bufio.NewScanner( outputPipe )
             for scanner.Scan() {
                 line := scanner.Text()
-                fmt.Printf( "[StfDvIos] %s\n", line )
+                //fmt.Printf( "[StfDvIos] %s\n", line )
+                if strings.Contains( line, "Now owned by" ) {
+                    pos := strings.Index( line, "Now owned by" )
+                    pos += len( "Now owned by" ) + 2
+                    ownedStr := line[ pos: ]
+                    endpos := strings.Index( ownedStr, "\"" )
+                    owner := ownedStr[ :endpos ]
+                    plog.WithFields( log.Fields{
+                        "type": "wda_owner_start",
+                        "owner": owner,
+                    } ).Info("Device Owner Start")
+                }
+                if strings.Contains( line, "No longer owned by" ) {
+                    pos := strings.Index( line, "No longer owned by" )
+                    pos += len( "No longer owned by" ) + 2
+                    ownedStr := line[ pos: ]
+                    endpos := strings.Index( ownedStr, "\"" )
+                    owner := ownedStr[ :endpos ]
+                    plog.WithFields( log.Fields{
+                        "type": "wda_owner_stop",
+                        "owner": owner,
+                    } ).Info("Device Owner Stop")
+                }
+                        
+                lineLog.WithFields( log.Fields{ "line": line } ).Info("")
             }
             
             devd.device = nil
@@ -536,6 +600,135 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
     }()
 }
 
+type HupData struct {
+    hupA bool
+    hupB bool
+    mutex sync.Mutex
+}
+
+type JSONLog struct {
+	  file      *os.File
+	  fileName  string
+	  formatter *log.JSONFormatter
+	  failed    bool
+	  hupData   *HupData
+	  id        int
+}
+func ( hook *JSONLog ) Fire( entry *log.Entry ) error {
+    // If we have failed to write to the file; don't bother trying
+    if hook.failed { return nil }
+    
+    jsonformat, _ := hook.formatter.Format( entry )
+    
+    fh := hook.file
+    
+    doHup := false
+    hupData := hook.hupData
+    hupData.mutex.Lock()
+    if hook.id == 1 {
+        doHup = hupData.hupA
+        if doHup { hupData.hupA = false }
+    } else if hook.id == 2 {
+        doHup = hupData.hupB
+        if doHup { hupData.hupB = false }
+    }
+    hupData.mutex.Unlock()
+    
+    if doHup {
+        fh.Close()
+        fhnew, err := os.OpenFile( hook.fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666 )
+        if err != nil {
+            fmt.Fprintf( os.Stderr, "Unable to open file for writing: %v", err )
+            fh = nil
+        }
+        fh = fhnew
+        hook.file = fh
+        /*log.WithFields( log.Fields{
+            "type": "sighup",
+            "state": "reopen",
+            "file": hook.fileName,
+        } ).Info("HUP requested")*/
+        fmt.Fprintf( os.Stdout, "Hup %s\n", hook.fileName )
+    }
+    
+    var err error
+    if entry.Context != nil {
+        // There is context; this is meant for the lines logfile
+        str := string( jsonformat )
+        str = strings.Replace( str, "\"level\":\"info\",", "", 1 )
+        str = strings.Replace( str, "\"msg\":\"\",", "", 1 )
+        _, err = fh.WriteString( str )
+    } else {
+        _, err = fh.WriteString( string( jsonformat ) )
+    }
+    
+    if err != nil {
+        hook.failed = true
+        fmt.Fprintf( os.Stderr, "Cannot write to logfile: %v", err )
+        return err
+    }
+  
+    return nil
+}
+func (hook *JSONLog) Levels() []log.Level {
+    return []log.Level{ log.PanicLevel, log.FatalLevel, log.ErrorLevel, log.WarnLevel, log.InfoLevel, log.DebugLevel }
+}
+func AddJSONLog( logger *log.Logger, fileName string, id int, hupData *HupData ) {
+    logFile, err := os.OpenFile( fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666 )
+    if err != nil {
+        fmt.Fprintf( os.Stderr, "Unable to open file for writing: %v", err )
+    }
+    
+    fileHook := JSONLog{
+        file: logFile,
+        fileName: fileName,
+        formatter: &log.JSONFormatter{},
+        failed: false,
+        hupData: hupData,
+        id: id,
+    }
+    
+    if logger == nil {
+        log.AddHook( &fileHook )
+    } else {
+        logger.AddHook( &fileHook )
+    }
+}
+
+type DummyWriter struct {
+}
+func (self *DummyWriter) Write( p[]byte) (n int, err error) {
+    return len(p), nil
+}
+
+func setup_log( config *Config, debug bool, jsonLog bool ) (*log.Entry) {
+    if jsonLog {
+        log.SetFormatter( &log.JSONFormatter{} )
+    }
+    
+    lineLogger1 := log.New()
+    //lineLogger1.SetFormatter( nil )
+    dummyWriter := DummyWriter{}
+    lineLogger1.SetOutput( &dummyWriter )
+    lineLogger := lineLogger1.WithContext( context.Background() )
+    
+    if debug {
+        log.WithFields( log.Fields{ "type": "debug_status" } ).Warn("Debugging enabled")
+        log.SetLevel( log.DebugLevel )
+        lineLogger1.SetLevel( log.DebugLevel )
+    } else {
+        log.SetLevel( log.InfoLevel )
+        lineLogger1.SetLevel( log.InfoLevel )
+    }
+    
+    hupData := coro_sighup()
+    
+    AddJSONLog( nil, config.LogFile, 1, hupData )
+    AddJSONLog( lineLogger1, config.LinesLogFile, 2, hupData )
+    
+    return lineLogger
+}
+
 func main() {
     gStop = false
     
@@ -543,23 +736,14 @@ func main() {
     var jsonLog = flag.Bool( "json", false, "Use json log output" )
     flag.Parse()
     
-    if *jsonLog {
-        log.SetFormatter( &log.JSONFormatter{} )
-    }
+    config := read_config()
     
-    if *debug {
-        log.WithFields( log.Fields{ "type": "debug_status" } ).Warn("Debugging enabled")
-        log.SetLevel( log.DebugLevel )
-    } else {
-        log.SetLevel( log.InfoLevel )
-    }
+    lineLog := setup_log( config, *debug, *jsonLog )
     
     pubEventCh := make( chan PubEvent, 2 )
     
     coro_zmqReqRep()
     coro_zmqPub( pubEventCh )
-    
-    config := read_config()
     
     tunName, curIP, vpnMissing := get_net_info()
 
@@ -582,13 +766,13 @@ func main() {
     } else {
         // start stf and restart it when needed
         // TODO: if it doesn't restart / crashes again; give up
-        proc_stf_provider( &baseProgs, curIP, config )
+        proc_stf_provider( &baseProgs, curIP, config, lineLog )
     }
 	
-    coro_CloseHandler( runningDevs, &baseProgs, config )
+    coro_sigterm( runningDevs, &baseProgs, config )
     
     // process devEvents
-    event_loop( config, curIP, devEventCh, tunName, pubEventCh, runningDevs, wdaPorts, vidPorts )
+    event_loop( config, curIP, devEventCh, tunName, pubEventCh, runningDevs, wdaPorts, vidPorts, lineLog )
 }
 
 func construct_ports( config *Config, spec string ) ( map [int] *PortItem ) {
@@ -701,7 +885,8 @@ func event_loop(
         pubEventCh chan<- PubEvent,
         runningDevs map [string] *RunningDev,
         wdaPorts map [int] *PortItem,
-        vidPorts map [int] *PortItem ) {
+        vidPorts map [int] *PortItem,
+        lineLog *log.Entry ) {
     for {
         // receive message
         devEvent := <- devEventCh
@@ -739,19 +924,19 @@ func event_loop(
             } ).Info("Device connected")
             
             if !config.SkipVideo {
-                proc_mirrorfeed( config, tunName, &devd )
-                proc_ffmpeg( config, &devd, devName )
+                proc_mirrorfeed( config, tunName, &devd, lineLog )
+                proc_ffmpeg( config, &devd, devName, lineLog )
             
                 // Sleep to ensure that video enabling process is finished before we try to start wdaproxy
                 // This is needed because the USB device drops out and reappears during video enabling
                 time.Sleep( time.Second * 9 )
             }
             
-            proc_wdaproxy( config, &devd, &devEvent, uuid, devName, pubEventCh )
+            proc_wdaproxy( config, &devd, &devEvent, uuid, devName, pubEventCh, lineLog )
             
             time.Sleep( time.Second * 3 )
             
-            proc_device_ios_unit( config, &devd, uuid, curIP )
+            proc_device_ios_unit( config, &devd, uuid, curIP, lineLog )
         }
         if devEvent.action == 1 { // device disconnect
             devd := runningDevs[uuid]
@@ -780,7 +965,7 @@ func cleanup_procs(config *Config) {
     plog := log.WithFields( log.Fields{
         "type": "proc_cleanup_kill",
     } )
-  
+    
     // Cleanup hanging processes if any
     procs := ps.GetAllProcessesInfo()
     for _, proc := range procs {
@@ -1102,13 +1287,13 @@ func closeBaseProgs( baseProgs *BaseProgs ) {
     }
 }
 
-func coro_CloseHandler( runningDevs map [string] *RunningDev, baseProgs *BaseProgs, config *Config ) {
+func coro_sigterm( runningDevs map [string] *RunningDev, baseProgs *BaseProgs, config *Config ) {
     c := make(chan os.Signal, 2)
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)
     go func() {
         <- c
         log.WithFields( log.Fields{
-            "type": "shutdown",
+            "type": "sigterm",
             "state": "begun",
         } ).Info("Shutdown started")
         
@@ -1123,12 +1308,35 @@ func coro_CloseHandler( runningDevs map [string] *RunningDev, baseProgs *BasePro
         cleanup_procs( config )
         
         log.WithFields( log.Fields{
-            "type": "shutdown",
+            "type": "sigterm",
             "state": "done",
         } ).Info("Shutdown finished")
         
         os.Exit(0)
     }()
+}
+
+func coro_sighup() ( *HupData ) {
+    hupData := HupData{
+        hupA: false,
+        hupB: false,
+    }
+    c := make(chan os.Signal, 2)
+    signal.Notify(c, os.Interrupt, syscall.SIGHUP)
+    go func() {
+        for {
+            <- c
+            log.WithFields( log.Fields{
+                "type": "sighup",
+                "state": "begun",
+            } ).Info("HUP requested")
+            hupData.mutex.Lock()
+            hupData.hupA = true
+            hupData.hupB = true
+            hupData.mutex.Unlock()
+        }
+    }()
+    return &hupData
 }
 
 func getDeviceName( uuid string ) (string) {

@@ -1,8 +1,10 @@
 {
-	"wdaproxy_port": 8100,
-	"mirrorfeed_port": 8000,
+	"wda_ports": "8100-8105",
+	"vid_ports": "8000-8005",
 	"stf_ip": "192.168.255.1",
 	"stf_hostname": "[your stf server hostname]",
 	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
-	"skip_video": false
+	"skip_video": false,
+	"log_file": "log",
+	"lines_log_file": "log_lines"
 }
