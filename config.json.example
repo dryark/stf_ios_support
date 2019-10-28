@@ -6,5 +6,6 @@
 	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
 	"skip_video": false,
 	"log_file": "log",
-	"lines_log_file": "log_lines"
+	"lines_log_file": "log_lines",
+	"vpn_name": "tunnelblick_conf_name"
 }

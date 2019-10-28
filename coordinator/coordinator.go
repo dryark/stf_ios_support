@@ -44,6 +44,7 @@ type Config struct {
     VidPorts        string `json:"vid_ports"`
     LogFile         string `json:"log_file"`
     LinesLogFile    string `json:"lines_log_file"`
+    VpnName         string `json:"vpn_name"`
 }
 
 type DevEvent struct {
@@ -82,6 +83,11 @@ type BaseProgs struct {
 
 type PortItem struct {
     available bool
+}
+
+type Vpn struct {
+    state string
+    autoConnect string
 }
 
 var gStop bool
@@ -729,14 +735,143 @@ func setup_log( config *Config, debug bool, jsonLog bool ) (*log.Entry) {
     return lineLogger
 }
 
+func run_osa( app string, cmds ...string ) (string){
+    apptell := fmt.Sprintf(`tell application "%s"`, app )
+    args := []string{ "-e", apptell }
+    for _, cmd := range cmds {
+        args = append( args, "-e" )
+        args = append( args, cmd )
+    }
+    args = append( args, "-e", "end tell" )
+    
+    res, err := exec.Command("/usr/bin/osascript", args...).Output()
+    if err != nil {
+        fmt.Printf( err.Error() )
+        return ""
+    }
+    
+    // Remove the ending carriage return and then return
+    resStr := string(res)
+    return resStr[:len(resStr)-1]
+}
+
+func tblick_osa( cmds ...string ) (string) {
+    return run_osa( "Tunnelblick", cmds... )
+}
+
+func vpn_names() ( []string ) {
+    vpnsStr := tblick_osa( "get configurations" )
+    vpns := strings.Split( vpnsStr, ", " )
+    var justVpns []string
+    for _, vpn := range vpns {
+        parts := strings.Split(vpn," ")
+        justVpns = append( justVpns, parts[1] )
+    }
+    return justVpns
+}
+
+func vpn_state( confName string ) (string) {
+    req := fmt.Sprintf(`get state of first configuration where name="%s"`, confName)
+    state := tblick_osa( req )
+    return state
+}
+
+func vpn_connect( confName string ) {
+    req := fmt.Sprintf(`connect "%s"`, confName)
+    tblick_osa( req )
+    for i := 0; i <= 10; i++ {
+        time.Sleep( time.Millisecond * 200 )
+        if vpn_state( confName ) == "CONNECTED" {
+            return
+        }
+    }
+}
+
+func vpn_states() ([]string) {
+    stateStr := tblick_osa( "get state of configurations" )
+    states := strings.Split( stateStr, ", " )
+    
+    var stateArr []string
+    for _, state := range states {
+        stateArr = append( stateArr, state )
+    }
+    return stateArr
+}
+
+func vpn_autoconnects() ([]string) {
+    stateStr := tblick_osa( "get autoconnect of configurations" )
+    states := strings.Split( stateStr, ", " )
+    
+    var stateArr []string
+    for _, state := range states {
+        stateArr = append( stateArr, state )
+    }
+    return stateArr
+}
+
+func vpns_getall() ( map [string] *Vpn ) {
+    vpns := make( map [string] *Vpn )
+    
+    names        := vpn_names()
+    states       := vpn_states()
+    autoconnects := vpn_autoconnects()
+    
+    for i, name := range names {
+        state := states[i]
+        if state == "EXITING" { state = "DISCONNECTED" }
+        auto := autoconnects[i]
+        aVpn := Vpn{
+          state: state,
+          autoConnect: auto,
+        }
+        vpns[ name ] = &aVpn
+    }
+    
+    return vpns
+}
+
+func check_vpn_status( config *Config ) {
+    if _, err := os.Stat("/Applications/Tunnelblick.app"); os.IsNotExist(err) {
+        // Tunnelblick is not installed; don't try to call it
+        log.WithFields( log.Fields{ "type": "vpn_error" } ).Error("Tunnelblick is not installed")
+        return
+    }
+    vpnName := config.VpnName
+    vpns := vpns_getall()
+    if vpn, exists := vpns[ vpnName ]; exists {
+        if vpn.state == "DISCONNECTED" {
+            warning := fmt.Sprintf("Specified VPN \"%s\" not connected; connecting", vpnName)
+            log.WithFields( log.Fields{ "type": "vpn_warn", "vpnName": vpnName } ).
+                Warn( warning )
+            vpn_connect( vpnName )
+        }
+    } else {
+        error := fmt.Sprintf( "Specified VPN \"%s\" is not setup in Tunnelblick", vpnName )
+        log.WithFields( log.Fields{ "type": "vpn_error", "vpnName": vpnName } ).
+            Error( error )
+    }
+}
+
 func main() {
     gStop = false
     
     var debug = flag.Bool( "debug", false, "Use debug log level" )
     var jsonLog = flag.Bool( "json", false, "Use json log output" )
+    var vpnlist = flag.Bool( "vpnlist", false, "List VPNs then exit" )
     flag.Parse()
     
+    if *vpnlist {
+        vpns := vpns_getall()
+        
+        for vpnName, vpn := range vpns {
+            fmt.Printf("Name: %s - Autoconnect: %s - %s\n", vpnName, vpn.autoConnect, vpn.state)
+        }
+        os.Exit(0)
+    }
+    
     config := read_config()
+    
+    check_vpn_status( config )
     
     lineLog := setup_log( config, *debug, *jsonLog )
     
@@ -761,7 +896,7 @@ func main() {
     proc_video_enabler( config, &baseProgs )
     
     if vpnMissing {
-        log.WithFields( log.Fields{ "type": "warn_vpn" } ).Warn("VPN not enabled; skipping start of STF")
+        log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
         baseProgs.stf = nil
     } else {
         // start stf and restart it when needed
