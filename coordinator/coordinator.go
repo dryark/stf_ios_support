@@ -47,31 +47,37 @@ type Config struct {
     VpnName         string `json:"vpn_name"`
 }
 
+type VpnInfo struct {
+    Err     string `json:"err"`
+    IpAddr  string `json:"ipAddr"`
+    TunName string `json:"tunName"`
+}
+
 type DevEvent struct {
     action int
-    uuid string
+    uuid   string
 }
 
 type PubEvent struct {
-    action int
-    uuid string
-    name string
+    action  int
+    uuid    string
+    name    string
     wdaPort int
     vidPort int
 }
 
 type RunningDev struct {
-    uuid string
-    name string
-    mirror *os.Process
-    ff     *os.Process
-    proxy  *os.Process
-    device *os.Process
+    uuid         string
+    name         string
+    mirror       *os.Process
+    ff           *os.Process
+    proxy        *os.Process
+    device       *os.Process
     shuttingDown bool
-    lock sync.Mutex
-    failed bool
-    wdaPort int
-    vidPort int
+    lock         sync.Mutex
+    failed       bool
+    wdaPort      int
+    vidPort      int
 }
 
 type BaseProgs struct {
@@ -880,7 +886,7 @@ func main() {
     coro_zmqReqRep()
     coro_zmqPub( pubEventCh )
     
-    tunName, curIP, vpnMissing := get_net_info()
+    tunName, curIP, vpnMissing := get_net_info( config )
 
     cleanup_procs( config )
         
@@ -932,25 +938,47 @@ func coro_http_server( config *Config, devEventCh chan<- DevEvent ) {
     go startServer( devEventCh, listen_addr )
 }
 
-func get_net_info() ( string, string, bool ) {
-    var vpnMissing bool = true
-    tunName := getTunName()
+func vpn_info( config *Config ) ( string, string, string ) {
+    jsonBytes, _ := exec.Command( "./tblick-info.sh", config.VpnName ).Output()
+    vpnInfo := VpnInfo{}
+    err := json.Unmarshal( jsonBytes, &vpnInfo )
+    if err != nil {
+        fmt.Printf( err.Error() )
+    }
+    return vpnInfo.TunName, vpnInfo.IpAddr, vpnInfo.Err
+}
+
+func get_net_info( config *Config ) ( string, string, bool ) {
+    var vpnMissing bool = false
+    
+    // This information comes from Tunnelblick log
+    // It may no longer be active
+    tunName, curIP, err := vpn_info( config )
+    
+    if err != "" {
+        log.WithFields( log.Fields{
+            "type": "vpn_err",
+            "err": err,
+        } ).Info( err )
+        return "", "", true
+    }
     
     log.WithFields( log.Fields{
         "type": "info_vpn",
         "tunnel_name": tunName,
     } ).Info("Tunnel name")
     
-    if tunName != "none" {
-        vpnMissing = false
+    ipConfirm := getTunIP( tunName )
+    if ipConfirm != curIP {
+        // The tunnel is no longer active
+        vpnMissing = true
+    } else {
+        log.WithFields( log.Fields{
+            "type": "info_vpn",
+            "tunnel_name": tunName,
+            "ip": curIP,
+        } ).Info("IP on VPN")
     }
-    curIP := ifaceCurIP( tunName )
-    
-    log.WithFields( log.Fields{
-        "type": "info_vpn",
-        "tunnel_name": tunName,
-        "ip": curIP,
-    } ).Info("IP on VPN")
     
     return tunName, curIP, vpnMissing
 }
@@ -1148,23 +1176,10 @@ func cleanup_procs(config *Config) {
     }
 }
 
-func getTunName() string {
-    i := 0
-    iface := "none"
-    for {
-        cmd := fmt.Sprintf( "echo show State:/Network/Interface/utun%d/IPv4 | scutil | grep ' Addresses' -A 1 | tail -1 | awk '{print $3;}'", i )
-        out, _ := exec.Command( "bash", "-c", cmd ).Output()
-        if len( out ) > 0 {
-            iface = fmt.Sprintf( "utun%d", i )
-            break
-        }
-        i++
-        if i > 1 {
-            break
-        }
-    }
-
-    return iface
+func getTunIP( iface string ) string {
+    cmd := fmt.Sprintf( "echo show State:/Network/Interface/%s/IPv4 | scutil | grep ' Addresses' -A 1 | tail -1 | cut -d \\  -f 7 | tr -d \"\\n\"", iface )
+    out, _ := exec.Command( "bash", "-c", cmd ).Output()
+    return string( out )
 }
 
 func ifaceCurIP( tunName string ) string {
