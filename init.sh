@@ -38,8 +38,8 @@ function assert_has_xcodebuild() {
     XCODE_MINOR_VERSION=`echo $XCODE_VERSION | perl -pe 's/[0-9]+\.([0-9]+)/$1/'`
   fi
   
-  echo "XCODE Version: $XCODE_VERSION"
-  echo "XCODE Version: Major = $XCODE_MAJOR_VERSION, Minor = $XCODE_MINOR_VERSION"
+  #echo "XCODE Version: $XCODE_VERSION"
+  #echo "XCODE Version: Major = $XCODE_MAJOR_VERSION, Minor = $XCODE_MINOR_VERSION"
   
   if [ $XCODE_MAJOR_VERSION > 10 ]; then
     echo -e "${GR}Xcode $XCODE_VERSION installed$RST"
@@ -80,6 +80,6 @@ fi
 install_node8_if_needed
 assert_has_xcodebuild
 
-CACHE_FILE=$(brew --cache -s ./deps.rb|tr -d "\n")
+CACHE_FILE=$(brew --cache -s ./stf_ios_support.rb|tr -d "\n")
 cp empty.tgz "${CACHE_FILE}"
-HOMEBREW_NO_AUTO_UPDATE=1 brew install --build-from-source ./deps.rb
+HOMEBREW_NO_AUTO_UPDATE=1 brew install --build-from-source ./stf_ios_support.rb
