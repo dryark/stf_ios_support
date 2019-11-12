@@ -4,7 +4,11 @@ CONFNAME="$1"
 VPERR=""
 
 # Junk below mostly copied from Tunnelblick client.2.up.tunnelblick.sh
-TBCONFIG="/Users/davidh/Library/Application Support/Tunnelblick/Configurations/$1.tblk/Contents/Resources/config.ovpn"
+TBCONFIG="/Users/$USER/Library/Application Support/Tunnelblick/Configurations/$1.tblk/Contents/Resources/config.ovpn"
+if [ ! -f "$TBCONFIG" ]; then
+    TBCONFIG="/Library/Application Support/Tunnelblick/Shared/$1.tblk/Contents/Resources/config.ovpn"
+fi
+    
 if [ -f "$TBCONFIG" ]; then
     TBALTPREFIX="/Library/Application Support/Tunnelblick/Users/"
     TBALTPREFIXLEN="${#TBALTPREFIX}"
@@ -15,6 +19,7 @@ if [ -f "$TBCONFIG" ]; then
         TBUSERNAME="${TBBASE%%/*}"
         TBCONFIG="/Users/$TBUSERNAME/Library/Application Support/Tunnelblick/Configurations/$TBSUFFIX"
     fi
+    
     CONFIG_PATH_DASHES_SLASHES="$(echo "${TBCONFIG}" | sed -e 's/-/--/g' | sed -e 's/\//-S/g')"
     
     # Determine IP adddress and Tunnel name of most recent connection
