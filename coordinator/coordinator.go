@@ -197,7 +197,7 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
                 "server_hostname": serverHostname,
             } ).Info("Starting: stf_provider")
         
-            cmd := exec.Command( "node", "--inspect=127.0.0.1:9230", "runmod.js", "provider",
+            cmd := exec.Command( "/usr/local/opt/node@8/bin/node", "--inspect=127.0.0.1:9230", "runmod.js", "provider",
                 "--name"         , fmt.Sprintf("macmini/%s", clientHostname),
                 "--connect-sub"  , fmt.Sprintf("tcp://%s:7250", serverIP),
                 "--connect-push" , fmt.Sprintf("tcp://%s:7270", serverIP),
@@ -313,6 +313,9 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
             exit := devd.shuttingDown
             devd.lock.Unlock()
             if exit { break }
+            
+            // sleep before restart to prevent rapid failing attempts
+            time.Sleep( time.Second * 5 )
         }
     }()
 }
@@ -427,7 +430,15 @@ func coro_heartbeat( devEvent *DevEvent, pubEventCh chan<- PubEvent ) ( chan<- b
     return stopChannel
 }
 
-func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid string, devName string, pubEventCh chan<- PubEvent, lineLog *log.Entry ) {
+func proc_wdaproxy( 
+        config *Config, 
+        devd *RunningDev, 
+        devEvent *DevEvent, 
+        uuid string, 
+        devName string, 
+        pubEventCh chan<- PubEvent, 
+        lineLog *log.Entry,
+        iosVersion string ) {
     plog := log.WithFields( log.Fields{
         "proc": "wdaproxy",
         "uuid": devd.uuid,
@@ -445,19 +456,23 @@ func proc_wdaproxy( config *Config, devd *RunningDev, devEvent *DevEvent, uuid s
     }
     go func() {
         for {
+            ops := []string{
+              "-p", strconv.Itoa( wdaPort ),
+              "-d",
+              "-W", ".",
+              "-u", uuid,
+              "--iosversion", iosVersion,
+            }
+            
             plog.WithFields( log.Fields{
               "type": "proc_start",
               "port": wdaPort,
               "wda_folder": config.WDARoot,
+              "ops": ops,
             } ).Info("Starting wdaproxy")
             
-            cmd := exec.Command( "../../bin/wdaproxy",
-                "-p", strconv.Itoa( wdaPort ),
-                "-d",
-                "-W", ".",
-                "-u", uuid,
-            )
-        
+            cmd := exec.Command( "../../bin/wdaproxy", ops... )
+            
             cmd.Dir = config.WDARoot
         
             outputPipe, _ := cmd.StdoutPipe()
@@ -546,7 +561,7 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
               "client_ip": curIP,
             } ).Info("Starting stf_device_ios")
             
-            cmd := exec.Command( "node", "runmod.js", "device-ios",
+            cmd := exec.Command( "/usr/local/opt/node@8/bin/node", "runmod.js", "device-ios",
                 "--serial", uuid,
                 "--connect-push", pushStr,
                 "--connect-sub", subStr,
@@ -899,7 +914,9 @@ func main() {
     
     coro_http_server( config, devEventCh )
     proc_device_trigger( config, &baseProgs )
-    proc_video_enabler( config, &baseProgs )
+    if !config.SkipVideo {
+        proc_video_enabler( config, &baseProgs )
+    }
     
     if vpnMissing {
         log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
@@ -1074,6 +1091,7 @@ func event_loop(
             devd.name = getDeviceName( uuid )
             if devd.name == "" {
                 devd.failed = true
+                // TODO log an error
                 continue
             }
             devName := devd.name
@@ -1095,7 +1113,8 @@ func event_loop(
                 time.Sleep( time.Second * 9 )
             }
             
-            proc_wdaproxy( config, &devd, &devEvent, uuid, devName, pubEventCh, lineLog )
+            iosVersion := getDeviceInfo( uuid, "ProductVersion" )
+            proc_wdaproxy( config, &devd, &devEvent, uuid, devName, pubEventCh, lineLog, iosVersion )
             
             time.Sleep( time.Second * 3 )
             
@@ -1512,7 +1531,32 @@ func getDeviceName( uuid string ) (string) {
     nameStr = nameStr[:len(nameStr)-1]
     return nameStr
 }
-	
+
+func getDeviceInfo( uuid string, keyName string ) (string) {
+    i := 0
+    var nameStr string
+    for {
+        i++
+        if i > 10 { return "" }
+        name, _ := exec.Command( "ideviceinfo", "-u", uuid, "-k", keyName ).Output()
+        if name == nil || len(name) == 0 {
+            log.WithFields( log.Fields{
+                "type": "ilib_getinfo_fail",
+                "uuid": uuid,
+                "key": keyName,
+                "try": i,
+            } ).Debug("ideviceinfo returned nothing")
+    
+            time.Sleep( time.Millisecond * 100 )
+            continue
+        }
+        nameStr = string( name )
+        break
+    }
+    nameStr = nameStr[:len(nameStr)-1]
+    return nameStr
+}
+
 func startServer( devEventCh chan<- DevEvent, listen_addr string ) {
     log.WithFields( log.Fields{
         "type": "http_start",

@@ -14,8 +14,8 @@ function install_brew_if_needed() {
 
 function install_node8_if_needed() {
   NODE_MAJOR_VERSION="none"
-  if command -v node > /dev/null; then
-    NODE_VERSION=`node --version | tr -d "\n"`
+  if [ -f "/usr/local/opt/node@8/bin/node" ]; then
+    NODE_VERSION=`/usr/local/opt/node@8/bin/node --version | tr -d "\n"`
     NODE_MAJOR_VERSION=`echo $NODE_VERSION | perl -pe 's/v([0-9]+).+/$1/'`
   fi
   
@@ -23,7 +23,6 @@ function install_node8_if_needed() {
     echo -e "${RED}Node 8 not installed; installed node version: \"$NODE_MAJOR_VERSION\"$RST"
     echo -e "Installing Node 8 and setting up symlink"
     brew install node@8
-    echo 'export PATH="/usr/local/opt/node@8/bin:$PATH"' >> ~/.bash_profile
   else
     echo -e "${GR}Node 8 installed$RST"
   fi
@@ -53,19 +52,20 @@ function assert_has_xcodebuild() {
   fi
 }
 
-function contained() {
-  local e match="$1"
-  shift
-  for e; do [[ "$e" == "$match" ]] && return 0; done
-  return 1
-}
-
 rm pipe
 mkfifo pipe
 
 install_brew_if_needed
-brew install --HEAD usbmuxd
-brew install --HEAD libimobiledevice
+
+USBINFO=$( brew info usbmuxd | grep -- "--HEAD" | tr -d "\n" )
+if [ "$USBINFO" != "--HEAD" ]; then
+  brew install --HEAD usbmuxd
+fi
+
+LIBIINFO=$( brew info libimobiledevice | grep -- "--HEAD" | tr -d "\n" )
+if [ "$LIBIINFO" != "--HEAD" ]; then
+  brew install --HEAD libimobiledevice
+fi
 
 install_node8_if_needed
 assert_has_xcodebuild
