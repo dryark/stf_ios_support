@@ -1,9 +1,13 @@
-class Deps < Formula
+class StfIosSupport < Formula
   desc "OpenSTF IOS Device Provider"
   homepage ""
   url "https://github.com/nanoscopic/empty/archive/empty.tar.gz"
   version "1.0.0"
-  sha256 "548a04aaa960c0c9e9067e71a5b480d12f58325a34bf3c7774fda6682247da9a"
+  sha256 "324c7d7662fd392fa2b7e0c9ce2bb9fd2ff677403c31311b13ac64bd1a15cbf7"
+
+  def install
+    system "touch #{prefix}/intentionally_empty_install"
+  end
 
   # depends_on "cmake" => :build
   depends_on "jq"
