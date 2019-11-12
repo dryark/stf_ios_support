@@ -27,7 +27,7 @@ bin/ffmpeg: | ffmpegbin
 
 ffmpegbin: repos/ffmpeg/ffmpeg
 
-repos/ffmpeg/ffmpeg: repos/ffmpeg
+repos/ffmpeg/ffmpeg: | repos/ffmpeg
 	cd repos/ffmpeg && ./configure  --prefix=/usr/local --enable-gpl --enable-nonfree --enable-libx264 --enable-libx265 --enable-libxvid
 	$(MAKE) -C repos/ffmpeg
 
@@ -133,7 +133,7 @@ offline/repos/stf: stf
 
 offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf config.json view_log
 	$(RM) bin/wda_is_built
-	tar -h -czf offline/dist.tgz run deps.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/
+	tar -h -czf offline/dist.tgz run stf_ios_support.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/
 	touch bin/wda_is_built
 
 pipe:
