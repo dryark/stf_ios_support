@@ -57,7 +57,7 @@ bin/stf_ios_mirrorfeed: | repos/stf_ios_mirrorfeed repos/stf_ios_mirrorfeed/mirr
 
 video_enabler: bin/osx_ios_video_enabler
 
-bin/osx_ios_video_enabler: | repos/osx_ios_video_enabler
+bin/osx_ios_video_enabler: video_enabler/Makefile
 	$(MAKE) -C video_enabler
 
 # --- WDA / WebDriverAgent ---
@@ -107,9 +107,6 @@ repos/WebDriverAgent:
 
 repos/osx_ios_device_trigger:
 	git clone https://github.com/tmobile/osx_ios_device_trigger.git repos/osx_ios_device_trigger
-
-repos/osx_ios_video_enabler:
-	git clone https://github.com/nanoscopic/osx_ios_video_enabler.git repos/osx_ios_video_enabler
 
 repos/ffmpeg:
 	git clone https://github.com/nanoscopic/ffmpeg.git repos/ffmpeg
