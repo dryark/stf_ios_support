@@ -1,4 +1,4 @@
-all: bin/coordinator video_enabler mirrorfeed device_trigger stf wda ffmpegalias wdaproxyalias
+all: bin/coordinator video_enabler mirrorfeed device_trigger stf wda ffmpegalias wdaproxyalias view_log
 
 .PHONY: checkout stf video_enabler mirrorfeed device_trigger ffmpegalias ffmpegbin wda offline coordinator dist wdaproxyalias wdaproxybin
 checkout: repos/stf repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger
@@ -14,6 +14,9 @@ dist: offline/dist.tgz
 coordinator: bin/coordinator
 wdaproxyalias: bin/wdaproxy
 wdaproxybin: repos/wdaproxy/wdaproxy
+
+view_log: view_log.go
+	go build view_log.go
 
 bin/ffmpeg: | ffmpegbin
 	@if [ -e bin/ffmpeg ]; then rm bin/ffmpeg; fi;
@@ -90,9 +93,9 @@ offline/repos/stf: repos/stf/node_modules
 config.json:
 	cp config.json.example config.json
 
-offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf config.json
+offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf config.json view_log
 	$(RM) bin/wda_is_built
-	tar -h -czf offline/dist.tgz deps.rb *.sh empty.tgz bin/ config.json -C offline repos/
+	tar -h -czf offline/dist.tgz run deps.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/
 	touch bin/wda_is_built
 
 pipe:
@@ -105,6 +108,9 @@ clean:
 
 cleanstf:
 	$(MAKE) -C repos/stf clean
+
+cleanwda:
+	$(RM) bin/wda/is_built
 
 bin/wda/is_built: repos/WebDriverAgent/WebDriverAgent.xcodeproj
 	@if [ -e bin/wda ]; then rm -rf bin/wda; fi;
