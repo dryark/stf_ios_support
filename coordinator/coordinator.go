@@ -915,6 +915,7 @@ func main() {
     coro_http_server( config, devEventCh )
     proc_device_trigger( config, &baseProgs )
     if !config.SkipVideo {
+        ensure_proper_pipe( config )
         proc_video_enabler( config, &baseProgs )
     }
     
@@ -931,6 +932,30 @@ func main() {
     
     // process devEvents
     event_loop( config, curIP, devEventCh, tunName, pubEventCh, runningDevs, wdaPorts, vidPorts, lineLog )
+}
+
+func ensure_proper_pipe( config *Config ) {
+    file := config.Pipe
+    info, err := os.Stat( file )
+    if os.IsNotExist( err ) {
+        log.WithFields( log.Fields{
+            "type": "pipe_create",
+            "pipe_file": file,
+        } ).Info("Pipe did not exist; creating as fifo")
+        // create the pipe
+        syscall.Mkfifo( file, 0600 )
+        return
+    }
+    mode := info.Mode()
+    if mode != os.ModeNamedPipe {
+        log.WithFields( log.Fields{
+            "type": "pipe_fix",
+            "pipe_file": file,
+        } ).Info("Pipe was incorrect type; deleting and recreating as fifo")
+        // delete the file then create it properly as a pipe
+        os.Remove( file )
+        syscall.Mkfifo( file, 0600 )
+    }
 }
 
 func construct_ports( config *Config, spec string ) ( map [int] *PortItem ) {
