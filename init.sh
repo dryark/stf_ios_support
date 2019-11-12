@@ -57,14 +57,24 @@ mkfifo pipe
 
 install_brew_if_needed
 
-USBINFO=$( brew info usbmuxd | grep -- "--HEAD" | tr -d "\n" )
-if [ "$USBINFO" != "--HEAD" ]; then
+USBINFO=$( brew info usbmuxd | grep Cellar/libusbmuxd | cut -d\/ -f6 | cut -d\  -f1 | cut -d\. -f1,2 | cut -d\- -f1 )
+if [ "$USBINFO" == "" ]; then
   brew install --HEAD usbmuxd
+else
+  if [ "$USBINFO" != "HEAD" ]; then
+    brew uninstall usbmuxd --ignore-dependencies
+    brew install --HEAD usbmuxd
+  fi
 fi
 
-LIBIINFO=$( brew info libimobiledevice | grep -- "--HEAD" | tr -d "\n" )
-if [ "$LIBIINFO" != "--HEAD" ]; then
+LIBIINFO=$( brew info libimobiledevice | grep Cellar/libimobiledevice | cut -d\/ -f6 | cut -d\  -f1 | cut -d\. -f1,2 | cut -d\- -f1 )
+if [ "$LIBIINFO" == "" ]; then
   brew install --HEAD libimobiledevice
+else
+  if [ "$LIBIINFO" != "HEAD" ]; then
+    brew uninstall libimobiledevice --ignore-dependencies
+    brew install --HEAD libimobiledevice
+  fi
 fi
 
 install_node8_if_needed
