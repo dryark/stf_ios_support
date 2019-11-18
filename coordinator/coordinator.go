@@ -98,9 +98,24 @@ type Vpn struct {
 
 var gStop bool
 
-func read_config() *Config {
-    configFile := "config.json"
-    configFh, err := os.Open(configFile)   
+func read_config( configPath string ) *Config {
+    fh, serr := os.Stat( configPath )
+    if serr != nil {
+        log.WithFields( log.Fields{
+            "type": "err_read_config",
+            "error": serr,
+            "config_path": configPath,
+        } ).Fatal("Could not read specified config path")
+    }    
+    var configFile string
+    switch mode := fh.Mode(); {
+        case mode.IsDir():
+            configFile = fmt.Sprintf("%s/config.json", configPath)
+        case mode.IsRegular():
+            configFile = configPath
+    }
+    
+    configFh, err := os.Open( configFile )   
     if err != nil {
         log.WithFields( log.Fields{
             "type": "err_read_config",
@@ -335,9 +350,7 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
     }
     go func() {
         for {
-            plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Starting: ffmpeg")
-          
-            cmd := exec.Command( "./run-ffmpeg.sh", 
+            ops := []string{
                 config.Ffmpeg,
                 config.Pipe,
                 devName,
@@ -349,7 +362,15 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
                 "-vsync", "2",
                 "-nostats",
                 // "-progress", "[url]",
-                "pipe:1" )
+                "pipe:1",
+            }
+            
+            plog.WithFields( log.Fields{
+                "type": "proc_start",
+                "ops": ops,
+            } ).Info("Starting: ffmpeg")
+            
+            cmd := exec.Command( "./run-ffmpeg.sh", ops... )
             
             outputPipe, _ := cmd.StderrPipe()
             cmd.Stdout = os.Stdout
@@ -456,12 +477,13 @@ func proc_wdaproxy(
     }
     go func() {
         for {
+            iversion := fmt.Sprintf("--iosversion=%s", iosVersion)
             ops := []string{
               "-p", strconv.Itoa( wdaPort ),
               "-d",
               "-W", ".",
               "-u", uuid,
-              "--iosversion", iosVersion,
+              iversion,
             }
             
             plog.WithFields( log.Fields{
@@ -879,6 +901,7 @@ func main() {
     var debug = flag.Bool( "debug", false, "Use debug log level" )
     var jsonLog = flag.Bool( "json", false, "Use json log output" )
     var vpnlist = flag.Bool( "vpnlist", false, "List VPNs then exit" )
+    var configFile = flag.String( "config", "config.json", "Config file path" )
     flag.Parse()
     
     if *vpnlist {
@@ -890,7 +913,7 @@ func main() {
         os.Exit(0)
     }
     
-    config := read_config()
+    config := read_config( *configFile )
     
     check_vpn_status( config )
     
@@ -1562,7 +1585,15 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
     var nameStr string
     for {
         i++
-        if i > 10 { return "" }
+        if i > 30 {
+            log.WithFields( log.Fields{
+                "type": "ilib_getinfo_fail",
+                "uuid": uuid,
+                "key": keyName,
+                "try": i,
+            } ).Debug("ideviceinfo failed after 30 attempts over 10 seconds")
+            return "" 
+        }
         name, _ := exec.Command( "ideviceinfo", "-u", uuid, "-k", keyName ).Output()
         if name == nil || len(name) == 0 {
             log.WithFields( log.Fields{
@@ -1572,7 +1603,7 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
                 "try": i,
             } ).Debug("ideviceinfo returned nothing")
     
-            time.Sleep( time.Millisecond * 100 )
+            time.Sleep( time.Millisecond * 300 )
             continue
         }
         nameStr = string( name )
