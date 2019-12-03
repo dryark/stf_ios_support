@@ -2,6 +2,7 @@ package main
 
 import (
     "bufio"
+    "bytes"
     "context"
     "encoding/json"
     "flag"
@@ -19,7 +20,7 @@ import (
     "sync"
     "syscall"
     "time"
-    "html/template"
+    "text/template"
     
     log "github.com/sirupsen/logrus"
     ps "github.com/jviney/go-proc"
@@ -480,6 +481,7 @@ func proc_wdaproxy(
             iversion := fmt.Sprintf("--iosversion=%s", iosVersion)
             ops := []string{
               "-p", strconv.Itoa( wdaPort ),
+              "-q", strvonc.Itoa( wdaPort ),
               "-d",
               "-W", ".",
               "-u", uuid,
@@ -588,7 +590,8 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 "--connect-push", pushStr,
                 "--connect-sub", subStr,
                 "--public-ip", curIP,
-                "--wda-port", strconv.Itoa( config.WDAProxyPort ), 
+                "--wda-port", strconv.Itoa( config.WDAProxyPort ),
+                "--screen-ws-url-pattern", fmt.Sprintf( "wss://%s", hostName ),
                 //"--vid-port", strconv.Itoa( config.MirrorFeedPort ),
             )
             cmd.Dir = "./repos/stf"
@@ -874,12 +877,14 @@ func vpns_getall() ( map [string] *Vpn ) {
 }
 
 func check_vpn_status( config *Config ) {
+    vpnName := config.VpnName
+    
     if _, err := os.Stat("/Applications/Tunnelblick.app"); os.IsNotExist(err) {
         // Tunnelblick is not installed; don't try to call it
         log.WithFields( log.Fields{ "type": "vpn_error" } ).Error("Tunnelblick is not installed")
         return
     }
-    vpnName := config.VpnName
+    
     vpns := vpns_getall()
     if vpn, exists := vpns[ vpnName ]; exists {
         if vpn.state == "DISCONNECTED" {
@@ -915,7 +920,14 @@ func main() {
     
     config := read_config( *configFile )
     
-    check_vpn_status( config )
+    useVPN := true
+    if vpnName == "none" {
+        useVPN := false
+    }
+    
+    if useVPN {
+        check_vpn_status( config )
+    }
     
     lineLog := setup_log( config, *debug, *jsonLog )
     
@@ -924,7 +936,15 @@ func main() {
     coro_zmqReqRep()
     coro_zmqPub( pubEventCh )
     
-    tunName, curIP, vpnMissing := get_net_info( config )
+    var ifName string
+    var curIP string
+    var vpnMissing bool
+    if useVPN {
+        ifName, curIP, vpnMissing = get_net_info( config )
+    } else {
+        ifName = config.NetworkInterface
+        curIP = ifAddr( ifName )
+    }
 
     cleanup_procs( config )
         
@@ -935,26 +955,30 @@ func main() {
     baseProgs := BaseProgs{}
     baseProgs.shuttingDown = false
     
-    coro_http_server( config, devEventCh )
+    coro_http_server( config, devEventCh, &baseProgs, runningDevs )
     proc_device_trigger( config, &baseProgs )
     if !config.SkipVideo {
         ensure_proper_pipe( config )
         proc_video_enabler( config, &baseProgs )
     }
     
-    if vpnMissing {
-        log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
-        baseProgs.stf = nil
+    if useVPN {
+        if vpnMissing {
+            log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
+            baseProgs.stf = nil
+        } else {
+            // start stf and restart it when needed
+            // TODO: if it doesn't restart / crashes again; give up
+            proc_stf_provider( &baseProgs, curIP, config, lineLog )
+        }
     } else {
-        // start stf and restart it when needed
-        // TODO: if it doesn't restart / crashes again; give up
         proc_stf_provider( &baseProgs, curIP, config, lineLog )
     }
 	
     coro_sigterm( runningDevs, &baseProgs, config )
     
     // process devEvents
-    event_loop( config, curIP, devEventCh, tunName, pubEventCh, runningDevs, wdaPorts, vidPorts, lineLog )
+    event_loop( config, curIP, devEventCh, ifName, pubEventCh, runningDevs, wdaPorts, vidPorts, lineLog )
 }
 
 func ensure_proper_pipe( config *Config ) {
@@ -997,10 +1021,36 @@ func construct_ports( config *Config, spec string ) ( map [int] *PortItem ) {
     return ports
 }
 
-func coro_http_server( config *Config, devEventCh chan<- DevEvent ) {
+func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *BaseProgs, runningDevs map [string] *RunningDev ) {
     // start web server waiting for trigger http command for device connect and disconnect
     var listen_addr = fmt.Sprintf( "0.0.0.0:%d", config.CoordinatorPort )
-    go startServer( devEventCh, listen_addr )
+    go startServer( devEventCh, listen_addr, baseProgs, runningDevs )
+}
+
+func ifAddr( ifName string ) ( addr string ) {
+    addr = ""
+    for _, iface := range ifaces {
+        addrs, err := iface.Addrs()
+        if err != nil {
+            fmt.Printf( err.Error() )
+            os.Exit( 1 )
+        }
+        for _, addr := range addrs {
+            var ip net.IP
+            switch v := addr.(type) {
+                case *net.IPNet:
+                    ip = v.IP
+                case *net.IPAddr:
+                    ip = v.IP
+                default:
+                    fmt.Printf("Unknown type\n")
+            }
+            if iface.Name == ifName {
+                addr = ip.String()
+            }
+        }
+    }
+    return addr
 }
 
 func vpn_info( config *Config ) ( string, string, string ) {
@@ -1250,49 +1300,14 @@ func getTunIP( iface string ) string {
 }
 
 func ifaceCurIP( tunName string ) string {
-    ifaces, err := net.Interfaces()
-    if err != nil {
-        fmt.Printf( err.Error() )
-        os.Exit( 1 )
-    }
-    
-    ipStr := ""
-    
-    foundInterface := false
-    for _, iface := range ifaces {
-        addrs, err := iface.Addrs()
-        if err != nil {
-            fmt.Printf( err.Error() )
-            os.Exit( 1 )
-        }
-        for _, addr := range addrs {
-            var ip net.IP
-            switch v := addr.(type) {
-                case *net.IPNet:
-                    ip = v.IP
-                case *net.IPAddr:
-                    ip = v.IP
-                default:
-            }
-            
-            log.WithFields( log.Fields{
-                "type": "net_interface_found",
-                "interface_name": iface.Name,
-            } ).Debug("Found an interface")
-            
-            if iface.Name == tunName {
-                log.WithFields( log.Fields{
-                    "type": "net_interface_info",
-                    "interface_name": tunName,
-                    "ip": ip.String(),
-                } ).Debug("Interface Details")
-            
-                ipStr = ip.String()
-                foundInterface = true
-            }
-        }
-    }
-    if foundInterface == false {
+    ipStr := ifAddr( tunName )
+    if ipStr != "" {
+        log.WithFields( log.Fields{
+            "type": "net_interface_info",
+            "interface_name": tunName,
+            "ip": ip.String(),
+        } ).Debug("Interface Details")
+    } else {
         log.WithFields( log.Fields{
             "type": "err_net_interface",
             "interface_name": tunName,
@@ -1562,7 +1577,7 @@ func getDeviceName( uuid string ) (string) {
     for {
         i++
         if i > 10 { return "" }
-        name, _ := exec.Command( "idevicename", "-u", uuid ).Output()
+        name, _ := exec.Command( "/usr/local/bin/idevicename", "-u", uuid ).Output()
         if name == nil || len(name) == 0 {
             log.WithFields( log.Fields{
                 "type": "ilib_getname_fail",
@@ -1580,6 +1595,21 @@ func getDeviceName( uuid string ) (string) {
     return nameStr
 }
 
+func getAllDeviceInfo( uuid string ) map[string] string {
+    rawInfo := getDeviceInfo( uuid, "" )
+    lines := strings.Split( rawInfo, "\n" )
+    info := make( map[string] string )
+    for _, line := range lines {
+        char1 := line[0:1]
+        if char1 == " " { continue }
+        colonPos := strings.Index( line, ":" )
+        key := line[0:colonPos]
+        val := line[(colonPos+2):]
+        info[ key ] = val
+    }
+    return info
+}
+
 func getDeviceInfo( uuid string, keyName string ) (string) {
     i := 0
     var nameStr string
@@ -1594,7 +1624,15 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
             } ).Debug("ideviceinfo failed after 30 attempts over 10 seconds")
             return "" 
         }
-        name, _ := exec.Command( "ideviceinfo", "-u", uuid, "-k", keyName ).Output()
+        
+        ops := []string{
+          "-u", uuid,
+        }
+        if keyName != "" {
+          ops = append( ops, "-k", keyName )
+        }
+        
+        name, _ := exec.Command( "/usr/local/bin/ideviceinfo", ops... ).Output()
         if name == nil || len(name) == 0 {
             log.WithFields( log.Fields{
                 "type": "ilib_getinfo_fail",
@@ -1613,12 +1651,19 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
     return nameStr
 }
 
-func startServer( devEventCh chan<- DevEvent, listen_addr string ) {
+func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *BaseProgs, runningDevs map [string] *RunningDev ) {
     log.WithFields( log.Fields{
         "type": "http_start",
     } ).Info("HTTP started")
         
-    http.HandleFunc( "/", handleRoot )
+    rootClosure := func( w http.ResponseWriter, r *http.Request ) {
+        handleRoot( w, r, baseProgs, runningDevs )
+    }
+    devinfoClosure := func( w http.ResponseWriter, r *http.Request ) {
+        reqDevInfo( w, r, baseProgs, runningDevs )
+    }
+    http.HandleFunc( "/devinfo", devinfoClosure )
+    http.HandleFunc( "/", rootClosure )
     connectClosure := func( w http.ResponseWriter, r *http.Request ) {
         deviceConnect( w, r, devEventCh )
     }
@@ -1630,8 +1675,71 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string ) {
     log.Fatal( http.ListenAndServe( listen_addr, nil ) )
 }
 
-func handleRoot( w http.ResponseWriter, r *http.Request ) {
-    rootTpl.Execute( w, "ws://"+r.Host+"/echo" )
+func reqDevInfo( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map [string] *RunningDev ) {
+    query := r.URL.Query()
+    uuid := query.Get("uuid")
+    info := getAllDeviceInfo( uuid )
+    
+    names := map[string]string{
+        "DeviceName": "Device Name",
+        "EthernetAddress": "MAC",
+        "InternationalCircuitCardIdentity": "ICCI",
+        "InternationalMobileEquipmentIdentity": "IMEI",
+        "InternationalMobileSubscriberIdentity": "IMSI",
+        "ModelNumber": "Model",
+        //"HardwareModel": "Hardware Model",
+        "PhoneNumber": "Phone Number",
+        "ProductType": "Product",
+        "ProductVersion": "IOS Version",
+        "UniqueDeviceID": "Wifi MAC",        
+    }
+    
+    for key, descr := range names {
+        val := info[key]
+        fmt.Fprintf( w, "%s: %s<br>\n", descr, val )
+    }
+}
+
+func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map [string] *RunningDev ) {
+    device_trigger := "<font color='green'>on</font>"
+    if baseProgs.trigger == nil { device_trigger = "off" }
+    video_enabler := "<font color='green'>on</font>"
+    if baseProgs.vidEnabler == nil { video_enabler = "off" }
+    stf := "<font color='green'>on</font>"
+    if baseProgs.stf == nil { stf = "off" }
+    
+    devOut := ""
+    for _, dev := range runningDevs {
+        mirror := "<font color='green'>on</font>"
+        if dev.mirror == nil { mirror = "off" }
+        
+        ff := "<font color='green'>on</font>"
+        if dev.ff == nil { ff = "off" }
+        
+        proxy := "<font color='green'>on</font>"
+        if dev.proxy == nil { proxy = "off" }
+        
+        device := "<font color='green'>on</font>"
+        if dev.device == nil { device = "off" }
+        
+        var str bytes.Buffer
+        deviceTpl.Execute( &str, map[string]string{
+            "uuid": "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
+            "name": dev.name,
+            "mirror": mirror,
+            "ff": ff,
+            "proxy": proxy,
+            "device": device,
+        } )
+        devOut += str.String()
+    }
+    
+    rootTpl.Execute( w, map[string]string{
+        "device_trigger": device_trigger,
+        "video_enabler": video_enabler,
+        "stf": stf,
+        "devices": devOut,
+    } )
 }
 
 func fixUuid( uuid string ) (string) {
@@ -1665,13 +1773,58 @@ func deviceDisconnect( w http.ResponseWriter, r *http.Request, devEventCh chan<-
     devEventCh <- devEvent
 }
 
-var rootTpl = template.Must(template.New("").Parse(`
+var deviceTpl = template.Must(template.New("device").Parse(`
+<table border=1 cellpadding=5 cellspacing=0>
+  <tr>
+    <td>UUID</td>
+    <td>{{.uuid}}</td>
+  </tr>
+  <tr>
+    <td>Name</td>
+    <td>{{.name}}</td>
+  </tr>
+  <tr>
+    <td>Video Mirror</td>
+    <td>{{.mirror}}</td>
+  </tr>
+  <tr>
+    <td>FFMpeg</td>
+    <td>{{.ff}}</td>
+  </tr>
+  <tr>
+    <td>WDA Proxy</td>
+    <td>{{.proxy}}</td>
+  </tr>
+  <tr>
+    <td>STF Device-IOS Unit</td>
+    <td>{{.device}}</td>
+  </tr>
+</table>
+`))
+
+var rootTpl = template.Must(template.New("root").Parse(`
 <!DOCTYPE html>
 <html>
 	<head>
 	</head>
 	<body>
-	test
+	Base Processes:
+	<table border=1 cellpadding=5 cellspacing=0>
+	  <tr>
+	    <td>Device Trigger</td>
+	    <td>{{.device_trigger}}</td>
+	  </tr>
+	  <tr>
+	    <td>Video Enabler</td>
+	    <td>{{.video_enabler}}</td>
+	  </tr>
+	  <tr>
+	    <td>STF</td>
+	    <td>{{.stf}}</td>
+	  </tr>
+  </table><br><br>
+	
+	Devices:<br>{{.devices}}
 	</body>
 </html>
 `))

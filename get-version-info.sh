@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/python
 
 import json
 import os
@@ -8,7 +8,7 @@ import sys
 def git_info( dir, ascend ):
   os.chdir( dir )
   res = subprocess.check_output( "git log -1 | head -3", shell=True )
-  remote = subprocess.check_output( ["/usr/local/bin/git", "remote","-v"] )
+  remote = subprocess.check_output( ["/usr/bin/git", "remote","-v"] )
   os.chdir( ascend )
   
   res = res[:-1] # remove trailing "\n"

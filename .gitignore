@@ -2,3 +2,11 @@ repos
 bin
 offline/*.tgz
 offline/stf_ios_support
+icon/stf.icns
+icon/stf.iconset/
+icon/stf.iconset1/
+icon/stf.iconset2/
+config.json
+log
+log_lines
+STF Coordinator.app/

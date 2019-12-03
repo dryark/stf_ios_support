@@ -7,5 +7,6 @@
 	"skip_video": false,
 	"log_file": "log",
 	"lines_log_file": "log_lines",
-	"vpn_name": "tunnelblick_conf_name"
+	"vpn_name": "none",
+	"network_interface": "eth0"
 }

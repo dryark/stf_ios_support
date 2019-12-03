@@ -31,6 +31,7 @@ bin/osx_ios_device_trigger: | repos/osx_ios_device_trigger
 # --- VIEW LOG ---
 
 view_log: view_log.go
+	go get github.com/fsnotify/fsnotify
 	go build view_log.go
 
 # --- FFMPEG ---
@@ -113,13 +114,15 @@ bin/wdaproxy: | wdaproxybin
 checkout: repos/stf repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger
 
 repos/stf:
-	git clone https://github.com/tmobile/stf.git repos/stf --branch ios-support
+	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/tmobile/stf.git"' config.json -j))
+	git clone $REPO repos/stf --branch ios-support
 
 repos/stf_ios_mirrorfeed:
 	git clone https://github.com/tmobile/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
 
 repos/WebDriverAgent:
-	git clone https://github.com/petemyron/WebDriverAgent.git repos/WebDriverAgent --branch video-stream-control
+	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/petemyron/WebDriverAgent.git"' config.json -j))
+	git clone $REPO repos/WebDriverAgent --branch video-stream-control
 
 repos/osx_ios_device_trigger:
 	git clone https://github.com/tmobile/osx_ios_device_trigger.git repos/osx_ios_device_trigger

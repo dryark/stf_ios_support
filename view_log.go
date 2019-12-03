@@ -2,6 +2,7 @@ package main
 
 import (
     "bufio"
+    "bytes"
     "fmt"
     "io"
     "encoding/json"
@@ -15,11 +16,15 @@ func main() {
     fileName := "log_lines"
     
     if len( os.Args ) < 2 {
-        fmt.Println("specify a log to view / tail:\n  wdaproxy\n  stf_device_ios\n  device_trigger\n  video_enabler\n  stf_provider\n  ffmpeg\n")
+        fmt.Println("specify a log to view / tail:\n  wdaproxy\n  stf_device_ios\n  device_trigger\n  video_enabler\n  stf_provider\n  ffmpeg\n  wda\n")
         os.Exit( 0 )
     }
     
     findProc := os.Args[1]
+    
+    if findProc == "wda" {
+        fileName = "bin/wda/req_log.json"
+    }
     
     watcher, err := fsnotify.NewWatcher()
     if err != nil {
@@ -88,11 +93,48 @@ func checkLine( data []byte, findProc string ) {
             panic(err)
         }
         
-        proc := dat["proc"].(string)
-        if proc == findProc {
-            //fmt.Println(dat)
-            line := dat["line"].(string)
-            fmt.Println( line )
+        if findProc == "wda" {
+            //fmt.Println( part )
+            typeif := dat["type"]
+            if typeif != nil {
+                typ := typeif.(string)
+                //fmt.Println( typ )
+                if typ == "req.start" {
+                    if dat["body_in"] != nil {
+                        inStr := dat["body_in"].(string)
+                        
+                        fmt.Printf("Req URI: %s\n", dat["uri"].(string) )
+                        if inStr[:1] == "{" {
+                            var prettyJSON bytes.Buffer
+                            error := json.Indent(&prettyJSON, []byte( inStr ), "", "  ")
+                            if error != nil {
+                                fmt.Println( inStr )
+                            } else {
+                                fmt.Println( prettyJSON.String() )
+                            }
+    
+                            //dec2 :=- json.NewDecoder( strings.NewReader( dat["body_in"].(string)  ) )
+                            //err = dec2.Decode( &dat )
+                        } else {
+                            fmt.Println( inStr )
+                        }
+                    }
+                } else if typ == "req.done" {
+                    if dat["body_out"] != nil {
+                        outStr := dat["body_out"].(string)
+                        fmt.Printf("Response to URI: %s\n", dat["uri"].(string) )
+                        
+                        fmt.Println( outStr )
+                    }
+                }
+            }
+        } else {
+            proc := dat["proc"].(string)
+            if proc == findProc {
+                //fmt.Println(dat)
+                line := dat["line"].(string)
+                fmt.Println( line )
+            }
         }
     }
 }
