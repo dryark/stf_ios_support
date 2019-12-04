@@ -1,0 +1,187 @@
+version: '2'
+
+volumes:
+  rethinkdb:
+  storage-temp:
+
+services:
+  nginx:
+    build: nginx/
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      # You'll need to set the paths below to where your certs actually are
+      - /todo/yourpath/fullchain.pem:/etc/nginx/ssl/cert.pem
+      - /todo/yourpath/privkey.pem:/etc/nginx/ssl/cert.key
+      - /todo/yourpath/dhparam.pem:/etc/nginx/ssl/dhparam.pem
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - app
+      - auth
+      - storage-plugin-apk
+      - storage-plugin-image
+      - storage-temp
+      - websocket
+      - api
+  rethinkdb:
+    image: rethinkdb:2.3
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    volumes:
+      - rethinkdb:/data
+  app:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    environment:
+      - RETHINKDB_PORT_28015_TCP
+      - SECRET
+    command: >
+      node runcli.js app 
+      --auth-url https://${HOSTNAME}/auth/mock/
+      --websocket-url wss://${STF_URI}/ --port 3000
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    ports:
+      - 10006:9229
+    depends_on:
+      - rethinkdb
+      - auth
+      - websocket
+  auth:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    environment:
+      - SECRET
+    command: stf auth-mock --app-url http://${PUBLIC_IP}/ --port 3000
+  processor:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    environment:
+      - RETHINKDB_PORT_28015_TCP
+    command: >
+      node runcli.js processor
+      --connect-app-dealer tcp://triproxy:7160
+      --connect-dev-dealer tcp://dev-triproxy:7260
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    ports:
+      - 10002:9229
+    depends_on:
+      - rethinkdb
+      - triproxy
+      - dev-triproxy
+  triproxy:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    command: >
+      node runcli.js triproxy app
+      --bind-pub "tcp://*:7150"
+      --bind-dealer "tcp://*:7160"
+      --bind-pull "tcp://*:7170"
+    volumes:
+      - ./runcli.js:/app/runcli.js  
+    ports:
+      - 10005:9229
+  dev-triproxy:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    command: >
+      node runcli.js triproxy dev
+      --bind-pub "tcp://*:7250"
+      --bind-dealer "tcp://*:7260"
+      --bind-pull "tcp://*:7270"
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    ports:
+      - 7250:7250
+      - 7270:7270
+      - 10003:9229
+  migrate:
+    image: ${STF_IMAGE}
+    environment:
+      - RETHINKDB_PORT_28015_TCP
+    command: stf migrate
+    depends_on:
+      - rethinkdb
+  reaper:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    environment:
+      - RETHINKDB_PORT_28015_TCP
+    depends_on:
+      - migrate
+      - rethinkdb
+      - dev-triproxy
+      - triproxy
+    command: >
+      stf reaper dev
+      --connect-push tcp://dev-triproxy:7270
+      --connect-sub tcp://triproxy:7150
+      --heartbeat-timeout 30000
+  storage-plugin-apk:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    command: stf storage-plugin-apk --port 3000 --storage-url http://${PUBLIC_IP}/
+    depends_on:
+      - storage-temp
+  storage-plugin-image:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    command: stf storage-plugin-image --port 3000 --storage-url http://${PUBLIC_IP}/
+    depends_on:
+      - storage-temp
+  storage-temp:
+    build: storage-temp/
+    restart: unless-stopped
+    volumes:
+      - storage-temp:/app/data
+    command: stf storage-temp --port 3000 --save-dir /app/data
+  websocket:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    environment:
+      - SECRET
+      - RETHINKDB_PORT_28015_TCP
+    command: >
+      node runcli.js
+      websocket
+      --port 3000
+      --storage-url http://${PUBLIC_IP}/
+      --connect-sub tcp://triproxy:7150
+      --connect-push tcp://triproxy:7170
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    ports:
+      - 10004:9229
+    depends_on:
+      - migrate
+      - rethinkdb
+      - storage-temp
+      - triproxy
+      - dev-triproxy
+  api:
+    image: ${STF_IMAGE}
+    restart: unless-stopped
+    environment:
+      - SECRET
+      - RETHINKDB_PORT_28015_TCP
+    command: >
+      node runcli.js
+      api
+      --port 3000
+      --connect-sub tcp://triproxy:7150
+      --connect-push tcp://triproxy:7170
+    ports:
+      - 10001:9229
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    ports:
+      - 9229:9229
+    depends_on:
+      - migrate
+      - rethinkdb
+      - triproxy
+
