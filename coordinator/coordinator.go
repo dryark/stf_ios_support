@@ -46,6 +46,7 @@ type Config struct {
     LogFile         string `json:"log_file"`
     LinesLogFile    string `json:"lines_log_file"`
     VpnName         string `json:"vpn_name"`
+    NetworkInterface string `json:"network_interface"`
 }
 
 type VpnInfo struct {
@@ -481,7 +482,7 @@ func proc_wdaproxy(
             iversion := fmt.Sprintf("--iosversion=%s", iosVersion)
             ops := []string{
               "-p", strconv.Itoa( wdaPort ),
-              "-q", strvonc.Itoa( wdaPort ),
+              "-q", strconv.Itoa( wdaPort ),
               "-d",
               "-W", ".",
               "-u", uuid,
@@ -591,7 +592,7 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 "--connect-sub", subStr,
                 "--public-ip", curIP,
                 "--wda-port", strconv.Itoa( config.WDAProxyPort ),
-                "--screen-ws-url-pattern", fmt.Sprintf( "wss://%s", hostName ),
+                "--screen-ws-url-pattern", fmt.Sprintf( "wss://%s", config.STFHostname ),
                 //"--vid-port", strconv.Itoa( config.MirrorFeedPort ),
             )
             cmd.Dir = "./repos/stf"
@@ -921,8 +922,8 @@ func main() {
     config := read_config( *configFile )
     
     useVPN := true
-    if vpnName == "none" {
-        useVPN := false
+    if config.VpnName == "none" {
+        useVPN = false
     }
     
     if useVPN {
@@ -1027,8 +1028,14 @@ func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *Ba
     go startServer( devEventCh, listen_addr, baseProgs, runningDevs )
 }
 
-func ifAddr( ifName string ) ( addr string ) {
-    addr = ""
+func ifAddr( ifName string ) ( addrOut string ) {
+    ifaces, err := net.Interfaces()
+    if err != nil {
+        fmt.Printf( err.Error() )
+        os.Exit( 1 )
+    }
+    
+    addrOut = ""
     for _, iface := range ifaces {
         addrs, err := iface.Addrs()
         if err != nil {
@@ -1046,11 +1053,11 @@ func ifAddr( ifName string ) ( addr string ) {
                     fmt.Printf("Unknown type\n")
             }
             if iface.Name == ifName {
-                addr = ip.String()
+                addrOut = ip.String()
             }
         }
     }
-    return addr
+    return addrOut
 }
 
 func vpn_info( config *Config ) ( string, string, string ) {
@@ -1305,7 +1312,7 @@ func ifaceCurIP( tunName string ) string {
         log.WithFields( log.Fields{
             "type": "net_interface_info",
             "interface_name": tunName,
-            "ip": ip.String(),
+            "ip": ipStr,
         } ).Debug("Interface Details")
     } else {
         log.WithFields( log.Fields{
