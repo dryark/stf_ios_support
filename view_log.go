@@ -3,26 +3,37 @@ package main
 import (
     "bufio"
     "bytes"
+    "flag"
     "fmt"
     "io"
+    "io/ioutil"
     "encoding/json"
-    "log"
     "os"
     "strings"
     "github.com/fsnotify/fsnotify"
+    log "github.com/sirupsen/logrus"
 )
 
+type Config struct {
+    LogFile         string `json:"log_file"`
+    LinesLogFile    string `json:"lines_log_file"`
+}
+
 func main() {
-    fileName := "log_lines"
+    var configFile = flag.String( "config", "config.json", "Config file path" )
+    var findProc   = flag.String( "proc"  , ""           , "Process to view log of" )
+    flag.Parse()
     
-    if len( os.Args ) < 2 {
-        fmt.Println("specify a log to view / tail:\n  wdaproxy\n  stf_device_ios\n  device_trigger\n  video_enabler\n  stf_provider\n  ffmpeg\n  wda\n")
+    config := read_config( *configFile )
+  
+    fileName := config.LinesLogFile
+    
+    if *findProc == "" {
+        fmt.Println("specify a log to view / tail ( view_log -proc [proc] ):\n  wdaproxy\n  stf_device_ios\n  device_trigger\n  video_enabler\n  stf_provider\n  ffmpeg\n  wda\n")
         os.Exit( 0 )
     }
     
-    findProc := os.Args[1]
-    
-    if findProc == "wda" {
+    if *findProc == "wda" {
         fileName = "bin/wda/req_log.json"
     }
     
@@ -42,7 +53,7 @@ func main() {
     
     scanner  := bufio.NewScanner( fh )
     for scanner.Scan() {
-        checkLine( []byte( scanner.Text() ), findProc )
+        checkLine( []byte( scanner.Text() ), *findProc )
     }
     
     err = watcher.Add( fileName )
@@ -66,13 +77,46 @@ func main() {
                         fh.Read( buf )
                         //fmt.Printf("  \"%s\"\n", string( buf ) )
                         
-                        checkLine( buf, findProc )
+                        checkLine( buf, *findProc )
                         
                         size = newSize
                     }
                 }
         }
     }
+}
+
+func read_config( configPath string ) *Config {
+    fh, serr := os.Stat( configPath )
+    if serr != nil {
+        log.WithFields( log.Fields{
+            "type": "err_read_config",
+            "error": serr,
+            "config_path": configPath,
+        } ).Fatal("Could not read specified config path")
+    }    
+    var configFile string
+    switch mode := fh.Mode(); {
+        case mode.IsDir():
+            configFile = fmt.Sprintf("%s/config.json", configPath)
+        case mode.IsRegular():
+            configFile = configPath
+    }
+    
+    configFh, err := os.Open( configFile )   
+    if err != nil {
+        log.WithFields( log.Fields{
+            "type": "err_read_config",
+            "config_file": configFile,
+            "error": err,
+        } ).Fatal("failed reading config file")
+    }
+    defer configFh.Close()
+      
+    jsonBytes, _ := ioutil.ReadAll( configFh )
+    config := Config{}
+    json.Unmarshal( jsonBytes, &config )
+    return &config
 }
 
 func checkLine( data []byte, findProc string ) {
