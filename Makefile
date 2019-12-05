@@ -116,14 +116,14 @@ checkout: repos/stf repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_
 
 repos/stf:
 	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/tmobile/stf.git"' config.json -j))
-	git clone $REPO repos/stf --branch ios-support
+	git clone $(REPO) repos/stf --branch ios-support
 
 repos/stf_ios_mirrorfeed:
 	git clone https://github.com/tmobile/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
 
 repos/WebDriverAgent:
 	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/petemyron/WebDriverAgent.git"' config.json -j))
-	git clone $REPO repos/WebDriverAgent --branch video-stream-control
+	git clone $(REPO) repos/WebDriverAgent --branch video-stream-control
 
 repos/osx_ios_device_trigger:
 	git clone https://github.com/tmobile/osx_ios_device_trigger.git repos/osx_ios_device_trigger
