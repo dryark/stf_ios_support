@@ -32,6 +32,7 @@ bin/osx_ios_device_trigger: | repos/osx_ios_device_trigger
 
 view_log: view_log.go
 	go get github.com/fsnotify/fsnotify
+	go get github.com/sirupsen/logrus
 	go build view_log.go
 
 # --- FFMPEG ---
