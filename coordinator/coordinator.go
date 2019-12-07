@@ -586,13 +586,15 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
               "client_ip": curIP,
             } ).Info("Starting stf_device_ios")
             
-            cmd := exec.Command( "/usr/local/opt/node@8/bin/node", "runmod.js", "device-ios",
+            cmd := exec.Command( "/usr/local/opt/node@8/bin/node",
+                "--inspect=0.0.0.0:9240",
+                "runmod.js", "device-ios",
                 "--serial", uuid,
                 "--connect-push", pushStr,
                 "--connect-sub", subStr,
                 "--public-ip", curIP,
-                "--wda-port", strconv.Itoa( config.WDAProxyPort ),
-                "--screen-ws-url-pattern", fmt.Sprintf( "wss://%s", config.STFHostname ),
+                "--wda-port", strconv.Itoa( devd.wdaPort ),
+                "--screen-ws-url-pattern", fmt.Sprintf( "wss://%s/frames/%s/%d/x", config.STFHostname, curIP, devd.vidPort ),
                 //"--vid-port", strconv.Itoa( config.MirrorFeedPort ),
             )
             cmd.Dir = "./repos/stf"
@@ -1281,7 +1283,7 @@ func cleanup_procs(config *Config) {
         }
         
         // node runmod.js device-ios
-        if cmd[0] == "node" && cmd[2] == "device-ios" {
+        if cmd[0] == "/usr/local/opt/node@8/bin/node" && cmd[3] == "device-ios" {
             plog.WithFields( log.Fields{
                 "proc": "device-ios",
             } ).Debug("Leftover Proc - Sending SIGTERM")
@@ -1290,7 +1292,7 @@ func cleanup_procs(config *Config) {
         }
         
         // node --inspect=[ip]:[port] runmod.js provider
-        if cmd[0] == "node" && cmd[3] == "provider" {
+        if cmd[0] == "/usr/local/opt/node@8/bin/node" && cmd[3] == "provider" {
             plog.WithFields( log.Fields{
                 "proc": "stf_provider",
             } ).Debug("Leftover Proc - Sending SIGTERM")
