@@ -71,21 +71,29 @@ type PubEvent struct {
 }
 
 type RunningDev struct {
-    uuid         string
-    name         string
-    mirror       *os.Process
-    ff           *os.Process
-    proxy        *os.Process
-    device       *os.Process
-    deviceFails  int
-    deviceStart  time.Time
-    shuttingDown bool
-    lock         sync.Mutex
-    failed       bool
-    wdaPort      int
-    vidPort      int
-    devIosPort   int
-    pipe         string
+    uuid          string
+    name          string
+    mirror        *os.Process
+    mirrorBackoff *Backoff
+    ff            *os.Process
+    ffBackoff     *Backoff
+    proxy         *os.Process
+    proxyBackoff  *Backoff
+    device        *os.Process
+    deviceBackoff *Backoff
+    shuttingDown  bool
+    lock          sync.Mutex
+    failed        bool
+    wdaPort       int
+    vidPort       int
+    devIosPort    int
+    pipe          string
+}
+
+type Backoff struct {
+    fails          int
+    start          time.Time
+    elapsedSeconds float64
 }
 
 type BaseProgs struct {
@@ -207,7 +215,9 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
     lineLog = lineLog.WithFields( log.Fields{
         "proc": "stf_provider",
     } )
-
+    
+    backoff := Backoff{}
+    
     go func() {
         for {
             serverHostname := config.STFHostname
@@ -240,6 +250,8 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
             cmd.Dir = "./repos/stf"
             cmd.Stdout = os.Stdout
 
+            backoff.markStart()
+            
             err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
@@ -260,15 +272,17 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
                     lineLog.WithFields( log.Fields{ "line": line } ).Info("")
                 }
             }
+            
+            cmd.Wait()
+            backoff.markEnd()
 
             plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: stf_provider")
 
             if baseProgs.shuttingDown {
                 break
             }
-
-            // sleep before restart to prevent rapid failing attempts
-            time.Sleep( time.Second * 5 )
+            
+            backoff.wait()
         }
     }()
 }
@@ -290,6 +304,10 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
     if devd.shuttingDown {
         return
     }
+    
+    backoff := Backoff{}
+    devd.mirrorBackoff = &backoff
+    
     go func() {
         for {
             plog.WithFields( log.Fields{
@@ -305,6 +323,8 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
             //cmd.Stderr = os.Stderr
             errPipe, _ := cmd.StderrPipe()
 
+            backoff.markStart()
+            
             err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
@@ -329,6 +349,9 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
                 line := scanner.Text()
                 lineLog.WithFields( log.Fields{ "line": line } ).Info("")
             }
+            
+            cmd.Wait()
+            backoff.markEnd()
 
             devd.mirror = nil
 
@@ -338,9 +361,8 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
             exit := devd.shuttingDown
             devd.lock.Unlock()
             if exit { break }
-
-            // sleep before restart to prevent rapid failing attempts
-            time.Sleep( time.Second * 5 )
+            
+            backoff.wait()
         }
     }()
 }
@@ -358,6 +380,10 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
     if devd.shuttingDown {
         return
     }
+    
+    backoff := Backoff{}
+    devd.ffBackoff = &backoff
+    
     go func() {
         for {
             ops := []string {
@@ -382,8 +408,20 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
             
             outputPipe, _ := cmd.StderrPipe()
             //cmd.Stdout = os.Stdout
-            videoPipe, _ := os.OpenFile( devd.pipe, os.O_RDWR, 0600 )
+            videoPipe, vidErr := os.OpenFile( devd.pipe, os.O_RDWR|os.O_CREATE|os.O_APPEND, os.ModeNamedPipe )
+            if vidErr != nil {
+                plog.WithFields( log.Fields{
+                    "type": "pipe_err",
+                    "error": vidErr,
+                } ).Error("Error opening pipe")
+                
+                time.Sleep( time.Second * 5 )
+                
+                continue
+            }
             cmd.Stdout = videoPipe
+            
+            backoff.markStart()
             
             err := cmd.Start()
             if err != nil {
@@ -408,6 +446,9 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
                     lineLog.WithFields( log.Fields{ "line": line } ).Info("")
                 }
             }
+            
+            cmd.Wait()
+            backoff.markEnd()
 
             plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: ffmpeg")
 
@@ -418,9 +459,8 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
             exit := devd.shuttingDown
             devd.lock.Unlock()
             if exit { break }
-
-            // sleep before restart to prevent rapid failing attempts
-            time.Sleep( time.Second * 5 )
+            
+            backoff.wait()
         }
     }()
 }
@@ -485,6 +525,10 @@ func proc_wdaproxy(
     if devd.shuttingDown {
         return
     }
+    
+    backoff := Backoff{}
+    devd.proxyBackoff = &backoff
+    
     go func() {
         for {
             ops := []string{
@@ -509,6 +553,8 @@ func proc_wdaproxy(
 
             outputPipe, _ := cmd.StdoutPipe()
             errPipe, _ := cmd.StderrPipe()
+            
+            backoff.markStart()
             err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
@@ -557,15 +603,20 @@ func proc_wdaproxy(
 
                 lineLog.WithFields( log.Fields{ "line": line, "iserr": true } ).Info("")
             }
-
+            
             stopChannel<- true
-
+            cmd.Wait()
+            
+            backoff.markEnd()
+            
             plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: wdaproxy")
 
             devd.lock.Lock()
             exit := devd.shuttingDown
             devd.lock.Unlock()
             if exit { break }
+            
+            backoff.wait()
         }
     }()
 }
@@ -579,6 +630,9 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
         "proc": "stf_device_ios",
         "uuid": devd.uuid,
     } )
+    
+    backoff := Backoff{}
+    devd.deviceBackoff = &backoff
 
     go func() {
         for {
@@ -606,7 +660,8 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
             outputPipe, _ := cmd.StderrPipe()
             cmd.Stdout = os.Stdout
 
-            devd.deviceStart = time.Now()
+            backoff.markStart()
+            
             err := cmd.Start()
             if err != nil {
                 plog.WithFields( log.Fields{
@@ -657,12 +712,14 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
 
                 lineLog.WithFields( log.Fields{ "line": line } ).Info("")
             }
+            
+            // Just because output finished doesn't mean the process finished.
+            cmd.Wait()
 
             devd.device = nil
             
-            elapsed := time.Since( devd.deviceStart )
-            seconds := elapsed.Seconds()
-            
+            seconds := backoff.markEnd()
+              
             plog.WithFields( log.Fields{
                 "type": "proc_end",
                 "elapsed_sec": seconds,
@@ -673,23 +730,38 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
             devd.lock.Unlock()
             if exit { break }
             
-            sleeps := []int{ 0, 0, 2, 5, 10 }
-            numSleeps := len( sleeps )
-            if seconds < 20 {
-                devd.deviceFails = devd.deviceFails + 1
-                index := devd.deviceFails
-                if index >= numSleeps {
-                    index = numSleeps - 1
-                }
-                sleepLen := sleeps[ index ]
-                if sleepLen != 0 {
-                    time.Sleep( time.Second * time.Duration(sleepLen) )
-                }
-            } else {
-                devd.deviceFails = 0
-            }
+            backoff.wait()
         }
     }()
+}
+
+func ( self *Backoff ) markStart() {
+    self.start = time.Now()
+}
+
+func ( self *Backoff ) markEnd() ( float64 ) {
+    elapsed := time.Since( self.start )
+    seconds := elapsed.Seconds()
+    self.elapsedSeconds = seconds
+    return seconds
+}
+
+func ( self *Backoff ) wait() {
+    sleeps := []int{ 0, 0, 2, 5, 10 }
+    numSleeps := len( sleeps )
+    if self.elapsedSeconds < 20 {
+        self.fails = self.fails + 1
+        index := self.fails
+        if index >= numSleeps {
+            index = numSleeps - 1
+        }
+        sleepLen := sleeps[ index ]
+        if sleepLen != 0 {
+            time.Sleep( time.Second * time.Duration( sleepLen ) )
+        }
+    } else {
+        self.fails = 0
+    }
 }
 
 type HupData struct {
@@ -1035,7 +1107,7 @@ func ensure_proper_pipe( devd *RunningDev ) {
         return
     }
     mode := info.Mode()
-    if mode != os.ModeNamedPipe {
+    if ( mode & os.ModeNamedPipe ) == 0 {
         log.WithFields( log.Fields{
             "type": "pipe_fix",
             "pipe_file": file,
@@ -1251,18 +1323,17 @@ func event_loop(
             
             devd := RunningDev{
                 uuid: uuid,
-                shuttingDown: false,
-                failed:       false,
-                mirror:       nil,
-                ff:           nil,
-                device:       nil,
-                deviceFails:  0,
-                deviceStart:  time.Now(),
-                proxy:        nil,
-                wdaPort:      wdaPort,
-                vidPort:      vidPort,
-                devIosPort:   devIosPort,
-                pipe:         fmt.Sprintf("video_pipes/pipe_%d", vidPort ),
+                shuttingDown:  false,
+                failed:        false,
+                mirror:        nil,
+                ff:            nil,
+                device:        nil,
+                deviceBackoff: nil,
+                proxy:         nil,
+                wdaPort:       wdaPort,
+                vidPort:       vidPort,
+                devIosPort:    devIosPort,
+                pipe:          fmt.Sprintf("video_pipes/pipe_%d", vidPort ),
             }
             runningDevs[uuid] = &devd
             
