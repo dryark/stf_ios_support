@@ -6,13 +6,13 @@
   <string>STF Coordinator</string>
   
 	<key>CFBundleExecutable</key>
-	<string>app_run</string>
+	<string>coordinator</string>
 	
 	<key>CFBundleIconFile</key>
 	<string>icon.icns</string>
 	
 	<key>CFBundleIdentifier</key>
-	<string>com.tmobile.test</string>
+	<string>com.tmobile.coordinator</string>
 	
 	<key>NSHighResolutionCapable</key>
 	<true/>

@@ -14,6 +14,7 @@ import (
     "os"
     "os/exec"
     "os/signal"
+    "path/filepath"
     "sort"
     "strconv"
     "strings"
@@ -49,6 +50,7 @@ type Config struct {
     LinesLogFile     string `json:"lines_log_file"`
     VpnName          string `json:"vpn_name"`
     NetworkInterface string `json:"network_interface"`
+    ConfigPath       string `json:"config_path"`
 }
 
 type VpnInfo struct {
@@ -115,48 +117,59 @@ type Vpn struct {
 var gStop bool
 
 func read_config( configPath string ) *Config {
-    fh, serr := os.Stat( configPath )
-    if serr != nil {
-        log.WithFields( log.Fields{
-            "type": "err_read_config",
-            "error": serr,
-            "config_path": configPath,
-        } ).Fatal("Could not read specified config path")
+    var config Config
+    
+    for {
+        fh, serr := os.Stat( configPath )
+        if serr != nil {
+            log.WithFields( log.Fields{
+                "type": "err_read_config",
+                "error": serr,
+                "config_path": configPath,
+            } ).Fatal("Could not read specified config path")
+        }
+        
+        var configFile string
+        switch mode := fh.Mode(); {
+            case mode.IsDir():
+                configFile = fmt.Sprintf("%s/config.json", configPath)
+            case mode.IsRegular():
+                configFile = configPath
+        }
+    
+        configFh, err := os.Open( configFile )
+        if err != nil {
+            log.WithFields( log.Fields{
+                "type": "err_read_config",
+                "config_file": configFile,
+                "error": err,
+            } ).Fatal("failed reading config file")
+        }
+        defer configFh.Close()
+    
+        jsonBytes, _ := ioutil.ReadAll( configFh )
+        config = Config{
+            DeviceTrigger:   "bin/osx_ios_device_trigger",
+            VideoEnabler:    "bin/osx_ios_video_enabler",
+            WDAProxyBin:     "bin/wdaproxy",
+            MirrorFeedBin:   "bin/mirrorfeed",
+            WDARoot:         "./bin/wda",
+            Ffmpeg:          "bin/ffmpeg",
+            CoordinatorPort: 8027,
+            MirrorFeedPort:  8000,
+            WDAProxyPort:    8100,
+            DevIosPort:      9240,
+            DevIosPorts:     "9240-9250",
+            Pipe:            "pipe",
+            ConfigPath:      "",
+        }
+        json.Unmarshal( jsonBytes, &config )
+        if config.ConfigPath != "" {
+            configPath = config.ConfigPath
+            continue
+        }
+        break
     }
-    var configFile string
-    switch mode := fh.Mode(); {
-        case mode.IsDir():
-            configFile = fmt.Sprintf("%s/config.json", configPath)
-        case mode.IsRegular():
-            configFile = configPath
-    }
-
-    configFh, err := os.Open( configFile )
-    if err != nil {
-        log.WithFields( log.Fields{
-            "type": "err_read_config",
-            "config_file": configFile,
-            "error": err,
-        } ).Fatal("failed reading config file")
-    }
-    defer configFh.Close()
-
-    jsonBytes, _ := ioutil.ReadAll( configFh )
-    config := Config{
-        DeviceTrigger:   "bin/osx_ios_device_trigger",
-        VideoEnabler:    "bin/osx_ios_video_enabler",
-        WDAProxyBin:     "bin/wdaproxy",
-        MirrorFeedBin:   "bin/mirrorfeed",
-        WDARoot:         "./bin/wda",
-        Ffmpeg:          "bin/ffmpeg",
-        CoordinatorPort: 8027,
-        MirrorFeedPort:  8000,
-        WDAProxyPort:    8100,
-        DevIosPort:      9240,
-        DevIosPorts:     "9240-9250",
-        Pipe:            "pipe",
-    }
-    json.Unmarshal( jsonBytes, &config )
     return &config
 }
 
@@ -643,12 +656,14 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
               "server_host": config.STFHostname,
               "video_port": devd.vidPort,
               "node_port": devd.devIosPort,
+              "device_name": devd.name,
             } ).Info("Starting stf_device_ios")
 
             cmd := exec.Command( "/usr/local/opt/node@8/bin/node",
                 fmt.Sprintf("--inspect=0.0.0.0:%d", devd.devIosPort),
                 "runmod.js"              , "device-ios",
                 "--serial"               , uuid,
+                "--name"                 , devd.name,
                 "--connect-push"         , fmt.Sprintf("tcp://%s:7270", config.STFIP),
                 "--connect-sub"          , fmt.Sprintf("tcp://%s:7250", config.STFIP),
                 "--public-ip"            , curIP,
@@ -1030,6 +1045,13 @@ func main() {
         os.Exit(0)
     }
 
+    dir, _ := filepath.Abs( filepath.Dir( os.Args[0] ) )
+    if strings.HasSuffix( dir, "/Contents/MacOS" ) { // running via App
+        resDir, _ := filepath.Abs( dir + "/../Resources" )
+        configFileA := resDir + "/config.json"
+        configFile = &configFileA
+    }
+    
     config := read_config( *configFile )
 
     useVPN := true

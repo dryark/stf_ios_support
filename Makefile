@@ -122,8 +122,9 @@ repos/stf_ios_mirrorfeed:
 	git clone https://github.com/tmobile/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
 
 repos/WebDriverAgent:
-	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/petemyron/WebDriverAgent.git"' config.json -j))
-	git clone $(REPO) repos/WebDriverAgent --branch video-stream-control
+	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/appium/WebDriverAgent.git"' config.json -j))
+	$(eval REPO_BR=$(shell jq '.repo_wda_branch // "master"' config.json -j))
+	git clone $(REPO) repos/WebDriverAgent --branch $(REPO_BR)
 
 repos/osx_ios_device_trigger:
 	git clone https://github.com/tmobile/osx_ios_device_trigger.git repos/osx_ios_device_trigger
@@ -153,7 +154,7 @@ offline/repos/stf: stf
 
 offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf config.json view_log
 	@./get-version-info.sh > offline/build_info.json
-	tar -h -czf offline/dist.tgz run stf_ios_support.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/ build_info.json
+	tar -h -czf offline/dist.tgz video_pipes run stf_ios_support.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/ build_info.json
 
 pipe:
 	mkfifo pipe
@@ -182,9 +183,8 @@ app: STF\ Coordinator.app
 STF\ Coordinator.app: | bin/coordinator icns
 	mkdir -p STF\ Coordinator.app/Contents/MacOS
 	mkdir -p STF\ Coordinator.app/Contents/Resources
-	cp app_run STF\ Coordinator.app/Contents/MacOS/
 	cp icon/stf.icns STF\ Coordinator.app/Contents/Resources/icon.icns
-	cp bin/coordinator STF\ Coordinator.app/Contents/Resources/
+	cp bin/coordinator STF\ Coordinator.app/Contents/MacOS/
 	cp config.json STF\ Coordinator.app/Contents/Resources/
 	cp Info.plist STF\ Coordinator.app/Contents/
 	./get-version-info.sh ios_support > STF\ Coordinator.app/Contents/Resources/build_info.json
