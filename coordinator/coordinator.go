@@ -51,6 +51,7 @@ type Config struct {
     VpnName          string `json:"vpn_name"`
     NetworkInterface string `json:"network_interface"`
     ConfigPath       string `json:"config_path"`
+    RootPath         string `json:"root_path"`
 }
 
 type VpnInfo struct {
@@ -162,6 +163,7 @@ func read_config( configPath string ) *Config {
             DevIosPorts:     "9240-9250",
             Pipe:            "pipe",
             ConfigPath:      "",
+            RootPath:        "",
         }
         json.Unmarshal( jsonBytes, &config )
         if config.ConfigPath != "" {
@@ -1054,6 +1056,10 @@ func main() {
     
     config := read_config( *configFile )
 
+    if config.RootPath != "" {
+        os.Chdir( config.RootPath )
+    }
+    
     useVPN := true
     if config.VpnName == "none" {
         useVPN = false
