@@ -1,4 +1,4 @@
-all: config.json bin/coordinator video_enabler mirrorfeed device_trigger stf wda ffmpegalias wdaproxyalias view_log app
+all: config.json bin/coordinator video_enabler mirrorfeed device_trigger stf wda ffmpegalias wdaproxyalias view_log app wda_wrapper
 
 .PHONY:\
  checkout\
@@ -60,8 +60,15 @@ repos/stf/node_modules: | repos/stf
 
 coordinator: bin/coordinator
 
-bin/coordinator: coordinator/coordinator.go
+bin/coordinator: coordinator/coordinator.go coordinator/config.go coordinator/heartbeat.go coordinator/http_server.go coordinator/idevice.go coordinator/launchctl.go coordinator/log.go coordinator/network.go coordinator/ports.go coordinator/proc_backoff.go coordinator/proc_device_trigger.go coordinator/proc_device_unit.go coordinator/proc_ffmpeg.go coordinator/proc_mirrorfeed.go coordinator/proc_stf_provider.go coordinator/proc_video_enabler.go coordinator/proc_wdaproxy.go coordinator/shutdown.go coordinator/vpn.go coordinator/zmq.go
 	$(MAKE) -C coordinator
+
+# --- WDAPROXY WRAPPER ---
+
+wda_wrapper: bin/wda_wrapper
+
+bin/wda_wrapper: wda_wrapper/wda_wrapper.go
+	$(MAKE) -C wda_wrapper
 
 # --- MIRROR FEED ---
 
@@ -80,9 +87,9 @@ bin/osx_ios_video_enabler: video_enabler/Makefile
 
 # --- WDA / WebDriverAgent ---
 
-wdabootstrap: repos/WebDriverAgent/Carthage/Checkouts/CocoaAsyncSocket
+wdabootstrap: repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer
 
-repos/WebDriverAgent/Carthage/Checkouts/CocoaAsyncSocket: | repos/WebDriverAgent
+repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent/package.json
 	cd repos/WebDriverAgent && ./Scripts/bootstrap.sh
 
 wda: bin/wda/build_info.json
@@ -90,6 +97,7 @@ wda: bin/wda/build_info.json
 bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgent/WebDriverAgent.xcodeproj
 	@if [ -e bin/wda ]; then rm -rf bin/wda; fi;
 	@mkdir -p bin/wda/Debug-iphoneos
+	ln -s ../../repos/wdaproxy/web bin/wda/web
 	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
 	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner -allowProvisioningUpdates -destination generic/platform=iOS CODE_SIGN_IDENTITY="iPhone Developer" DEVELOPMENT_TEAM="$(DEVID)" build-for-testing
 	@# Spits out PROD_PATH
@@ -141,6 +149,7 @@ dist: offline/dist.tgz
 
 offline/repos/stf: stf
 	mkdir -p offline/repos/stf
+	mkdir -p offline/logs
 	rm offline/repos/stf/* & exit 0
 	ln -s ../../../repos/stf/node_modules      offline/repos/stf/node_modules
 	ln -s ../../../repos/stf/package.json      offline/repos/stf/package.json
@@ -148,7 +157,7 @@ offline/repos/stf: stf
 	ln -s ../../../repos/stf/runmod.js         offline/repos/stf/runmod.js
 	ln -s ../../../repos/stf/res               offline/repos/stf/res
 	ln -s ../../../repos/stf/lib               offline/repos/stf/lib
-	ln -s ../../repos/wdaproxy/web             bin/wda/web
+	ln -s ../../repos/wdaproxy/web             bin/wda/web & exit 0
 
 # --- BINARY DISTRIBUTION ---
 
@@ -159,7 +168,7 @@ offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator vide
 pipe:
 	mkfifo pipe
 
-clean:
+clean: cleanstf cleanwda cleanicon cleanlogs
 	$(MAKE) -C coordinator clean
 	$(MAKE) -C video_enabler clean
 	$(RM) pipe build_info.json
@@ -175,6 +184,10 @@ cleanapp:
 
 cleanicon:
 	$(RM) -rf icon/stf.iconset icon/stf.iconset1 icon/stf.iconset2
+
+cleanlogs:
+	$(RM) logs/*
+	touch logs/.gitkeep
 
 # --- APP ---
 

@@ -2,36 +2,10 @@ package main
 
 import (
   "bufio"
-  "os"
   "os/exec"
   "strconv"
-  "syscall"
   log "github.com/sirupsen/logrus"
 )
-
-func ensure_proper_pipe( devd *RunningDev ) {
-    file := devd.pipe
-    info, err := os.Stat( file )
-    if os.IsNotExist( err ) {
-        log.WithFields( log.Fields{
-            "type": "pipe_create",
-            "pipe_file": file,
-        } ).Info("Pipe did not exist; creating as fifo")
-        // create the pipe
-        syscall.Mkfifo( file, 0600 )
-        return
-    }
-    mode := info.Mode()
-    if ( mode & os.ModeNamedPipe ) == 0 {
-        log.WithFields( log.Fields{
-            "type": "pipe_fix",
-            "pipe_file": file,
-        } ).Info("Pipe was incorrect type; deleting and recreating as fifo")
-        // delete the file then create it properly as a pipe
-        os.Remove( file )
-        syscall.Mkfifo( file, 0600 )
-    }
-}
 
 func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog *log.Entry ) {
     plog := log.WithFields( log.Fields{

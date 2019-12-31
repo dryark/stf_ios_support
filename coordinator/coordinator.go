@@ -7,6 +7,7 @@ import (
     "path/filepath"
     "strings"
     "sync"
+    "syscall"
     "time"
     log "github.com/sirupsen/logrus"
 )
@@ -23,8 +24,9 @@ type RunningDev struct {
     mirrorBackoff *Backoff
     ff            *os.Process
     ffBackoff     *Backoff
-    proxy         *os.Process
-    proxyBackoff  *Backoff
+    //proxy         *os.Process
+    //proxyBackoff  *Backoff
+    wdaWrapper    *Launcher
     device        *os.Process
     deviceBackoff *Backoff
     shuttingDown  bool
@@ -34,6 +36,9 @@ type RunningDev struct {
     vidPort       int
     devIosPort    int
     pipe          string
+    wdaStdoutPipe string
+    wdaStderrPipe string
+    heartbeatChan chan<- bool
 }
 
 type BaseProgs struct {
@@ -89,7 +94,10 @@ func main() {
 
     pubEventCh := make( chan PubEvent, 2 )
 
-    coro_zmqReqRep()
+    runningDevs := make( map [string] *RunningDev )
+    
+    coro_zmqPull( runningDevs, lineLog, pubEventCh )
+    coro_zmqReqRep( runningDevs )
     coro_zmqPub( pubEventCh )
 
     var ifName     string
@@ -105,7 +113,7 @@ func main() {
     cleanup_procs( config )
 
     devEventCh := make( chan DevEvent, 2 )
-    runningDevs := make( map [string] *RunningDev )
+    
     wdaPorts    := construct_ports( config, config.WDAPorts )
     vidPorts    := construct_ports( config, config.VidPorts )
     devIosPorts := construct_ports( config, config.DevIosPorts ) 
@@ -165,7 +173,7 @@ func event_loop(
                 ff:            nil,
                 device:        nil,
                 deviceBackoff: nil,
-                proxy:         nil,
+                //proxy:         nil,
                 wdaPort:       wdaPort,
                 vidPort:       vidPort,
                 devIosPort:    devIosPort,
@@ -189,19 +197,28 @@ func event_loop(
                 "wda_port": wdaPort,
             } ).Info("Device connected")
 
+            iosVersion := getDeviceInfo( uuid, "ProductVersion" )
+            
             if !config.SkipVideo {
-                ensure_proper_pipe( &devd )
+                ensure_proper_pipe( devd.pipe )
                 proc_mirrorfeed( config, tunName, &devd, lineLog )
                 proc_ffmpeg( config, &devd, devName, lineLog )
 
                 // Sleep to ensure that video enabling process is finished before we try to start wdaproxy
                 // This is needed because the USB device drops out and reappears during video enabling
-                time.Sleep( time.Second * 9 )
+                //time.Sleep( time.Second * 2 )
             }
 
-            iosVersion := getDeviceInfo( uuid, "ProductVersion" )
-            proc_wdaproxy( config, &devd, &devEvent, uuid, devName, pubEventCh, lineLog, iosVersion )
-
+            log.WithFields( log.Fields{
+                "type":     "ios_version",
+                "dev_name": devd.name,
+                "dev_uuid": uuid,
+                "ios_version": iosVersion,
+            } ).Info("IOS Version")
+            
+            //start_proc_wdaproxy( config, &devd, &devEvent, uuid, devName, pubEventCh, lineLog, iosVersion )
+            start_proc_wdaproxy( config, &devd, uuid, iosVersion )
+            
             time.Sleep( time.Second * 3 )
 
             proc_device_ios_unit( config, &devd, uuid, curIP, lineLog )
@@ -215,6 +232,8 @@ func event_loop(
                 "dev_uuid": uuid,
             } ).Info("Device disconnected")
 
+            // send true to the stop heartbeat channel
+            
             closeRunningDev( devd, wdaPorts, vidPorts, devIosPorts )
 
             // Notify stf that the device is gone
@@ -226,5 +245,28 @@ func event_loop(
             pubEvent.vidPort = 0
             pubEventCh <- pubEvent
         }
+    }
+}
+
+func ensure_proper_pipe( file string ) {
+    info, err := os.Stat( file )
+    if os.IsNotExist( err ) {
+        log.WithFields( log.Fields{
+            "type": "pipe_create",
+            "pipe_file": file,
+        } ).Info("Pipe did not exist; creating as fifo")
+        // create the pipe
+        syscall.Mkfifo( file, 0600 )
+        return
+    }
+    mode := info.Mode()
+    if ( mode & os.ModeNamedPipe ) == 0 {
+        log.WithFields( log.Fields{
+            "type": "pipe_fix",
+            "pipe_file": file,
+        } ).Info("Pipe was incorrect type; deleting and recreating as fifo")
+        // delete the file then create it properly as a pipe
+        os.Remove( file )
+        syscall.Mkfifo( file, 0600 )
     }
 }
