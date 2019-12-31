@@ -90,8 +90,8 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
         ff := "<font color='green'>on</font>"
         if dev.ff == nil { ff = "off" }
 
-        proxy := "<font color='green'>on</font>"
-        if dev.proxy == nil { proxy = "off" }
+        //proxy := "<font color='green'>on</font>"
+        //if dev.proxy == nil { proxy = "off" }
 
         device := "<font color='green'>on</font>"
         if dev.device == nil { device = "off" }
@@ -102,7 +102,7 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
             "name":   dev.name,
             "mirror": mirror,
             "ff":     ff,
-            "proxy":  proxy,
+            //"proxy":  proxy,
             "device": device,
         } )
         devOut += str.String()

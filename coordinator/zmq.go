@@ -1,7 +1,9 @@
 package main
 
 import (
+  "bytes"
   "encoding/json"
+  "fmt"
   "io"
   "strconv"
   "time"
@@ -69,6 +71,11 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
                 test.Type = "disconnect"
             }
 
+            /*log.WithFields( log.Fields{
+                "type": "zmq_push",
+                "event": test,
+            } ).Info("ZMQ Push")*/
+            
             // publish a zmq message of the DevEvent
             reqMsg, err := json.Marshal( test )
             if err != nil {
@@ -88,9 +95,170 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
     }()
 }
 
-func coro_zmqReqRep() {
-    plog := log.WithFields( log.Fields{ "coro": "reqrep" } )
+func reqDevInfoJSON( uuid string ) (string) {
+    res := ""
+    info := getAllDeviceInfo( uuid )
 
+    names := map[string] string {
+        "DeviceName":      "Device Name",
+        "EthernetAddress": "MAC",
+        "ModelNumber":     "Model",
+        //"HardwareModel": "Hardware Model",
+        "PhoneNumber":     "Phone Number",
+        "ProductType":     "Product",
+        "ProductVersion":  "IOS Version",
+        "UniqueDeviceID":  "Wifi MAC",
+        "InternationalCircuitCardIdentity":      "ICCI",
+        "InternationalMobileEquipmentIdentity":  "IMEI",
+        "InternationalMobileSubscriberIdentity": "IMSI",
+        
+    }
+
+    for key, descr := range names {
+        val := info[key]
+        res += fmt.Sprintf( "%s: %s<br>\n", descr, val )
+    }
+    
+    return res
+}
+
+func devListJSON( runningDevs map[string] *RunningDev ) (string) {
+    devOut := ""
+    for _, dev := range runningDevs {
+        mirror := "<font color='green'>on</font>"
+        if dev.mirror == nil { mirror = "off" }
+
+        ff := "<font color='green'>on</font>"
+        if dev.ff == nil { ff = "off" }
+
+        //proxy := "<font color='green'>on</font>"
+        //if dev.proxy == nil { proxy = "off" }
+
+        device := "<font color='green'>on</font>"
+        if dev.device == nil { device = "off" }
+
+        var str bytes.Buffer
+        deviceTpl.Execute( &str, map[string] string {
+            "uuid":   "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
+            "name":   dev.name,
+            "mirror": mirror,
+            "ff":     ff,
+            //"proxy":  proxy,
+            "device": device,
+        } )
+        devOut += str.String()
+    }
+    return devOut
+}
+
+func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubEventCh  chan<- PubEvent ) {
+    plog := log.WithFields( log.Fields{ "coro": "zmqpull" } )
+    
+    wdaLineLog := lineLog.WithFields( log.Fields{
+        "proc": "wdaproxy",
+    } )
+    
+    go func() {
+        pullSock := zmq.NewSock(zmq.Pull)
+        defer pullSock.Destroy()
+        
+        spec := "tcp://127.0.0.1:7300"
+        
+        _, err := pullSock.Bind( spec )
+        if err != nil {
+            plog.WithFields( log.Fields{
+                "type": "err_zmq",
+                "zmq_spec": spec,
+                "err": err,
+            } ).Fatal("ZMQ binding error")
+        }
+        
+        pullOb, err := zmq.NewReadWriter(pullSock)
+        if err != nil {
+            plog.WithFields( log.Fields{
+                "type": "err_zmq",
+                "zmq_spec": spec,
+                "err": err,
+            } ).Fatal("error making readwriter")
+        }
+        defer pullOb.Destroy()
+        
+        pullOb.SetTimeout(1000)
+        
+        buf := make([]byte, 20000)
+        
+        for {
+            readBytes, err := pullOb.Read( buf )
+            if err == zmq.ErrTimeout {
+                if gStop == true {
+                    break
+                }
+                continue
+            }
+            if err != nil && err != io.EOF {
+                plog.WithFields( log.Fields{
+                    "type": "err_zmq",
+                    "err": err,
+                } ).Error("Error reading zmq")
+            } else {
+                if buf[0] == "{"[0] {
+                    part := buf[0:readBytes]
+                    // Receiving a JSON message
+                    var msg map[string]string
+                    json.Unmarshal( part, &msg )
+                    uuid := msg["uuid"]
+                    msgType := msg["type"]
+                    if msgType == "wdaproxy_started" {
+                        plog.WithFields( log.Fields{
+                            "type": "wdaproxy_started",
+                            "proc": "wdaproxy",
+                            "uuid": uuid,
+                        } ).Info("WDAProxy Started")
+                        devd := runningDevs[ uuid ]
+                        devd.heartbeatChan = coro_heartbeat( msg["uuid"], pubEventCh )
+                    } else if msgType == "wda_started" {
+                        plog.WithFields( log.Fields{
+                            "type": "wda_started",
+                            "proc": "wdaproxy",
+                            "uuid": uuid,
+                        } ).Info("WDA Started")
+                    } else if msgType == "wda_stdout" {
+                        wdaLineLog.WithFields( log.Fields {
+                            "line": msg["line"],
+                            "uuid": uuid,
+                        } ).Info("")
+                    } else if msgType == "wda_stderr" {
+                        wdaLineLog.WithFields( log.Fields {
+                            "line": msg["line"],
+                            "uuid": uuid,
+                        } ).Info("")
+                    } else if msgType == "wdaproxy_ended" {
+                        devd := runningDevs[ uuid ]
+                        devd.heartbeatChan <- true
+                        plog.WithFields( log.Fields{
+                            "type": "wdaproxy_ended",
+                            "proc": "wdaproxy",
+                            "uuid": uuid,
+                        } ).Error("Unknown zmq message type")
+                    } else {
+                        plog.WithFields( log.Fields{
+                            "type": "zmq_type_err",
+                            "msgType": msgType,
+                            "uuid": uuid,
+                            "rawMsg": string( part ),
+                        } ).Error("Unknown zmq message type")
+                    }
+                } else {
+                   // error
+                }
+            }
+        }
+    }()
+}
+
+func coro_zmqReqRep( runningDevs map[string] *RunningDev ) {
+    plog := log.WithFields( log.Fields{ "coro": "reqrep" } )
+    
     go func() {
         repSock := zmq.NewSock(zmq.Rep)
         defer repSock.Destroy()
@@ -117,8 +285,9 @@ func coro_zmqReqRep() {
 
         repOb.SetTimeout(1000)
 
+        buf := make([]byte, 20000)
+        
         for {
-            buf := make([]byte, 2000)
             _, err := repOb.Read( buf )
             if err == zmq.ErrTimeout {
                 if gStop == true {
@@ -139,6 +308,7 @@ func coro_zmqReqRep() {
                     repSock.SendMessage([][]byte{response})
                     break
                 } else if msg == "devices" {
+                    //devInfoJSON := reqDevInfoJSON( "" )
                     // TODO: get device list
                     // TOOO: turn device list into JSON
 

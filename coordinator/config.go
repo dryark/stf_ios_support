@@ -33,6 +33,9 @@ type Config struct {
     NetworkInterface string `json:"network_interface"`
     ConfigPath       string `json:"config_path"`
     RootPath         string `json:"root_path"`
+    WDAWrapperStdout string `json:"wda_wrapper_stdout"`
+    WDAWrapperStderr string `json:"wda_wrapper_stderr"`
+    WDAWrapperBin    string `json:"wda_wrapper_bin"`
 }
 
 func read_config( configPath string ) *Config {
@@ -82,6 +85,9 @@ func read_config( configPath string ) *Config {
             Pipe:            "pipe",
             ConfigPath:      "",
             RootPath:        "",
+            WDAWrapperStdout:"./logs/wda_wrapper_stdout",
+            WDAWrapperStderr:"./logs/wda_wrapper_stderr",
+            WDAWrapperBin:   "bin/wda_wrapper",
         }
         json.Unmarshal( jsonBytes, &config )
         if config.ConfigPath != "" {

@@ -51,23 +51,28 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
     var nameStr string
     for {
         i++
-        if i > 30 {
+        if i > 20 {
             log.WithFields( log.Fields{
                 "type": "ilib_getinfo_fail",
                 "uuid": uuid,
                 "key": keyName,
                 "try": i,
-            } ).Debug("ideviceinfo failed after 30 attempts over 10 seconds")
+            } ).Error("ideviceinfo failed after 20 attempts over 20 seconds")
             return ""
         }
 
-        ops := []string{
-          "-u", uuid,
+        ops := []string{}
+        if uuid != "" {
+          ops = append( ops, "-u", uuid )
         }
         if keyName != "" {
           ops = append( ops, "-k", keyName )
         }
 
+        log.WithFields( log.Fields{
+            "type": "ilib_getinfo_call",
+            "ops": ops,
+        } ).Error("ideviceinfo call")
         name, _ := exec.Command( "/usr/local/bin/ideviceinfo", ops... ).Output()
         if name == nil || len(name) == 0 {
             log.WithFields( log.Fields{
@@ -77,7 +82,7 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
                 "try":  i,
             } ).Debug("ideviceinfo returned nothing")
 
-            time.Sleep( time.Millisecond * 300 )
+            time.Sleep( time.Millisecond * 1000 )
             continue
         }
         nameStr = string( name )

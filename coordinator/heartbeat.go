@@ -1,8 +1,11 @@
 package main
 
-import "time"
+import (
+  "time"
+  //log "github.com/sirupsen/logrus"
+)
 
-func coro_heartbeat( devEvent *DevEvent, pubEventCh chan<- PubEvent ) ( chan<- bool ) {
+func coro_heartbeat( uuid string, pubEventCh chan<- PubEvent ) ( chan<- bool ) {
     count := 1
     stopChannel := make(chan bool)
 
@@ -24,11 +27,15 @@ func coro_heartbeat( devEvent *DevEvent, pubEventCh chan<- PubEvent ) ( chan<- b
 
                 beatEvent := PubEvent{}
                 beatEvent.action  = 2
-                beatEvent.uuid    = devEvent.uuid
+                beatEvent.uuid    = uuid
                 beatEvent.name    = ""
                 beatEvent.wdaPort = 0
                 beatEvent.vidPort = 0
                 pubEventCh <- beatEvent
+                
+                /*log.WithFields( log.Fields{
+                    "type": "heartbeat",
+                } ).Info("Heartbeat")*/
             }
             time.Sleep( time.Second * 1 )
             count++;

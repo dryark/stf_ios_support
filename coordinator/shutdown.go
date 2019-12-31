@@ -83,6 +83,8 @@ func closeRunningDev(
     devd.lock.Lock()
     devd.shuttingDown = true
     devd.lock.Unlock()
+    
+    stop_proc_wdaproxy( devd )
 
     if wdaPorts != nil && vidPorts != nil {
         free_ports( devd.wdaPort, devd.vidPort, devd.devIosPort, wdaPorts, vidPorts, devIosPorts )
@@ -95,10 +97,10 @@ func closeRunningDev(
 
     plog.Info("Closing running dev")
 
-    if devd.proxy != nil {
+    /*if devd.proxy != nil {
         plog.WithFields( log.Fields{ "proc": "wdaproxy" } ).Debug("Killing wdaproxy")
         devd.proxy.Kill()
-    }
+    }*/
     if devd.ff != nil {
         plog.WithFields( log.Fields{ "proc": "ffmpeg" } ).Debug("Killing ffmpeg")
         devd.ff.Kill()

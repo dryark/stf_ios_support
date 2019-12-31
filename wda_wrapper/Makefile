@@ -1,8 +1,8 @@
-TARGET = ../bin/coordinator
+TARGET = ../bin/wda_wrapper
 
 all: $(TARGET)
 
-$(TARGET): *.go go.sum
+$(TARGET): wda_wrapper.go go.sum
 	go build  -o $(TARGET) .
 
 go.sum:
