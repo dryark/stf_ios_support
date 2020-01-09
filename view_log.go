@@ -29,7 +29,7 @@ func main() {
     fileName := config.LinesLogFile
     
     if *findProc == "" {
-        fmt.Println("specify a log to view / tail ( view_log -proc [proc] ):\n  wdaproxy\n  stf_device_ios\n  device_trigger\n  video_enabler\n  stf_provider\n  ffmpeg\n  wda\n")
+        fmt.Println("specify a log to view / tail ( view_log -proc [proc] ):\n  wdaproxy\n  stf_device_ios\n  device_trigger\n  video_enabler\n  stf_provider\n  ffmpeg\n  wda\n  device_trigger\n")
         os.Exit( 0 )
     }
     

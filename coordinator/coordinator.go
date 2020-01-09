@@ -15,6 +15,8 @@ import (
 type DevEvent struct {
     action int
     uuid   string
+    width  int
+    height int
 }
 
 type RunningDev struct {
@@ -35,10 +37,19 @@ type RunningDev struct {
     wdaPort       int
     vidPort       int
     devIosPort    int
+    vncPort       int
     pipe          string
     wdaStdoutPipe string
     wdaStderrPipe string
     heartbeatChan chan<- bool
+    iosVersion    string
+    confDup       *Config
+    videoReady    bool
+    streamWidth   int
+    streamHeight  int
+    okFirstFrame  bool
+    okVidInterface bool
+    okAllUp        bool
 }
 
 type BaseProgs struct {
@@ -49,6 +60,27 @@ type BaseProgs struct {
 }
 
 var gStop bool
+
+type PortMap struct {
+    wdaPorts    map[int] *PortItem
+    vidPorts    map[int] *PortItem
+    devIosPorts map[int] *PortItem
+    vncPorts    map[int] *PortItem
+}
+
+func NewPortMap( config *Config ) ( *PortMap ) {
+    wdaPorts    := construct_ports( config, config.WDAPorts )
+    vidPorts    := construct_ports( config, config.VidPorts )
+    devIosPorts := construct_ports( config, config.DevIosPorts ) 
+    vncPorts    := construct_ports( config, config.VncPorts )
+    portMap := PortMap {
+        wdaPorts: wdaPorts,
+        vidPorts: vidPorts,
+        devIosPorts: devIosPorts,
+        vncPorts: vncPorts,
+    }
+    return &portMap
+}
 
 func main() {
     gStop = false
@@ -96,7 +128,9 @@ func main() {
 
     runningDevs := make( map [string] *RunningDev )
     
-    coro_zmqPull( runningDevs, lineLog, pubEventCh )
+    devEventCh := make( chan DevEvent, 2 )
+    
+    coro_zmqPull( runningDevs, lineLog, pubEventCh, devEventCh )
     coro_zmqReqRep( runningDevs )
     coro_zmqPub( pubEventCh )
 
@@ -112,16 +146,13 @@ func main() {
 
     cleanup_procs( config )
 
-    devEventCh := make( chan DevEvent, 2 )
+    portMap := NewPortMap( config )
     
-    wdaPorts    := construct_ports( config, config.WDAPorts )
-    vidPorts    := construct_ports( config, config.VidPorts )
-    devIosPorts := construct_ports( config, config.DevIosPorts ) 
     baseProgs := BaseProgs{}
     baseProgs.shuttingDown = false
 
     coro_http_server( config, devEventCh, &baseProgs, runningDevs )
-    proc_device_trigger( config, &baseProgs )
+    proc_device_trigger( config, &baseProgs, lineLog )
     if !config.SkipVideo {
         //ensure_proper_pipe( config )
         proc_video_enabler( config, &baseProgs )
@@ -143,7 +174,55 @@ func main() {
     coro_sigterm( runningDevs, &baseProgs, config )
 
     // process devEvents
-    event_loop( config, curIP, devEventCh, ifName, pubEventCh, runningDevs, wdaPorts, vidPorts, devIosPorts, lineLog )
+    event_loop( config, curIP, devEventCh, ifName, pubEventCh, runningDevs, portMap, lineLog )
+}
+
+func NewRunningDev( 
+        gConfig *Config,
+        runningDevs map[string] *RunningDev,
+        portMap *PortMap,
+        uuid string ) ( *RunningDev ) {
+        
+    wdaPort, vidPort, devIosPort, vncPort, config := assign_ports( gConfig, portMap )
+  
+    devd := RunningDev{
+        uuid: uuid,
+        shuttingDown:  false,
+        failed:        false,
+        mirror:        nil,
+        ff:            nil,
+        device:        nil,
+        deviceBackoff: nil,
+        //proxy:         nil,
+        wdaPort:       wdaPort,
+        vidPort:       vidPort,
+        devIosPort:    devIosPort,
+        vncPort:       vncPort,
+        pipe:          fmt.Sprintf("video_pipes/pipe_%d", vidPort ),
+        confDup:       config,
+        wdaWrapper:    nil,
+        videoReady:    false,
+        streamWidth:   0,
+        streamHeight:  0,
+        okFirstFrame:  false,
+        okVidInterface: false,
+        okAllUp:        false,
+    }
+    
+    devd.name = getDeviceName( uuid )
+    
+    runningDevs[uuid] = &devd
+    
+    log.WithFields( log.Fields{
+        "type":     "devd_create",
+        "dev_name": devd.name,
+        "dev_uuid": uuid,
+        "vid_port": vidPort,
+        "wda_port": wdaPort,
+        "vnc_port": vncPort,
+    } ).Info("Device object created")
+    
+    return &devd
 }
 
 func event_loop(
@@ -153,79 +232,39 @@ func event_loop(
         tunName     string,
         pubEventCh  chan<- PubEvent,
         runningDevs map[string] *RunningDev,
-        wdaPorts    map[int] *PortItem,
-        vidPorts    map[int] *PortItem,
-        devIosPorts map[int] *PortItem,
+        portMap     *PortMap,
         lineLog     *log.Entry ) {
+    
     for {
         // receive message
         devEvent := <- devEventCh
         uuid := devEvent.uuid
 
+        var devd *RunningDev = nil
+        var ok = false
+        
+        if devd, ok = runningDevs[uuid]; !ok {
+            devd = NewRunningDev( gConfig, runningDevs, portMap, uuid )
+        }
+        
         if devEvent.action == 0 { // device connect
-            wdaPort, vidPort, devIosPort, config := assign_ports( gConfig, wdaPorts, vidPorts, devIosPorts )
-            
-            devd := RunningDev{
-                uuid: uuid,
-                shuttingDown:  false,
-                failed:        false,
-                mirror:        nil,
-                ff:            nil,
-                device:        nil,
-                deviceBackoff: nil,
-                //proxy:         nil,
-                wdaPort:       wdaPort,
-                vidPort:       vidPort,
-                devIosPort:    devIosPort,
-                pipe:          fmt.Sprintf("video_pipes/pipe_%d", vidPort ),
-            }
-            runningDevs[uuid] = &devd
-            
-            devd.name = getDeviceName( uuid )
-            if devd.name == "" {
-                devd.failed = true
-                // TODO log an error
-                continue
-            }
             devName := devd.name
 
             log.WithFields( log.Fields{
                 "type":     "dev_connect",
                 "dev_name": devName,
-                "dev_uuid": uuid,
-                "vid_port": vidPort,
-                "wda_port": wdaPort,
+                "dev_uuid": uuid,                
             } ).Info("Device connected")
 
-            iosVersion := getDeviceInfo( uuid, "ProductVersion" )
+            config := devd.confDup
             
             if !config.SkipVideo {
                 ensure_proper_pipe( devd.pipe )
-                proc_mirrorfeed( config, tunName, &devd, lineLog )
-                proc_ffmpeg( config, &devd, devName, lineLog )
-
-                // Sleep to ensure that video enabling process is finished before we try to start wdaproxy
-                // This is needed because the USB device drops out and reappears during video enabling
-                //time.Sleep( time.Second * 2 )
+                proc_mirrorfeed( config, tunName, devd, lineLog )
+                proc_ffmpeg( config, devd, devName, lineLog )
             }
-
-            log.WithFields( log.Fields{
-                "type":     "ios_version",
-                "dev_name": devd.name,
-                "dev_uuid": uuid,
-                "ios_version": iosVersion,
-            } ).Info("IOS Version")
-            
-            //start_proc_wdaproxy( config, &devd, &devEvent, uuid, devName, pubEventCh, lineLog, iosVersion )
-            start_proc_wdaproxy( config, &devd, uuid, iosVersion )
-            
-            time.Sleep( time.Second * 3 )
-
-            proc_device_ios_unit( config, &devd, uuid, curIP, lineLog )
         }
         if devEvent.action == 1 { // device disconnect
-            devd := runningDevs[uuid]
-
             log.WithFields( log.Fields{
                 "type":     "dev_disconnect",
                 "dev_name": devd.name,
@@ -234,8 +273,11 @@ func event_loop(
 
             // send true to the stop heartbeat channel
             
-            closeRunningDev( devd, wdaPorts, vidPorts, devIosPorts )
+            closeRunningDev( devd, portMap )
 
+            delete( runningDevs, uuid )
+            devd = nil
+            
             // Notify stf that the device is gone
             pubEvent := PubEvent{}
             pubEvent.action  = devEvent.action
@@ -245,7 +287,57 @@ func event_loop(
             pubEvent.vidPort = 0
             pubEventCh <- pubEvent
         }
+        if devEvent.action == 2 { // video interface available
+            log.WithFields( log.Fields{
+                "type":     "vid_interface",
+                "dev_name": devd.name,
+                "dev_uuid": uuid,
+            } ).Info("Video interface available")
+            devd.okVidInterface = true
+        }
+        if devEvent.action == 3 { // first video frame
+            devd.okFirstFrame = true
+            devd.streamWidth = devEvent.width
+            devd.streamHeight = devEvent.height
+            log.WithFields( log.Fields{
+                "type": "first_frame",
+                "proc": "mirrorfeed",
+                "width": devEvent.width,
+                "height": devEvent.height,
+                "uuid": uuid,
+            } ).Info("First mirrorfeed frame")
+        }
+        
+        if devd != nil && devd.okAllUp == false {
+            config := devd.confDup
+            
+            if config.SkipVideo || ( devd.okVidInterface == true && devd.okFirstFrame == true ) {
+                devd.okAllUp = true
+                continue_dev_start( devd, curIP, lineLog )
+            }
+        }
     }
+}
+
+func continue_dev_start( devd *RunningDev, curIP string, lineLog *log.Entry ) {
+    uuid := devd.uuid
+    
+    time.Sleep( time.Second * 2 )
+    
+    iosVersion := getDeviceInfo( uuid, "ProductVersion" )
+
+    log.WithFields( log.Fields{
+        "type":     "ios_version",
+        "dev_name": devd.name,
+        "dev_uuid": uuid,
+        "ios_version": iosVersion,
+    } ).Info("IOS Version")
+    
+    start_proc_wdaproxy( devd.confDup, devd, uuid, iosVersion )
+    
+    time.Sleep( time.Second * 3 )
+
+    proc_device_ios_unit( devd.confDup, devd, uuid, curIP, lineLog )
 }
 
 func ensure_proper_pipe( file string ) {

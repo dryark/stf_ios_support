@@ -25,7 +25,7 @@ config.json:
 
 device_trigger: bin/osx_ios_device_trigger
 
-bin/osx_ios_device_trigger: | repos/osx_ios_device_trigger
+bin/osx_ios_device_trigger: repos/osx_ios_device_trigger repos/osx_ios_device_trigger/osx_ios_device_trigger/main.cpp
 	$(MAKE) -C repos/osx_ios_device_trigger
 
 # --- VIEW LOG ---
@@ -74,7 +74,7 @@ bin/wda_wrapper: wda_wrapper/wda_wrapper.go
 
 mirrorfeed: bin/stf_ios_mirrorfeed
 
-bin/stf_ios_mirrorfeed: | repos/stf_ios_mirrorfeed repos/stf_ios_mirrorfeed/mirrorfeed/mirrorfeed.go
+bin/stf_ios_mirrorfeed: repos/stf_ios_mirrorfeed repos/stf_ios_mirrorfeed/mirrorfeed/mirrorfeed.go
 	$(MAKE) -C repos/stf_ios_mirrorfeed/mirrorfeed
 	touch bin/stf_ios_mirrorfeed
 
@@ -99,7 +99,8 @@ bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgen
 	@mkdir -p bin/wda/Debug-iphoneos
 	ln -s ../../repos/wdaproxy/web bin/wda/web
 	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
-	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner -allowProvisioningUpdates -destination generic/platform=iOS CODE_SIGN_IDENTITY="iPhone Developer" DEVELOPMENT_TEAM="$(DEVID)" build-for-testing
+	$(eval XCODEOPS=$(shell jq '.xcode_build_ops // ""' config.json -j))
+	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner -allowProvisioningUpdates -destination generic/platform=iOS $(XCODEOPS) CODE_SIGN_IDENTITY="iPhone Developer" DEVELOPMENT_TEAM="$(DEVID)" build-for-testing
 	@# Spits out PROD_PATH
 	$(eval $(shell ./get-wda-build-path.sh)) 
 	@cp -r $(PROD_PATH)/ bin/wda/
@@ -122,9 +123,9 @@ bin/wdaproxy: | wdaproxybin
 
 checkout: repos/stf repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger
 
-repos/stf:
-	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/tmobile/stf.git"' config.json -j))
-	git clone $(REPO) repos/stf --branch ios-support
+repos/stf-ios-provider:
+	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/nanoscopic/stf-ios-provider.git"' config.json -j))
+	git clone $(REPO) repos/stf-ios-provider --branch master
 
 repos/stf_ios_mirrorfeed:
 	git clone https://github.com/tmobile/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
@@ -148,20 +149,19 @@ repos/wdaproxy:
 dist: offline/dist.tgz
 
 offline/repos/stf: stf
-	mkdir -p offline/repos/stf
+	mkdir -p offline/repos/stf-ios-provider
 	mkdir -p offline/logs
 	rm offline/repos/stf/* & exit 0
-	ln -s ../../../repos/stf/node_modules      offline/repos/stf/node_modules
-	ln -s ../../../repos/stf/package.json      offline/repos/stf/package.json
-	ln -s ../../../repos/stf/package-lock.json offline/repos/stf/package-lock.json
-	ln -s ../../../repos/stf/runmod.js         offline/repos/stf/runmod.js
-	ln -s ../../../repos/stf/res               offline/repos/stf/res
-	ln -s ../../../repos/stf/lib               offline/repos/stf/lib
+	ln -s ../../../repos/stf-ios-provider/node_modules      offline/repos/stf-ios-provider/node_modules
+	ln -s ../../../repos/stf-ios-provider/package.json      offline/repos/stf-ios-provider/package.json
+	ln -s ../../../repos/stf-ios-provider/package-lock.json offline/repos/stf-ios-provider/package-lock.json
+	ln -s ../../../repos/stf-ios-provider/runmod.js         offline/repos/stf-ios-provider/runmod.js
+	ln -s ../../../repos/stf-ios-provider/lib               offline/repos/stf-ios-provider/lib
 	ln -s ../../repos/wdaproxy/web             bin/wda/web & exit 0
 
 # --- BINARY DISTRIBUTION ---
 
-offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf config.json view_log
+offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log
 	@./get-version-info.sh > offline/build_info.json
 	tar -h -czf offline/dist.tgz video_pipes run stf_ios_support.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/ build_info.json
 

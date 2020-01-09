@@ -5,8 +5,8 @@
 	"stf_hostname": "[your stf server hostname]",
 	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
 	"skip_video": false,
-	"log_file": "log",
-	"lines_log_file": "log_lines",
+	"log_file": "logs/coordinator",
+	"lines_log_file": "logs/procs",
 	"vpn_name": "none",
 	"network_interface": "eth0"
 }

@@ -4,6 +4,7 @@ import (
   "bufio"
   "os"
   "os/exec"
+  "strconv"
   "strings"
   "time"
   log "github.com/sirupsen/logrus"
@@ -35,7 +36,7 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
                 "-f",            "mjpeg",
                 "-bsf:v",        "mjpegadump",
                 "-bsf:v",        "mjpeg2jpeg",
-                "-r",            "1", // framerate
+                "-r",            strconv.Itoa( config.FrameRate ), // framerate
                 "-vsync",        "2",
                 "-nostats",
                 "pipe:1",

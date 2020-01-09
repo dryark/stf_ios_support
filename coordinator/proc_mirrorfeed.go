@@ -35,9 +35,10 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
                 "mirrorfeed_bin": mirrorFeedBin,
                 "pipe":           pipeName,
                 "port":           mirrorPort,
+                "tunName":        tunName,
             } ).Info("Starting: mirrorfeed")
 
-            cmd := exec.Command( mirrorFeedBin, mirrorPort, pipeName, tunName )
+            cmd := exec.Command( mirrorFeedBin, mirrorPort, pipeName, tunName, devd.uuid )
 
             outputPipe, _ := cmd.StdoutPipe()
             //cmd.Stderr = os.Stderr

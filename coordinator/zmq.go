@@ -69,6 +69,8 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
                 test.Type = "heartbeat"
             } else if pubEvent.action == 1 {
                 test.Type = "disconnect"
+            } else if pubEvent.action == 3 {
+                test.Type = "present"
             }
 
             /*log.WithFields( log.Fields{
@@ -151,7 +153,7 @@ func devListJSON( runningDevs map[string] *RunningDev ) (string) {
     return devOut
 }
 
-func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubEventCh  chan<- PubEvent ) {
+func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubEventCh  chan<- PubEvent, devEventCh chan<- DevEvent ) {
     plog := log.WithFields( log.Fields{ "coro": "zmqpull" } )
     
     wdaLineLog := lineLog.WithFields( log.Fields{
@@ -215,6 +217,24 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "uuid": uuid,
                         } ).Info("WDAProxy Started")
                         devd := runningDevs[ uuid ]
+                        
+                        // Everything is started; notify stf via zmq published event
+                        pubEvent := PubEvent{}
+                        pubEvent.action  = 0
+                        pubEvent.uuid    = msg["uuid"]
+                        pubEvent.name    = devd.name
+                        pubEvent.wdaPort = devd.wdaPort
+                        pubEvent.vidPort = devd.vidPort
+                        pubEventCh <- pubEvent
+                        
+                        pubEvent = PubEvent{}
+                        pubEvent.action  = 3
+                        pubEvent.uuid    = msg["uuid"]
+                        pubEvent.name    = devd.name
+                        pubEvent.wdaPort = devd.wdaPort
+                        pubEvent.vidPort = devd.vidPort
+                        pubEventCh <- pubEvent
+                        
                         devd.heartbeatChan = coro_heartbeat( msg["uuid"], pubEventCh )
                     } else if msgType == "wda_started" {
                         plog.WithFields( log.Fields{
@@ -232,6 +252,13 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "line": msg["line"],
                             "uuid": uuid,
                         } ).Info("")
+                    } else if msgType == "wda_error" {
+                        plog.WithFields( log.Fields{
+                            "type": "wda_error",
+                            "proc": "wdaproxy",
+                            "line": msg["line"],
+                            "uuid": uuid,
+                        } ).Error("WDA Error")
                     } else if msgType == "wdaproxy_ended" {
                         devd := runningDevs[ uuid ]
                         devd.heartbeatChan <- true
@@ -239,7 +266,18 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "type": "wdaproxy_ended",
                             "proc": "wdaproxy",
                             "uuid": uuid,
-                        } ).Error("Unknown zmq message type")
+                        } ).Error("WDA Proxy Ended")
+                    } else if msgType == "mirrorfeed_dimensions" {
+                        width, _ := strconv.Atoi( msg["width"] )
+                        height, _ := strconv.Atoi( msg["height"] )
+                        devEvent := DevEvent{
+                            action: 3,
+                            width: width,
+                            height: height,
+                            uuid: uuid,
+                        }
+                        
+                        devEventCh <- devEvent
                     } else {
                         plog.WithFields( log.Fields{
                             "type": "zmq_type_err",
