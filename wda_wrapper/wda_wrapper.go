@@ -109,6 +109,12 @@ func proc_wdaproxy(
                 if strings.Contains( line, "is implemented in both" ) {
                 } else if strings.Contains( line, "Couldn't write value" ) {
                 } else if strings.Contains( line, "GET /status " ) {
+                } else if strings.Contains( line, "] Error" ) {
+                    msgCoord( map[string]string{
+                      "type": "wda_error",
+                      "line": line,
+                      "uuid": uuid,
+                    } )
                 } else {
                     log.WithFields( log.Fields{
                         "type": "proc_stdout",
@@ -134,7 +140,7 @@ func proc_wdaproxy(
                   "uuid": uuid,
                 } )
             }
-
+            
             // send line to coordinator
             log.WithFields( log.Fields{
                 "type": "proc_stderr",
@@ -219,6 +225,8 @@ func setup_zmq() {
     }
     
     reqOb.SetTimeout(1000)
+    
+    zmqRequest( []byte("dummy") )
 }
 
 func close_zmq() {

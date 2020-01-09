@@ -71,23 +71,19 @@ func cleanup_procs(config *Config) {
 
 func closeAllRunningDevs( runningDevs map [string] *RunningDev ) {
     for _, devd := range runningDevs {
-        closeRunningDev( devd, nil, nil, nil )
+        closeRunningDev( devd, nil )
     }
 }
 
-func closeRunningDev(
-        devd *RunningDev,
-        wdaPorts map [int] *PortItem,
-        vidPorts map [int] *PortItem,
-        devIosPorts map[int] *PortItem ) {
+func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
     devd.lock.Lock()
     devd.shuttingDown = true
     devd.lock.Unlock()
     
     stop_proc_wdaproxy( devd )
 
-    if wdaPorts != nil && vidPorts != nil {
-        free_ports( devd.wdaPort, devd.vidPort, devd.devIosPort, wdaPorts, vidPorts, devIosPorts )
+    if portMap != nil {
+        free_ports( devd.wdaPort, devd.vidPort, devd.devIosPort, devd.vncPort, portMap )
     }
 
     plog := log.WithFields( log.Fields{

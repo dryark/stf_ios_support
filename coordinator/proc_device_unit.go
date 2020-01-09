@@ -33,8 +33,16 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
               "video_port": devd.vidPort,
               "node_port": devd.devIosPort,
               "device_name": devd.name,
+              "vnc_scale": config.VncScale,
+              "stream_width": devd.streamWidth,
+              "stream_height": devd.streamHeight,
             } ).Info("Starting stf_device_ios")
 
+            vncPort := 0
+            if config.UseVnc == true {
+                vncPort = devd.vncPort
+            }
+            
             cmd := exec.Command( "/usr/local/opt/node@8/bin/node",
                 fmt.Sprintf("--inspect=0.0.0.0:%d", devd.devIosPort),
                 "runmod.js"              , "device-ios",
@@ -46,8 +54,13 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 "--wda-port"             , strconv.Itoa( devd.wdaPort ),
                 "--storage-url"          , fmt.Sprintf("https://%s", config.STFHostname),
                 "--screen-ws-url-pattern", fmt.Sprintf("wss://%s/frames/%s/%d/x", config.STFHostname, curIP, devd.vidPort),
+                "--vnc-password"         , config.VncPassword,
+                "--vnc-port"             , strconv.Itoa( vncPort ),
+                "--vnc-scale"            , strconv.Itoa( config.VncScale ),
+                "--stream-width"         , strconv.Itoa( devd.streamWidth ),
+                "--stream-height"        , strconv.Itoa( devd.streamHeight ),
             )
-            cmd.Dir = "./repos/stf"
+            cmd.Dir = "./repos/stf-ios-provider"
             outputPipe, _ := cmd.StderrPipe()
             cmd.Stdout = os.Stdout
 

@@ -27,6 +27,8 @@ type Config struct {
     VidPorts         string `json:"vid_ports"`
     DevIosPorts      string `json:"dev_ios_ports"`
     DevIosPort       int    `json:"dev_ios_port"`
+    VncPorts         string `json:"vnc_ports"`
+    VncPort          int    `json:"vnc_port"`
     LogFile          string `json:"log_file"`
     LinesLogFile     string `json:"lines_log_file"`
     VpnName          string `json:"vpn_name"`
@@ -36,6 +38,10 @@ type Config struct {
     WDAWrapperStdout string `json:"wda_wrapper_stdout"`
     WDAWrapperStderr string `json:"wda_wrapper_stderr"`
     WDAWrapperBin    string `json:"wda_wrapper_bin"`
+    FrameRate        int    `json:"frame_rate"`
+    VncPassword      string `json:"vnc_password"`
+    UseVnc           bool   `json:"use_vnc"`
+    VncScale         int    `json:"vnc_scale"`
 }
 
 func read_config( configPath string ) *Config {
@@ -82,12 +88,17 @@ func read_config( configPath string ) *Config {
             WDAProxyPort:    8100,
             DevIosPort:      9240,
             DevIosPorts:     "9240-9250",
+            VncPort:         5901,
+            VncPorts:        "5901-5911",
             Pipe:            "pipe",
             ConfigPath:      "",
             RootPath:        "",
             WDAWrapperStdout:"./logs/wda_wrapper_stdout",
             WDAWrapperStderr:"./logs/wda_wrapper_stderr",
             WDAWrapperBin:   "bin/wda_wrapper",
+            FrameRate:       1,
+            VncPassword:     "",
+            VncScale:        2,
         }
         json.Unmarshal( jsonBytes, &config )
         if config.ConfigPath != "" {

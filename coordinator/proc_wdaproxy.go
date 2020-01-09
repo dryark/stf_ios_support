@@ -36,5 +36,8 @@ func start_proc_wdaproxy(
 }
 
 func stop_proc_wdaproxy( devd *RunningDev ) {
-    devd.wdaWrapper.unload()
+    if devd.wdaWrapper != nil {
+        devd.wdaWrapper.unload()
+        devd.wdaWrapper = nil
+    }
 }

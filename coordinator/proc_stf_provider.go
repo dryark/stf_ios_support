@@ -46,7 +46,7 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
                 "--no-cleanup" )
 
             outputPipe, _ := cmd.StderrPipe()
-            cmd.Dir = "./repos/stf"
+            cmd.Dir = "./repos/stf-ios-provider"
             cmd.Stdout = os.Stdout
 
             backoff.markStart()

@@ -2,6 +2,7 @@ package main
 
 import (
   "bytes"
+  "encoding/json"
   "fmt"
   "net/http"
   "text/template"
@@ -34,8 +35,12 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
     disconnectClosure := func( w http.ResponseWriter, r *http.Request ) {
         deviceDisconnect( w, r, devEventCh )
     }
+    ifaceClosure := func( w http.ResponseWriter, r *http.Request ) {
+        newInterface( w, r, devEventCh )
+    }
     http.HandleFunc( "/dev_connect", connectClosure )
     http.HandleFunc( "/dev_disconnect", disconnectClosure )
+    http.HandleFunc( "/new_interface", ifaceClosure )
     log.Fatal( http.ListenAndServe( listen_addr, nil ) )
 }
 
@@ -136,6 +141,39 @@ func deviceDisconnect( w http.ResponseWriter, r *http.Request, devEventCh chan<-
     uuid = fixUuid( uuid )
     devEvent.uuid = uuid
     devEventCh <- devEvent
+}
+
+type IFaceData struct {
+    Serial   string `json:"uuid"`
+    Class    string `json:"class"`
+    SubClass string `json:"subclass"`
+    Vendor   string `json:"vendor"`
+    Product  string `json:"product"`
+}
+
+func newInterface( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
+    //snprintf( postdata, 255, "{\"class\":\"%02x\",\"subclass\":\"%02x\",\"vendor\":\"%04x\",\"product\":\"%04x\"}", cls, subcls, vendor, product );
+    ifaceData := IFaceData{}
+    
+    body := new(bytes.Buffer)
+    body.ReadFrom(r.Body)
+    json.Unmarshal(body.Bytes(), &ifaceData )
+    
+    log.WithFields( log.Fields{
+        "type": "iface_body",
+        "body": body.String(),
+        "struct": ifaceData,
+    } ).Debug("New Interface")
+    
+    if ifaceData.Class == "ff" && ifaceData.SubClass == "2a" {
+        // signal device loop of video interface addition
+        devEvent := DevEvent{}
+        devEvent.action = 2
+        r.ParseForm()
+        uuid := fixUuid( ifaceData.Serial )
+        devEvent.uuid = uuid
+        devEventCh <- devEvent
+    }
 }
 
 var deviceTpl = template.Must(template.New("device").Parse(`

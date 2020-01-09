@@ -9,6 +9,7 @@ import (
   "os/user"
   "strconv"
   "strings"
+  "sync"
   "text/template"
   log "github.com/sirupsen/logrus"
 )
@@ -21,6 +22,7 @@ type Launcher struct {
     stderr string
     cwd string
     file string
+    lock sync.Mutex
 }
 
 func NewLauncher( label string, arguments []string, keepalive bool, cwd string ) (*Launcher) {
@@ -95,15 +97,19 @@ func ( self *Launcher ) load() {
     }
     
     // load it
+    self.lock.Lock()
     exec.Command("/bin/launchctl","load",self.file).Run()
+    self.lock.Unlock()
 }
 
 func ( self *Launcher ) unload() {
     // unload
+    self.lock.Lock()
     exec.Command("/bin/launchctl","unload",self.file).Run()
     
     // delete the file
     os.Remove(self.file)
+    self.lock.Unlock()
 }
 
 var launchTpl = template.Must(template.New("launchfile").Parse(`
