@@ -2,7 +2,9 @@ TARGET = ../bin/coordinator
 
 all: $(TARGET)
 
-$(TARGET): *.go go.sum
+coordinator_sources := $(wildcard *.go)
+
+$(TARGET): $(coordinator_sources) go.sum
 	go build  -o $(TARGET) .
 
 go.sum:

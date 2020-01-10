@@ -42,6 +42,7 @@ type Config struct {
     VncPassword      string `json:"vnc_password"`
     UseVnc           bool   `json:"use_vnc"`
     VncScale         int    `json:"vnc_scale"`
+    IProxyBin        string `json:"iproxy_bin"`
 }
 
 func read_config( configPath string ) *Config {
@@ -99,6 +100,7 @@ func read_config( configPath string ) *Config {
             FrameRate:       1,
             VncPassword:     "",
             VncScale:        2,
+            IProxyBin:       "/usr/local/bin/iproxy",
         }
         json.Unmarshal( jsonBytes, &config )
         if config.ConfigPath != "" {

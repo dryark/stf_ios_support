@@ -22,12 +22,19 @@ type DevEvent struct {
 type RunningDev struct {
     uuid          string
     name          string
+    
+    // mirrorfeed
     mirror        *os.Process
     mirrorBackoff *Backoff
+    
+    // ffmpeg
     ff            *os.Process
     ffBackoff     *Backoff
-    //proxy         *os.Process
-    //proxyBackoff  *Backoff
+    
+    // iproxy to forward localhost:vncPort to phone:5900
+    iproxy        *os.Process
+    iproxyBackoff *Backoff
+    
     wdaWrapper    *Launcher
     device        *os.Process
     deviceBackoff *Backoff
@@ -313,14 +320,18 @@ func event_loop(
             
             if config.SkipVideo || ( devd.okVidInterface == true && devd.okFirstFrame == true ) {
                 devd.okAllUp = true
-                continue_dev_start( devd, curIP, lineLog )
+                continue_dev_start( config, devd, curIP, lineLog )
             }
         }
     }
 }
 
-func continue_dev_start( devd *RunningDev, curIP string, lineLog *log.Entry ) {
+func continue_dev_start( config *Config, devd *RunningDev, curIP string, lineLog *log.Entry ) {
     uuid := devd.uuid
+    
+    if !config.SkipVideo && config.UseVnc {
+        proc_vnc_proxy( devd.confDup, devd, lineLog )
+    }
     
     time.Sleep( time.Second * 2 )
     
