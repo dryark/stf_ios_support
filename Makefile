@@ -60,7 +60,9 @@ repos/stf/node_modules: | repos/stf
 
 coordinator: bin/coordinator
 
-bin/coordinator: coordinator/coordinator.go coordinator/config.go coordinator/heartbeat.go coordinator/http_server.go coordinator/idevice.go coordinator/launchctl.go coordinator/log.go coordinator/network.go coordinator/ports.go coordinator/proc_backoff.go coordinator/proc_device_trigger.go coordinator/proc_device_unit.go coordinator/proc_ffmpeg.go coordinator/proc_mirrorfeed.go coordinator/proc_stf_provider.go coordinator/proc_video_enabler.go coordinator/proc_wdaproxy.go coordinator/shutdown.go coordinator/vpn.go coordinator/zmq.go
+coordinator_sources := $(wildcard coordinator/*.go)
+
+bin/coordinator: $(coordinator_sources)
 	$(MAKE) -C coordinator
 
 # --- WDAPROXY WRAPPER ---
