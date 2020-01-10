@@ -227,7 +227,7 @@ func NewRunningDev(
         "vid_port": vidPort,
         "wda_port": wdaPort,
         "vnc_port": vncPort,
-    } ).Info("Device object created")
+    } ).Debug("Device object created")
     
     return &devd
 }
@@ -299,7 +299,7 @@ func event_loop(
                 "type":     "vid_interface",
                 "dev_name": devd.name,
                 "dev_uuid": uuid,
-            } ).Info("Video interface available")
+            } ).Debug("Video - interface available")
             devd.okVidInterface = true
         }
         if devEvent.action == 3 { // first video frame
@@ -312,7 +312,7 @@ func event_loop(
                 "width": devEvent.width,
                 "height": devEvent.height,
                 "uuid": uuid,
-            } ).Info("First mirrorfeed frame")
+            } ).Info("Video - first frame")
         }
         
         if devd != nil && devd.okAllUp == false {
@@ -342,7 +342,7 @@ func continue_dev_start( config *Config, devd *RunningDev, curIP string, lineLog
         "dev_name": devd.name,
         "dev_uuid": uuid,
         "ios_version": iosVersion,
-    } ).Info("IOS Version")
+    } ).Debug("IOS Version")
     
     start_proc_wdaproxy( devd.confDup, devd, uuid, iosVersion )
     

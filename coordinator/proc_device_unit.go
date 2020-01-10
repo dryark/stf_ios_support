@@ -36,10 +36,10 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
               "vnc_scale": config.VncScale,
               "stream_width": devd.streamWidth,
               "stream_height": devd.streamHeight,
-            } ).Info("Starting stf_device_ios")
+            } ).Info("Process start - stf_device_ios")
 
             vncPort := 0
-            if config.UseVnc == true {
+            if config.UseVnc == true && config.SkipVideo == false {
                 vncPort = devd.vncPort
             }
             
@@ -106,12 +106,12 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 if strings.Contains( line, "responding with identity" ) {
                     plog.WithFields( log.Fields{
                         "type": "device_ios_ident",
-                    } ).Info("Device IOS Unit Registered Identity")
+                    } ).Debug("Device IOS Unit Registered Identity")
                 }
                 if strings.Contains( line, "Sent ready message" ) {
                     plog.WithFields( log.Fields{
                         "type": "device_ios_ready",
-                    } ).Info("Device IOS Unit Ready")
+                    } ).Debug("Device IOS Unit Ready")
                 }
 
                 lineLog.WithFields( log.Fields{ "line": line } ).Info("")
@@ -127,7 +127,7 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
             plog.WithFields( log.Fields{
                 "type": "proc_end",
                 "elapsed_sec": seconds,
-            } ).Warn("Ended: stf_device_ios")
+            } ).Warn("Process end - stf_device_ios")
             
             devd.lock.Lock()
             exit := devd.shuttingDown

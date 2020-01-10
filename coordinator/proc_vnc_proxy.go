@@ -33,7 +33,7 @@ func proc_vnc_proxy( config *Config, devd *RunningDev, lineLog *log.Entry ) {
                 "type":       "proc_start",
                 "iproxy_bin": iproxyBin,
                 "vncPort":    vncPort,
-            } ).Info("Starting: vnc proxy")
+            } ).Info("Process start - vnc proxy")
 
             cmd := exec.Command( "/usr/local/bin/iproxy", strconv.Itoa( vncPort ), "5900" )
 
@@ -72,7 +72,7 @@ func proc_vnc_proxy( config *Config, devd *RunningDev, lineLog *log.Entry ) {
 
             devd.iproxy = nil
 
-            plog.WithFields( log.Fields{  "type": "proc_end" } ).Warn("Ended: vnc proxy")
+            plog.WithFields( log.Fields{  "type": "proc_end" } ).Warn("Process end - vnc proxy")
 
             devd.lock.Lock()
             exit := devd.shuttingDown

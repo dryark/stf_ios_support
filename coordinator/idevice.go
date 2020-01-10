@@ -72,7 +72,7 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
         log.WithFields( log.Fields{
             "type": "ilib_getinfo_call",
             "ops": ops,
-        } ).Error("ideviceinfo call")
+        } ).Debug("ideviceinfo call")
         name, _ := exec.Command( "/usr/local/bin/ideviceinfo", ops... ).Output()
         if name == nil || len(name) == 0 {
             log.WithFields( log.Fields{

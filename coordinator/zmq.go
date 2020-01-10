@@ -215,7 +215,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "type": "wdaproxy_started",
                             "proc": "wdaproxy",
                             "uuid": uuid,
-                        } ).Info("WDAProxy Started")
+                        } ).Info("Process start - WDAProxy")
                         devd := runningDevs[ uuid ]
                         
                         // Everything is started; notify stf via zmq published event
@@ -241,7 +241,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "type": "wda_started",
                             "proc": "wdaproxy",
                             "uuid": uuid,
-                        } ).Info("WDA Started")
+                        } ).Info("WDA Running")
                     } else if msgType == "wda_stdout" {
                         wdaLineLog.WithFields( log.Fields {
                             "line": msg["line"],
@@ -266,7 +266,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "type": "wdaproxy_ended",
                             "proc": "wdaproxy",
                             "uuid": uuid,
-                        } ).Error("WDA Proxy Ended")
+                        } ).Error("Process end - WDAProxy")
                     } else if msgType == "mirrorfeed_dimensions" {
                         width, _ := strconv.Atoi( msg["width"] )
                         height, _ := strconv.Atoi( msg["height"] )
