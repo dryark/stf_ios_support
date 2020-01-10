@@ -11,7 +11,7 @@ func proc_device_trigger( config *Config, baseProgs *BaseProgs, lineLog *log.Ent
     lineLog = lineLog.WithFields( log.Fields{ "proc": "device_trigger" } )
     
     go func() {
-        plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Starting: device_trigger")
+        plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Process start - device_trigger")
 
         cmd := exec.Command( config.DeviceTrigger )
 
@@ -45,6 +45,6 @@ func proc_device_trigger( config *Config, baseProgs *BaseProgs, lineLog *log.Ent
         
         cmd.Wait()
 
-        plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: device_trigger")
+        plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Process end - device_trigger")
     }()
 }

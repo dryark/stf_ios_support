@@ -45,7 +45,7 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
             plog.WithFields( log.Fields{
                 "type": "proc_start",
                 "ops": ops,
-            } ).Info("Starting: ffmpeg")
+            } ).Info("Process start - ffmpeg")
 
             cmd := exec.Command( "bin/ffmpeg", ops... )
             
@@ -93,7 +93,7 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
             cmd.Wait()
             backoff.markEnd()
 
-            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: ffmpeg")
+            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Process end - ffmpeg")
 
             outputPipe.Close()
             devd.ff = nil

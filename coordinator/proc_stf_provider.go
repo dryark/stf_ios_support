@@ -29,7 +29,7 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
                 "server_ip":       serverIP,
                 "client_hostname": clientHostname,
                 "server_hostname": serverHostname,
-            } ).Info("Starting: stf_provider")
+            } ).Info("Process start - stf_provider")
 
             cmd := exec.Command( "/usr/local/opt/node@8/bin/node",
                 "--inspect=127.0.0.1:9230",
@@ -75,7 +75,7 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
             cmd.Wait()
             backoff.markEnd()
 
-            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Ended: stf_provider")
+            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Process end - stf_provider")
 
             if baseProgs.shuttingDown {
                 break

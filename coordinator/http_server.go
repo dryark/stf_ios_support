@@ -19,7 +19,7 @@ func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *Ba
 func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *BaseProgs, runningDevs map[string] *RunningDev ) {
     log.WithFields( log.Fields{
         "type": "http_start",
-    } ).Info("HTTP started")
+    } ).Debug("HTTP server started")
 
     rootClosure := func( w http.ResponseWriter, r *http.Request ) {
         handleRoot( w, r, baseProgs, runningDevs )

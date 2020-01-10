@@ -74,8 +74,8 @@ func get_net_info( config *Config ) ( string, string, bool ) {
 
     log.WithFields( log.Fields{
         "type": "info_vpn",
-        "tunnel_name": tunName,
-    } ).Info("Tunnel name")
+        "interface_name": tunName,
+    } ).Info("VPN Info - interface")
 
     ipConfirm := getTunIP( tunName )
     if ipConfirm != curIP {
@@ -84,9 +84,9 @@ func get_net_info( config *Config ) ( string, string, bool ) {
     } else {
         log.WithFields( log.Fields{
             "type": "info_vpn",
-            "tunnel_name": tunName,
+            "interface_name": tunName,
             "ip": curIP,
-        } ).Info("IP on VPN")
+        } ).Info("VPN Info - ip")
     }
 
     return tunName, curIP, vpnMissing

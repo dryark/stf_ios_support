@@ -36,7 +36,7 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
                 "pipe":           pipeName,
                 "port":           mirrorPort,
                 "tunName":        tunName,
-            } ).Info("Starting: mirrorfeed")
+            } ).Info("Process start - mirrorfeed")
 
             cmd := exec.Command( mirrorFeedBin, mirrorPort, pipeName, tunName, devd.uuid )
 
@@ -76,7 +76,7 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
 
             devd.mirror = nil
 
-            plog.WithFields( log.Fields{  "type": "proc_end" } ).Warn("Ended: mirrorfeed")
+            plog.WithFields( log.Fields{  "type": "proc_end" } ).Warn("Process end - mirrorfeed")
 
             devd.lock.Lock()
             exit := devd.shuttingDown
