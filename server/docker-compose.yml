@@ -10,9 +10,8 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       # You'll need to set the paths below to where your certs actually are
-      - /todo/yourpath/fullchain.pem:/etc/nginx/ssl/cert.pem
-      - /todo/yourpath/privkey.pem:/etc/nginx/ssl/cert.key
-      - /todo/yourpath/dhparam.pem:/etc/nginx/ssl/dhparam.pem
+      - ./cert/server.crt:/etc/nginx/ssl/cert.crt
+      - ./cert/server.key:/etc/nginx/ssl/cert.key
     restart: unless-stopped
     ports:
       - 80:80
@@ -41,7 +40,7 @@ services:
     command: >
       node runcli.js app 
       --auth-url https://${HOSTNAME}/auth/mock/
-      --websocket-url wss://${STF_URI}/ --port 3000
+      --websocket-url wss://${HOSTNAME}/ --port 3000
     volumes:
       - ./runcli.js:/app/runcli.js
     ports:
@@ -55,7 +54,7 @@ services:
     restart: unless-stopped
     environment:
       - SECRET
-    command: stf auth-mock --app-url http://${PUBLIC_IP}/ --port 3000
+    command: stf auth-mock --app-url http://${HOSTNAME}/ --port 3000
   processor:
     image: ${STF_IMAGE}
     restart: unless-stopped
@@ -149,9 +148,9 @@ services:
       node runcli.js
       websocket
       --port 3000
-      --storage-url http://${PUBLIC_IP}/
-      --connect-sub tcp://triproxy:7150
-      --connect-push tcp://triproxy:7170
+      --storage-url "http://${PUBLIC_IP}/"
+      --connect-sub "tcp://triproxy:7150"
+      --connect-push "tcp://triproxy:7170"
     volumes:
       - ./runcli.js:/app/runcli.js
     ports:
