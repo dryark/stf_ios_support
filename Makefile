@@ -123,7 +123,7 @@ bin/wdaproxy: | wdaproxybin
 
 # --- REPO CLONES ---
 
-checkout: repos/stf repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger
+checkout: repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider
 
 repos/stf-ios-provider:
 	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/nanoscopic/stf-ios-provider.git"' config.json -j))
@@ -203,6 +203,8 @@ STF\ Coordinator.app: | bin/coordinator icns
 	cp config.json STF\ Coordinator.app/Contents/Resources/
 	cp Info.plist STF\ Coordinator.app/Contents/
 	./get-version-info.sh ios_support > STF\ Coordinator.app/Contents/Resources/build_info.json
+	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
+	./util/signers.pl sign "$(DEVID)" "STF Coordinator.app"
 
 icon/stf.iconset: | icon/stf.iconset1 icon/stf.iconset2 icons
 	mkdir -p icon/stf.iconset
