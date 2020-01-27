@@ -163,7 +163,7 @@ offline/repos/stf: stf
 
 # --- BINARY DISTRIBUTION ---
 
-offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log
+offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler repos/stf-ios-provider config.json view_log
 	@./get-version-info.sh > offline/build_info.json
 	tar -h -czf offline/dist.tgz video_pipes run stf_ios_support.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/ build_info.json
 
