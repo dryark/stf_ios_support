@@ -91,7 +91,7 @@ bin/osx_ios_video_enabler: video_enabler/Makefile
 
 wdabootstrap: repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer
 
-repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent/package.json
+repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent
 	cd repos/WebDriverAgent && ./Scripts/bootstrap.sh
 
 wda: bin/wda/build_info.json
