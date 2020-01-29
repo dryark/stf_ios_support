@@ -113,7 +113,8 @@ func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
 
 func closeBaseProgs( baseProgs *BaseProgs ) {
     baseProgs.shuttingDown = true
-
+    vpn_shutdown( baseProgs )
+    
     plog := log.WithFields( log.Fields{
         "type": "proc_cleanup_kill",
     } )
@@ -144,7 +145,7 @@ func coro_sigterm( runningDevs map [string] *RunningDev, baseProgs *BaseProgs, c
 
         closeAllRunningDevs( runningDevs )
         closeBaseProgs( baseProgs )
-
+        
         // This triggers zmq to stop receiving
         // We don't actually wait after this to ensure it has finished cleanly... oh well :)
         gStop = true

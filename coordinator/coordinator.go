@@ -10,6 +10,7 @@ import (
     "syscall"
     "time"
     log "github.com/sirupsen/logrus"
+    fsnotify "github.com/fsnotify/fsnotify"
 )
 
 type DevEvent struct {
@@ -64,6 +65,12 @@ type BaseProgs struct {
     vidEnabler *os.Process
     stf        *os.Process
     shuttingDown bool
+    vpnLauncher *Launcher
+    vpnLogWatcher *fsnotify.Watcher
+    vpnLogWatcherStopChan chan<- bool
+    vpnIface   string
+    okStage1   bool
+    okVpn      bool
 }
 
 var gStop bool
@@ -95,6 +102,8 @@ func main() {
     var debug      = flag.Bool( "debug"   , false        , "Use debug log level" )
     var jsonLog    = flag.Bool( "json"    , false        , "Use json log output" )
     var vpnlist    = flag.Bool( "vpnlist" , false        , "List VPNs then exit" )
+    var loadVpn    = flag.Bool( "loadVpn" , false        , "Setup / Load OpenVPN plist" )
+    var unloadVpn  = flag.Bool( "unloadVpn",false        , "Unload / Remove OpenVPN plist" )
     var configFile = flag.String( "config", "config.json", "Config file path"    )
     flag.Parse()
 
@@ -106,7 +115,7 @@ func main() {
         }
         os.Exit(0)
     }
-
+    
     dir, _ := filepath.Abs( filepath.Dir( os.Args[0] ) )
     if strings.HasSuffix( dir, "/Contents/MacOS" ) { // running via App
         resDir, _ := filepath.Abs( dir + "/../Resources" )
@@ -116,17 +125,29 @@ func main() {
     
     config := read_config( *configFile )
 
+    if *loadVpn {
+        openvpn_load( config )
+        os.Exit(0)
+    }
+    if *unloadVpn {
+        openvpn_unload( config )
+        os.Exit(0)
+    }
+    
     if config.RootPath != "" {
         os.Chdir( config.RootPath )
     }
     
     useVPN := true
-    if config.VpnName == "none" {
+    if config.VpnName == "none" && config.VpnType != "openvpn" {
         useVPN = false
     }
 
+    baseProgs := BaseProgs{}
+    
+    vpnEventCh := make( chan VpnEvent, 2 )
     if useVPN {
-        check_vpn_status( config )
+        check_vpn_status( config, &baseProgs, vpnEventCh )
     }
 
     lineLog := setup_log( config, *debug, *jsonLog )
@@ -145,7 +166,14 @@ func main() {
     var curIP      string
     var vpnMissing bool
     if useVPN {
-        ifName, curIP, vpnMissing = get_net_info( config )
+        if config.VpnType == "tunnelblick" {
+            baseProgs.okVpn = true
+            baseProgs.okStage1 = true
+            ifName, curIP, vpnMissing = get_net_info( config )
+        } else if config.VpnType == "openvpn" {
+            baseProgs.okVpn = false
+            baseProgs.okStage1 = false
+        }
     } else {
         ifName = config.NetworkInterface
         curIP = ifAddr( ifName )
@@ -155,7 +183,6 @@ func main() {
 
     portMap := NewPortMap( config )
     
-    baseProgs := BaseProgs{}
     baseProgs.shuttingDown = false
 
     coro_http_server( config, devEventCh, &baseProgs, runningDevs )
@@ -165,23 +192,25 @@ func main() {
         proc_video_enabler( config, &baseProgs )
     }
 
-    if useVPN {
-        if vpnMissing {
-            log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
-            baseProgs.stf = nil
+    if baseProgs.okVpn == true && baseProgs.okStage1 == false {
+        if useVPN {
+            if vpnMissing {
+                log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
+                baseProgs.stf = nil
+            } else {
+                // start stf and restart it when needed
+                // TODO: if it doesn't restart / crashes again; give up
+                proc_stf_provider( &baseProgs, curIP, config, lineLog )
+            }
         } else {
-            // start stf and restart it when needed
-            // TODO: if it doesn't restart / crashes again; give up
             proc_stf_provider( &baseProgs, curIP, config, lineLog )
         }
-    } else {
-        proc_stf_provider( &baseProgs, curIP, config, lineLog )
     }
 
     coro_sigterm( runningDevs, &baseProgs, config )
 
     // process devEvents
-    event_loop( config, curIP, devEventCh, ifName, pubEventCh, runningDevs, portMap, lineLog )
+    event_loop( config, curIP, devEventCh, vpnEventCh, ifName, pubEventCh, runningDevs, portMap, lineLog, &baseProgs )
 }
 
 func NewRunningDev( 
@@ -236,91 +265,117 @@ func event_loop(
         gConfig     *Config,
         curIP       string,
         devEventCh  <-chan DevEvent,
+        vpnEventCh  <-chan VpnEvent,
         tunName     string,
         pubEventCh  chan<- PubEvent,
         runningDevs map[string] *RunningDev,
         portMap     *PortMap,
-        lineLog     *log.Entry ) {
+        lineLog     *log.Entry,
+        baseProgs *BaseProgs ) {
     
-    for {
-        // receive message
-        devEvent := <- devEventCh
-        uuid := devEvent.uuid
-
-        var devd *RunningDev = nil
-        var ok = false
-        
-        if devd, ok = runningDevs[uuid]; !ok {
-            devd = NewRunningDev( gConfig, runningDevs, portMap, uuid )
-        }
-        
-        if devEvent.action == 0 { // device connect
-            devName := devd.name
-
-            log.WithFields( log.Fields{
-                "type":     "dev_connect",
-                "dev_name": devName,
-                "dev_uuid": uuid,                
-            } ).Info("Device connected")
-
-            config := devd.confDup
+    if baseProgs.okStage1 == false {
+        for {
+            vpnEvent := <- vpnEventCh
+            if vpnEvent.action == 0 {
+                tunName = vpnEvent.text1
+                curIP = ifAddr( tunName )
+                baseProgs.okVpn = true
+            }
             
-            if !config.SkipVideo {
-                ensure_proper_pipe( devd.pipe )
-                proc_mirrorfeed( config, tunName, devd, lineLog )
-                proc_ffmpeg( config, devd, devName, lineLog )
+            if baseProgs.okVpn == true && baseProgs.okStage1 == false {
+                proc_stf_provider( baseProgs, curIP, gConfig, lineLog )
+                baseProgs.okStage1 = true
+                break
             }
         }
-        if devEvent.action == 1 { // device disconnect
-            log.WithFields( log.Fields{
-                "type":     "dev_disconnect",
-                "dev_name": devd.name,
-                "dev_uuid": uuid,
-            } ).Info("Device disconnected")
+    }
 
-            // send true to the stop heartbeat channel
+    for {
+        select {
+        case vpnEvent := <- vpnEventCh:
+            if vpnEvent.action == 0 {
+                //iface := vpnEvent.text1
+                // do nothing; assume tunnel interface is unchanged
+            }
             
-            closeRunningDev( devd, portMap )
-
-            delete( runningDevs, uuid )
-            devd = nil
+        case devEvent := <- devEventCh:
+            uuid := devEvent.uuid
+    
+            var devd *RunningDev = nil
+            var ok = false
             
-            // Notify stf that the device is gone
-            pubEvent := PubEvent{}
-            pubEvent.action  = devEvent.action
-            pubEvent.uuid    = devEvent.uuid
-            pubEvent.name    = ""
-            pubEvent.wdaPort = 0
-            pubEvent.vidPort = 0
-            pubEventCh <- pubEvent
-        }
-        if devEvent.action == 2 { // video interface available
-            log.WithFields( log.Fields{
-                "type":     "vid_interface",
-                "dev_name": devd.name,
-                "dev_uuid": uuid,
-            } ).Debug("Video - interface available")
-            devd.okVidInterface = true
-        }
-        if devEvent.action == 3 { // first video frame
-            devd.okFirstFrame = true
-            devd.streamWidth = devEvent.width
-            devd.streamHeight = devEvent.height
-            log.WithFields( log.Fields{
-                "type": "first_frame",
-                "proc": "mirrorfeed",
-                "width": devEvent.width,
-                "height": devEvent.height,
-                "uuid": uuid,
-            } ).Info("Video - first frame")
-        }
-        
-        if devd != nil && devd.okAllUp == false {
-            config := devd.confDup
+            if devd, ok = runningDevs[uuid]; !ok {
+                devd = NewRunningDev( gConfig, runningDevs, portMap, uuid )
+            }
             
-            if config.SkipVideo || ( devd.okVidInterface == true && devd.okFirstFrame == true ) {
-                devd.okAllUp = true
-                continue_dev_start( config, devd, curIP, lineLog )
+            if devEvent.action == 0 { // device connect
+                devName := devd.name
+    
+                log.WithFields( log.Fields{
+                    "type":     "dev_connect",
+                    "dev_name": devName,
+                    "dev_uuid": uuid,                
+                } ).Info("Device connected")
+    
+                config := devd.confDup
+                
+                if !config.SkipVideo {
+                    ensure_proper_pipe( devd.pipe )
+                    proc_mirrorfeed( config, tunName, devd, lineLog )
+                    proc_ffmpeg( config, devd, devName, lineLog )
+                }
+            }
+            if devEvent.action == 1 { // device disconnect
+                log.WithFields( log.Fields{
+                    "type":     "dev_disconnect",
+                    "dev_name": devd.name,
+                    "dev_uuid": uuid,
+                } ).Info("Device disconnected")
+    
+                // send true to the stop heartbeat channel
+                
+                closeRunningDev( devd, portMap )
+    
+                delete( runningDevs, uuid )
+                devd = nil
+                
+                // Notify stf that the device is gone
+                pubEvent := PubEvent{}
+                pubEvent.action  = devEvent.action
+                pubEvent.uuid    = devEvent.uuid
+                pubEvent.name    = ""
+                pubEvent.wdaPort = 0
+                pubEvent.vidPort = 0
+                pubEventCh <- pubEvent
+            }
+            if devEvent.action == 2 { // video interface available
+                log.WithFields( log.Fields{
+                    "type":     "vid_interface",
+                    "dev_name": devd.name,
+                    "dev_uuid": uuid,
+                } ).Debug("Video - interface available")
+                devd.okVidInterface = true
+            }
+            if devEvent.action == 3 { // first video frame
+                devd.okFirstFrame = true
+                devd.streamWidth = devEvent.width
+                devd.streamHeight = devEvent.height
+                log.WithFields( log.Fields{
+                    "type": "first_frame",
+                    "proc": "mirrorfeed",
+                    "width": devEvent.width,
+                    "height": devEvent.height,
+                    "uuid": uuid,
+                } ).Info("Video - first frame")
+            }
+            
+           if devd != nil && devd.okAllUp == false {
+                config := devd.confDup
+                
+                if config.SkipVideo || ( devd.okVidInterface == true && devd.okFirstFrame == true ) {
+                    devd.okAllUp = true
+                    continue_dev_start( config, devd, curIP, lineLog )
+                }
             }
         }
     }
