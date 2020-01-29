@@ -32,6 +32,8 @@ type Config struct {
     LogFile          string `json:"log_file"`
     LinesLogFile     string `json:"lines_log_file"`
     VpnName          string `json:"vpn_name"`
+    VpnType          string `json:"vpn_type"`
+    VpnConfig        string `json:"vpn_config"`
     NetworkInterface string `json:"network_interface"`
     ConfigPath       string `json:"config_path"`
     RootPath         string `json:"root_path"`
@@ -43,6 +45,8 @@ type Config struct {
     UseVnc           bool   `json:"use_vnc"`
     VncScale         int    `json:"vnc_scale"`
     IProxyBin        string `json:"iproxy_bin"`
+    OpenVpnBin       string `json:"openvpn_bin"`
+    OpenVpnWorkingDirectory string `json:"openvpn_working_dir"`
 }
 
 func read_config( configPath string ) *Config {
@@ -101,6 +105,9 @@ func read_config( configPath string ) *Config {
             VncPassword:     "",
             VncScale:        2,
             IProxyBin:       "/usr/local/bin/iproxy",
+            VpnType:         "tunnelblick",
+            OpenVpnBin:      "/usr/local/opt/openvpn/sbin/openvpn",
+            OpenVpnWorkingDirectory: "/usr/local/etc/openvpn",
         }
         json.Unmarshal( jsonBytes, &config )
         if config.ConfigPath != "" {

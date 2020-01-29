@@ -27,7 +27,8 @@ func start_proc_wdaproxy(
     label := fmt.Sprintf("com.tmobile.coordinator.wdawrapper_%s", uuid )
     wd, _ := os.Getwd()
     keepalive := true
-    stfLauncher := NewLauncher( label, arguments, keepalive, wd )
+    asRoot := false
+    stfLauncher := NewLauncher( label, arguments, keepalive, wd, asRoot )
     stfLauncher.stdout = config.WDAWrapperStdout
     stfLauncher.stderr = config.WDAWrapperStderr
     stfLauncher.load()
