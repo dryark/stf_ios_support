@@ -34,7 +34,7 @@ if( len( sys.argv ) < 2 ):
     "wda": git_info( 'repos/WebDriverAgent', '../..' ),
     "ffmpeg": git_info( 'repos/ffmpeg', '../..' ),
     "device_trigger": git_info( 'repos/osx_ios_device_trigger', '../..' ),
-    "stf": git_info( 'repos/stf', '../..' ),
+    "stf": git_info( 'repos/stf-ios-provider', '../..' ),
     "mirrorfeed": git_info( 'repos/stf_ios_mirrorfeed', '../..' ),
     "wdaproxy": git_info( 'repos/wdaproxy', '../..' ),
     "ios_support": git_info( '.', '.' ),

@@ -1,4 +1,4 @@
-all: config.json bin/coordinator video_enabler mirrorfeed device_trigger stf wda ffmpegalias wdaproxyalias view_log app wda_wrapper
+all: config.json bin/coordinator video_enabler mirrorfeed device_trigger wda ffmpegalias wdaproxyalias view_log app wda_wrapper stf
 
 .PHONY:\
  checkout\
@@ -48,13 +48,6 @@ ffmpegbin: repos/ffmpeg/ffmpeg
 repos/ffmpeg/ffmpeg: | repos/ffmpeg
 	cd repos/ffmpeg && ./configure  --prefix=/usr/local --enable-gpl --enable-nonfree --enable-libx264 --enable-libx265 --enable-libxvid
 	$(MAKE) -C repos/ffmpeg
-
-# --- STF ---
-
-stf: repos/stf/node_modules
-
-repos/stf/node_modules: | repos/stf
-	$(MAKE) -C repos/stf
 
 # --- COORDINATOR ---
 
@@ -146,24 +139,31 @@ repos/ffmpeg:
 repos/wdaproxy:
 	git clone https://github.com/nanoscopic/wdaproxy.git repos/wdaproxy
 
+# --- STF ---
+
+stf: repos/stf-ios-provider/package-lock.json
+
+repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider
+	cd repos/stf-ios-provider && PATH=$(PATH):/usr/local/opt/node\@8/bin npm install
+
 # --- OFFLINE STF ---
 
 dist: offline/dist.tgz
 
-offline/repos/stf: stf
+offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/package-lock.json
 	mkdir -p offline/repos/stf-ios-provider
 	mkdir -p offline/logs
-	rm offline/repos/stf/* & exit 0
-	ln -s ../../../repos/stf-ios-provider/node_modules      offline/repos/stf-ios-provider/node_modules
+	rm -rf offline/repos/stf-ios-provider/*
+	ln -s ../../../repos/stf-ios-provider/node_modules/     offline/repos/stf-ios-provider/node_modules
 	ln -s ../../../repos/stf-ios-provider/package.json      offline/repos/stf-ios-provider/package.json
 	ln -s ../../../repos/stf-ios-provider/package-lock.json offline/repos/stf-ios-provider/package-lock.json
 	ln -s ../../../repos/stf-ios-provider/runmod.js         offline/repos/stf-ios-provider/runmod.js
-	ln -s ../../../repos/stf-ios-provider/lib               offline/repos/stf-ios-provider/lib
-	ln -s ../../repos/wdaproxy/web             bin/wda/web & exit 0
+	ln -s ../../../repos/stf-ios-provider/lib/              offline/repos/stf-ios-provider/lib
+	@if [ ! -e bin/wda/web ]; then ln -s ../../repos/wdaproxy/web bin/wda/web; fi;
 
 # --- BINARY DISTRIBUTION ---
 
-offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler repos/stf-ios-provider config.json view_log
+offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log
 	@./get-version-info.sh > offline/build_info.json
 	tar -h -czf offline/dist.tgz video_pipes run stf_ios_support.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/ build_info.json
 
