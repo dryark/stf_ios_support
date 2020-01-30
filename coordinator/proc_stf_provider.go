@@ -19,9 +19,9 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
     
     go func() {
         for {
-            serverHostname := config.STFHostname
+            serverHostname := config.Stf.HostName
             clientHostname, _ := os.Hostname()
-            serverIP := config.STFIP
+            serverIP := config.Stf.Ip
 
             plog.WithFields( log.Fields{
                 "type":            "proc_start",

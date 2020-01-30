@@ -27,19 +27,19 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
         for {
             plog.WithFields( log.Fields{
               "type": "proc_start",
-              "server_ip": config.STFIP,
+              "server_ip": config.Stf.Ip,
               "client_ip": curIP,
-              "server_host": config.STFHostname,
+              "server_host": config.Stf.HostName,
               "video_port": devd.vidPort,
               "node_port": devd.devIosPort,
               "device_name": devd.name,
-              "vnc_scale": config.VncScale,
+              "vnc_scale": config.Video.VncScale,
               "stream_width": devd.streamWidth,
               "stream_height": devd.streamHeight,
             } ).Info("Process start - stf_device_ios")
 
             vncPort := 0
-            if config.UseVnc == true && config.SkipVideo == false {
+            if config.Video.UseVnc && config.Video.Enabled {
                 vncPort = devd.vncPort
             }
             
@@ -48,15 +48,15 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 "runmod.js"              , "device-ios",
                 "--serial"               , uuid,
                 "--name"                 , devd.name,
-                "--connect-push"         , fmt.Sprintf("tcp://%s:7270", config.STFIP),
-                "--connect-sub"          , fmt.Sprintf("tcp://%s:7250", config.STFIP),
+                "--connect-push"         , fmt.Sprintf("tcp://%s:7270", config.Stf.Ip),
+                "--connect-sub"          , fmt.Sprintf("tcp://%s:7250", config.Stf.Ip),
                 "--public-ip"            , curIP,
                 "--wda-port"             , strconv.Itoa( devd.wdaPort ),
-                "--storage-url"          , fmt.Sprintf("https://%s", config.STFHostname),
-                "--screen-ws-url-pattern", fmt.Sprintf("wss://%s/frames/%s/%d/x", config.STFHostname, curIP, devd.vidPort),
-                "--vnc-password"         , config.VncPassword,
+                "--storage-url"          , fmt.Sprintf("https://%s", config.Stf.HostName),
+                "--screen-ws-url-pattern", fmt.Sprintf("wss://%s/frames/%s/%d/x", config.Stf.HostName, curIP, devd.vidPort),
+                "--vnc-password"         , config.Video.VncPassword,
                 "--vnc-port"             , strconv.Itoa( vncPort ),
-                "--vnc-scale"            , strconv.Itoa( config.VncScale ),
+                "--vnc-scale"            , strconv.Itoa( config.Video.VncScale ),
                 "--stream-width"         , strconv.Itoa( devd.streamWidth ),
                 "--stream-height"        , strconv.Itoa( devd.streamHeight ),
             )

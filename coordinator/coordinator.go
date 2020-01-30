@@ -75,27 +75,6 @@ type BaseProgs struct {
 
 var gStop bool
 
-type PortMap struct {
-    wdaPorts    map[int] *PortItem
-    vidPorts    map[int] *PortItem
-    devIosPorts map[int] *PortItem
-    vncPorts    map[int] *PortItem
-}
-
-func NewPortMap( config *Config ) ( *PortMap ) {
-    wdaPorts    := construct_ports( config, config.WDAPorts )
-    vidPorts    := construct_ports( config, config.VidPorts )
-    devIosPorts := construct_ports( config, config.DevIosPorts ) 
-    vncPorts    := construct_ports( config, config.VncPorts )
-    portMap := PortMap {
-        wdaPorts: wdaPorts,
-        vidPorts: vidPorts,
-        devIosPorts: devIosPorts,
-        vncPorts: vncPorts,
-    }
-    return &portMap
-}
-
 func main() {
     gStop = false
 
@@ -134,12 +113,12 @@ func main() {
         os.Exit(0)
     }
     
-    if config.RootPath != "" {
-        os.Chdir( config.RootPath )
+    if config.Install.RootPath != "" {
+        os.Chdir( config.Install.RootPath )
     }
     
     useVPN := true
-    if config.VpnName == "none" && config.VpnType != "openvpn" {
+    if config.Vpn.TblickName == "none" && config.Vpn.VpnType != "openvpn" {
         useVPN = false
     }
 
@@ -166,16 +145,16 @@ func main() {
     var curIP      string
     var vpnMissing bool
     if useVPN {
-        if config.VpnType == "tunnelblick" {
+        if config.Vpn.VpnType == "tunnelblick" {
             baseProgs.okVpn = true
             baseProgs.okStage1 = true
             ifName, curIP, vpnMissing = get_net_info( config )
-        } else if config.VpnType == "openvpn" {
+        } else if config.Vpn.VpnType == "openvpn" {
             baseProgs.okVpn = false
             baseProgs.okStage1 = false
         }
     } else {
-        ifName = config.NetworkInterface
+        ifName = config.Network.Iface
         curIP = ifAddr( ifName )
     }
 
@@ -183,28 +162,34 @@ func main() {
 
     portMap := NewPortMap( config )
     
+    log.WithFields( log.Fields{
+        "type":     "portmap",
+        "vid_ports": portMap.vidPorts,
+        "wda_ports": portMap.wdaPorts,
+        "vnc_ports": portMap.vncPorts,
+        "dev_ios_ports": portMap.devIosPorts,
+    } ).Debug("Portmap")
+    
     baseProgs.shuttingDown = false
 
     coro_http_server( config, devEventCh, &baseProgs, runningDevs )
     proc_device_trigger( config, &baseProgs, lineLog )
-    if !config.SkipVideo {
+    if config.Video.Enabled {
         //ensure_proper_pipe( config )
         proc_video_enabler( config, &baseProgs )
     }
 
-    if baseProgs.okVpn == true && baseProgs.okStage1 == false {
-        if useVPN {
-            if vpnMissing {
-                log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
-                baseProgs.stf = nil
-            } else {
-                // start stf and restart it when needed
-                // TODO: if it doesn't restart / crashes again; give up
-                proc_stf_provider( &baseProgs, curIP, config, lineLog )
-            }
-        } else {
+    if useVPN {
+        if vpnMissing {
+            log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
+            baseProgs.stf = nil
+        } else if config.Vpn.VpnType == "tunnelblick" {
+            // Start provider here because tunnelblick is connected in the check_vpn_status call above
+            // "stage1" is done
             proc_stf_provider( &baseProgs, curIP, config, lineLog )
         }
+    } else {
+        proc_stf_provider( &baseProgs, curIP, config, lineLog )
     }
 
     coro_sigterm( runningDevs, &baseProgs, config )
@@ -256,7 +241,8 @@ func NewRunningDev(
         "vid_port": vidPort,
         "wda_port": wdaPort,
         "vnc_port": vncPort,
-    } ).Debug("Device object created")
+        "dev_ios_port": devIosPort,
+    } ).Info("Device object created")
     
     return &devd
 }
@@ -319,7 +305,7 @@ func event_loop(
     
                 config := devd.confDup
                 
-                if !config.SkipVideo {
+                if config.Video.Enabled {
                     ensure_proper_pipe( devd.pipe )
                     proc_mirrorfeed( config, tunName, devd, lineLog )
                     proc_ffmpeg( config, devd, devName, lineLog )
@@ -372,7 +358,7 @@ func event_loop(
            if devd != nil && devd.okAllUp == false {
                 config := devd.confDup
                 
-                if config.SkipVideo || ( devd.okVidInterface == true && devd.okFirstFrame == true ) {
+                if !config.Video.Enabled || ( devd.okVidInterface == true && devd.okFirstFrame == true ) {
                     devd.okAllUp = true
                     continue_dev_start( config, devd, curIP, lineLog )
                 }
@@ -384,7 +370,7 @@ func event_loop(
 func continue_dev_start( config *Config, devd *RunningDev, curIP string, lineLog *log.Entry ) {
     uuid := devd.uuid
     
-    if !config.SkipVideo && config.UseVnc {
+    if config.Video.Enabled && config.Video.UseVnc {
         proc_vnc_proxy( devd.confDup, devd, lineLog )
     }
     

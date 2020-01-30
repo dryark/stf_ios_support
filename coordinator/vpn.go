@@ -126,15 +126,15 @@ type VpnEvent struct {
 }
 
 func openvpn_NewLauncher( config *Config ) (*Launcher) {
-    vpnConfig := config.VpnConfig
+    vpnConfig := config.Vpn.OvpnConfig
   
     arguments := []string {
-        config.OpenVpnBin,
+        config.BinPaths.Openvpn,
         "--config", vpnConfig,
     }
     
     label := fmt.Sprintf("com.tmobile.coordinator.openvpn")
-    wd := config.OpenVpnWorkingDirectory
+    wd := config.Vpn.OvpnWd
     keepalive := true
     asRoot := true
     vpnLauncher := NewLauncher( label, arguments, keepalive, wd, asRoot )
@@ -155,9 +155,9 @@ func openvpn_unload( config *Config ) {
 }
 
 func check_vpn_status( config *Config, baseProgs *BaseProgs, vpnEventCh chan<- VpnEvent ) {
-    vpnType := config.VpnType
+    vpnType := config.Vpn.VpnType
     if vpnType == "tunnelblick" {
-        vpnName := config.VpnName
+        vpnName := config.Vpn.TblickName
     
         if _, err := os.Stat("/Applications/Tunnelblick.app"); os.IsNotExist(err) {
             // Tunnelblick is not installed; don't try to call it
@@ -298,9 +298,9 @@ func vpn_shutdown( baseProgs *BaseProgs ) {
 }
 
 func vpn_info( config *Config ) ( string, string, string ) {
-    vpnType := config.VpnType
+    vpnType := config.Vpn.VpnType
     if vpnType == "tunnelblick" {
-        jsonBytes, _ := exec.Command( "./tblick-info.sh", config.VpnName ).Output()
+        jsonBytes, _ := exec.Command( "./tblick-info.sh", config.Vpn.TblickName ).Output()
         vpnInfo := VpnInfo{}
         err := json.Unmarshal( jsonBytes, &vpnInfo )
         if err != nil {

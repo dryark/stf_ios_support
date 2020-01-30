@@ -34,14 +34,14 @@ func cleanup_procs(config *Config) {
 
             syscall.Kill( proc.Pid, syscall.SIGTERM )
         }
-        if cmdFlat == config.VideoEnabler {
+        if cmdFlat == config.BinPaths.VideoEnabler {
             plog.WithFields( log.Fields{
                 "proc": "video_enabler",
             } ).Debug("Leftover Proc - Sending SIGTERM")
 
             syscall.Kill( proc.Pid, syscall.SIGTERM )
         }
-        if cmdFlat == config.DeviceTrigger {
+        if cmdFlat == config.BinPaths.DeviceTrigger {
             plog.WithFields( log.Fields{
                 "proc": "device_trigger",
             } ).Debug("Leftover Proc - Sending SIGTERM")

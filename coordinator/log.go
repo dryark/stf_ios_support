@@ -135,8 +135,8 @@ func setup_log( config *Config, debug bool, jsonLog bool ) (*log.Entry) {
 
     hupData := coro_sighup()
 
-    AddJSONLog( nil, config.LogFile, 1, hupData )
-    AddJSONLog( lineLogger1, config.LinesLogFile, 2, hupData )
+    AddJSONLog( nil, config.Log.Main, 1, hupData )
+    AddJSONLog( lineLogger1, config.Log.ProcLines, 2, hupData )
 
     return lineLogger
 }

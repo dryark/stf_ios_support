@@ -11,7 +11,7 @@ func proc_video_enabler( config *Config, baseProgs *BaseProgs ) {
     go func() {
         plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Process start - video_enabler")
 
-        enableCmd := exec.Command(config.VideoEnabler)
+        enableCmd := exec.Command(config.BinPaths.VideoEnabler)
         err := enableCmd.Start()
         if err != nil {
             plog.WithFields( log.Fields{

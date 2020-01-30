@@ -18,7 +18,7 @@ func proc_vnc_proxy( config *Config, devd *RunningDev, lineLog *log.Entry ) {
     } )
 
     vncPort := config.VncPort
-    iproxyBin := config.IProxyBin //"/usr/local/bin/iproxy"
+    iproxyBin := config.BinPaths.Iproxy
     
     if devd.shuttingDown {
         return

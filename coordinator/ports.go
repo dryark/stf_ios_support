@@ -1,9 +1,57 @@
 package main
 
-import "sort"
+import (
+  "sort"
+  "strconv"
+  "strings"
+  log "github.com/sirupsen/logrus"
+)
 
 type PortItem struct {
     available bool
+}
+
+type PortMap struct {
+    wdaPorts    map[int] *PortItem
+    vidPorts    map[int] *PortItem
+    devIosPorts map[int] *PortItem
+    vncPorts    map[int] *PortItem
+}
+
+func NewPortMap( config *Config ) ( *PortMap ) {
+    wdaPorts    := construct_ports( "WDA", config, config.Network.Wda    )
+    vidPorts    := construct_ports( "Video", config, config.Network.Video  )
+    devIosPorts := construct_ports( "Dev IOS", config, config.Network.DevIos ) 
+    vncPorts    := construct_ports( "VNC", config, config.Network.Vnc    )
+    portMap := PortMap {
+        wdaPorts: wdaPorts,
+        vidPorts: vidPorts,
+        devIosPorts: devIosPorts,
+        vncPorts: vncPorts,
+    }
+    return &portMap
+}
+
+func construct_ports( name string, config *Config, spec string ) ( map [int] *PortItem ) {
+    ports := make( map [int] *PortItem )
+    if strings.Contains( spec, "-" ) {
+        parts := strings.Split( spec, "-" )
+        from, _ := strconv.Atoi( parts[0] )
+        to, _ := strconv.Atoi( parts[1] )
+        for i := from; i <= to; i++ {
+            portItem := PortItem{
+                available: true,
+            }
+            ports[ i ] = &portItem
+        }
+    } else {
+        log.WithFields( log.Fields{
+            "type":    "portmap",
+            "related": name,
+            "spec":    spec,
+        } ).Fatal("Invalid ports spec")
+    }
+    return ports
 }
 
 func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,*Config ) {
