@@ -10,44 +10,76 @@ import (
 )
 
 type Config struct {
-    DeviceTrigger    string `json:"device_trigger"`
-    VideoEnabler     string `json:"video_enabler"`
-    MirrorFeedBin    string `json:"mirrorfeed_bin"`
-    WDARoot          string `json:"wda_root"`
-    CoordinatorPort  int    `json:"coordinator_port"`
-    WDAProxyBin      string `json:"wdaproxy_bin"`
-    WDAProxyPort     int    `json:"wdaproxy_port"`
-    MirrorFeedPort   int    `json:"mirrorfeed_port"`
-    Pipe             string `json:"pipe"`
-    SkipVideo        bool   `json:"skip_video"`
-    Ffmpeg           string `json:"ffmpeg"`
-    STFIP            string `json:"stf_ip"`
-    STFHostname      string `json:"stf_hostname"`
-    WDAPorts         string `json:"wda_ports"`
-    VidPorts         string `json:"vid_ports"`
-    DevIosPorts      string `json:"dev_ios_ports"`
-    DevIosPort       int    `json:"dev_ios_port"`
-    VncPorts         string `json:"vnc_ports"`
-    VncPort          int    `json:"vnc_port"`
-    LogFile          string `json:"log_file"`
-    LinesLogFile     string `json:"lines_log_file"`
-    VpnName          string `json:"vpn_name"`
-    VpnType          string `json:"vpn_type"`
-    VpnConfig        string `json:"vpn_config"`
-    NetworkInterface string `json:"network_interface"`
-    ConfigPath       string `json:"config_path"`
-    RootPath         string `json:"root_path"`
+    WdaFolder  string        `json:"wda_folder"`
+    Network    NetConfig     `json:"network"`
+    Stf        STFConfig     `json:"stf"`
+    Video      VideoConfig   `json:"video"`
+    Install    InstallConfig `json:"install"`
+    Log        LogConfig     `json:"log"`
+    BinPaths   BinPathConfig `json:"bin_paths"`
+    Vpn        VPNConfig     `json:"vpn"`
+    ConfigPath string        `json:"config_path"`
+    // The following are only used internally
+    WDAProxyPort   int
+    MirrorFeedPort int
+    DevIosPort     int
+    VncPort        int
+    Pipe           string
+}
+
+type NetConfig struct {
+    Coordinator int    `json:"coordinator_port"`
+    Mirrorfeed  int    `json:"mirrorfeed_port"`
+    Video       string `json:"video_ports"`
+    DevIos      string `json:"dev_ios_ports"`
+    Vnc         string `json:"vnc_ports"`
+    Wda         string `json:"proxy_ports"`
+    Iface       string `json:"interface"`
+}
+
+type STFConfig struct {
+    Ip       string `json:"ip"`
+    HostName string `json:"hostname"`
+}
+
+type VideoConfig struct {
+    Enabled     bool   `json:"enabled"`
+    UseVnc      bool   `json:"use_vnc"`
+    VncScale    int    `json:"vnc_scale"`
+    VncPassword string `json:"vnc_password"`
+    FrameRate   int    `json:"frame_rate"`
+}
+
+type InstallConfig struct {
+    RootPath   string `json:"root_path"`
+    ConfigPath string `json:"config_path"`
+}
+
+type LogConfig struct {
+    Main             string `json:"main"`
+    ProcLines        string `json:"proc_lines"`
     WDAWrapperStdout string `json:"wda_wrapper_stdout"`
     WDAWrapperStderr string `json:"wda_wrapper_stderr"`
-    WDAWrapperBin    string `json:"wda_wrapper_bin"`
-    FrameRate        int    `json:"frame_rate"`
-    VncPassword      string `json:"vnc_password"`
-    UseVnc           bool   `json:"use_vnc"`
-    VncScale         int    `json:"vnc_scale"`
-    IProxyBin        string `json:"iproxy_bin"`
-    OpenVpnBin       string `json:"openvpn_bin"`
-    OpenVpnWorkingDirectory string `json:"openvpn_working_dir"`
 }
+
+type BinPathConfig struct {
+    WdaProxy      string `json:"wdaproxy"`
+    DeviceTrigger string `json:"device_trigger"`
+    VideoEnabler  string `json:"video_enabler"`
+    MirrorFeed    string `json:"mirrorfeed"`
+    Openvpn       string `json:"openvpn"`
+    Iproxy        string `json:"iproxy"`
+    WdaWrapper    string `json:"wdawrapper"`
+    Ffmpeg        string `json:"ffmpeg"`
+}
+
+type VPNConfig struct {
+    VpnType    string `json:"type"`
+    TblickName string `json:"tblick_name"`
+    OvpnWd     string `json:"ovpn_working_dir"`
+    OvpnConfig string `json:"ovpn_config"`
+}
+    
 
 func read_config( configPath string ) *Config {
     var config Config
@@ -81,35 +113,81 @@ func read_config( configPath string ) *Config {
         defer configFh.Close()
     
         jsonBytes, _ := ioutil.ReadAll( configFh )
+        
+        defaultJson := `{
+          "wda_folder": "./bin/wda",
+          "xcode_dev_team_id": "",
+          "network": {
+            "coordinator_port": 8027,
+            "video_ports":     "8000-8005",
+            "dev_ios_ports":   "9240-9250",
+            "vnc_ports":       "5901-5911",
+            "proxy_ports":     "8100-8105",
+            "interface": "en0"
+          },
+          "stf":{
+            "ip": "",
+            "hostname": ""
+          },
+          "video":{
+            "enabled": true,
+            "use_vnc": false,
+            "vnc_scale": 2,
+            "vnc_password": "",
+            "frame_rate": 5
+          },
+          "install":{
+            "root_path": "",
+            "config_path": ""
+          },
+          "log":{
+            "main":               "logs/coordinator",
+            "proc_lines":         "logs/procs",
+            "wda_wrapper_stdout": "./logs/wda_wrapper_stdout",
+            "wda_wrapper_stderr": "./logs/wda_wrapper_stderr"
+          },
+          "vpn":{
+            "type":             "openvpn",
+            "ovpn_working_dir": "/usr/local/etc/openvpn",
+            "tblick_name":      ""
+          },
+          "bin_paths":{
+            "wdaproxy":       "bin/wdaproxy",
+            "device_trigger": "bin/osx_ios_device_trigger",
+            "video_enabler":  "bin/osx_ios_video_enabler",
+            "mirrorfeed":     "bin/mirrorfeed",
+            "openvpn":        "/usr/local/opt/openvpn/sbin/openvpn",
+            "iproxy":         "/usr/local/bin/iproxy",
+            "wdawrapper":     "bin/wda_wrapper",
+            "ffmpeg":         "bin/ffmpeg"
+          },
+          "repos":{
+            "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
+            "wda": "https://github.com/appium/WebDriverAgent.git"
+          }
+        }`
+        
         config = Config{
-            DeviceTrigger:   "bin/osx_ios_device_trigger",
-            VideoEnabler:    "bin/osx_ios_video_enabler",
-            WDAProxyBin:     "bin/wdaproxy",
-            MirrorFeedBin:   "bin/mirrorfeed",
-            WDARoot:         "./bin/wda",
-            Ffmpeg:          "bin/ffmpeg",
-            CoordinatorPort: 8027,
-            MirrorFeedPort:  8000,
-            WDAProxyPort:    8100,
-            DevIosPort:      9240,
-            DevIosPorts:     "9240-9250",
-            VncPort:         5901,
-            VncPorts:        "5901-5911",
-            Pipe:            "pipe",
-            ConfigPath:      "",
-            RootPath:        "",
-            WDAWrapperStdout:"./logs/wda_wrapper_stdout",
-            WDAWrapperStderr:"./logs/wda_wrapper_stderr",
-            WDAWrapperBin:   "bin/wda_wrapper",
-            FrameRate:       1,
-            VncPassword:     "",
-            VncScale:        2,
-            IProxyBin:       "/usr/local/bin/iproxy",
-            VpnType:         "tunnelblick",
-            OpenVpnBin:      "/usr/local/opt/openvpn/sbin/openvpn",
-            OpenVpnWorkingDirectory: "/usr/local/etc/openvpn",
+          Pipe: "pipe",
+          MirrorFeedPort:  8000,
+          WDAProxyPort:    8100,
+          DevIosPort:      9240,
+          VncPort:         5901,
         }
-        json.Unmarshal( jsonBytes, &config )
+        
+        err = json.Unmarshal( []byte( defaultJson ), &config )
+        if err != nil {
+          log.Fatal( "1 ", err )
+        }
+        
+        err = json.Unmarshal( jsonBytes, &config )
+        if err != nil {
+          log.Fatal( "2 ", err )
+        }
+        
+        //jsonCombined, _ := json.MarshalIndent(config, "", "  ")
+        //fmt.Printf("Combined config:%s\n", string( jsonCombined ) )
+        
         if config.ConfigPath != "" {
             configPath = config.ConfigPath
             continue

@@ -143,7 +143,7 @@ repos/wdaproxy:
 
 stf: repos/stf-ios-provider/package-lock.json
 
-repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider
+repos/stf-ios-provider/package-lock.json: | repos/stf-ios-provider
 	cd repos/stf-ios-provider && PATH=$(PATH):/usr/local/opt/node\@8/bin npm install
 
 # --- OFFLINE STF ---

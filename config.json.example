@@ -1,12 +1,77 @@
+// Minimal Example
 {
-	"wda_ports": "8100-8105",
-	"vid_ports": "8000-8005",
-	"stf_ip": "192.168.255.1",
-	"stf_hostname": "[your stf server hostname]",
-	"xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
-	"skip_video": false,
-	"log_file": "logs/coordinator",
-	"lines_log_file": "logs/procs",
-	"vpn_name": "none",
-	"network_interface": "eth0"
+  "xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
+  "stf": {
+    "ip": "[your stf server ip]",
+    "hostname": "[your stf server hostname]"
+  },
+  "video": {
+    "enabled": true,
+    "use_vnc": true,
+    "vnc_scale": 2,
+    "vnc_password": "",
+    "frame_rate": 10
+  },
+  "install": {
+    "root_path": "[desired stf provider install folder]",
+    "config_path": "[desired stf provider install folder]/config.json",
+  },
+  "vpn": {
+    "type": "openvpn",
+    "opvn_config": "[path to your openvpn config file]"
+  }
+}
+
+// Defaults
+{
+  "wda_folder": "./bin/wda",
+  "xcode_dev_team_id": "",
+  "network": {
+    "coordinator_port": 8027,
+    "video": "8000-8005",
+    "dev_ios": "9240-9250",
+    "vnc": "5901-5911",
+    "wda": "8100-8105",
+    "interface": "en0"
+  },
+  "stf": {
+    "ip": "",
+    "hostname": ""
+  },
+  "video": {
+    "enabled": true,
+    "use_vnc": false,
+    "vnc_scale": 2,
+    "vnc_password": "",
+    "frame_rate": 5
+  },
+  "install": {
+    "root_path": "",
+    "config_path": "",
+  },
+  "log": {
+    "main": "logs/coordinator",
+    "proc_lines": "logs/procs",
+    "wda_wrapper_stdout": "./logs/wda_wrapper_stdout",
+    "wda_wrapper_stderr": "./logs/wda_wrapper_stderr"
+  },
+  "vpn": {
+    "type": "openvpn",
+    "ovpn_working_dir": "/usr/local/etc/openvpn",
+    "tblick_name": ""
+  },
+  "bin_paths": {
+    "wdaproxy": "bin/wdaproxy",
+    "device_trigger": "bin/osx_ios_device_trigger",
+    "video_enabler": "bin/osx_ios_video_enabler",
+    "mirrorfeed": "bin/mirrorfeed",
+    "openvpn": "/usr/local/opt/openvpn/sbin/openvpn",
+    "iproxy": "/usr/local/bin/iproxy",
+    "wdawrapper": "bin/wda_wrapper",
+    "ffmpeg": "bin/ffmpeg"
+  },
+  "repos": {
+    "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
+    "wda": "https://github.com/appium/WebDriverAgent.git"
+  }
 }

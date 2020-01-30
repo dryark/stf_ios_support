@@ -4,26 +4,8 @@ import (
   "fmt"
   "net"
   "os"
-  "strconv"
-  "strings"
   log "github.com/sirupsen/logrus"
 )
-
-func construct_ports( config *Config, spec string ) ( map [int] *PortItem ) {
-    ports := make( map [int] *PortItem )
-    if strings.Contains( spec, "-" ) {
-        parts := strings.Split( spec, "-" )
-        from, _ := strconv.Atoi( parts[0] )
-        to, _ := strconv.Atoi( parts[1] )
-        for i := from; i <= to; i++ {
-            portItem := PortItem{
-                available: true,
-            }
-            ports[ i ] = &portItem
-        }
-    }
-    return ports
-}
 
 func ifAddr( ifName string ) ( addrOut string ) {
     ifaces, err := net.Interfaces()

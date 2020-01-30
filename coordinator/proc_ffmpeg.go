@@ -36,7 +36,7 @@ func proc_ffmpeg( config *Config, devd *RunningDev, devName string, lineLog *log
                 "-f",            "mjpeg",
                 "-bsf:v",        "mjpegadump",
                 "-bsf:v",        "mjpeg2jpeg",
-                "-r",            strconv.Itoa( config.FrameRate ), // framerate
+                "-r",            strconv.Itoa( config.Video.FrameRate ), // framerate
                 "-vsync",        "2",
                 "-nostats",
                 "pipe:1",

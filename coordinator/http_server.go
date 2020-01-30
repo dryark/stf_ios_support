@@ -12,7 +12,7 @@ import (
 
 func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *BaseProgs, runningDevs map [string] *RunningDev ) {
     // start web server waiting for trigger http command for device connect and disconnect
-    var listen_addr = fmt.Sprintf( "0.0.0.0:%d", config.CoordinatorPort )
+    var listen_addr = fmt.Sprintf( "0.0.0.0:%d", config.Network.Coordinator )
     go startServer( devEventCh, listen_addr, baseProgs, runningDevs )
 }
 

@@ -18,7 +18,7 @@ func proc_mirrorfeed( config *Config, tunName string, devd *RunningDev, lineLog 
     } )
 
     mirrorPort := strconv.Itoa( config.MirrorFeedPort )
-    mirrorFeedBin := config.MirrorFeedBin
+    mirrorFeedBin := config.BinPaths.MirrorFeed
     pipeName := devd.pipe
 
     if devd.shuttingDown {

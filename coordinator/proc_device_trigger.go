@@ -13,7 +13,7 @@ func proc_device_trigger( config *Config, baseProgs *BaseProgs, lineLog *log.Ent
     go func() {
         plog.WithFields( log.Fields{ "type": "proc_start" } ).Info("Process start - device_trigger")
 
-        cmd := exec.Command( config.DeviceTrigger )
+        cmd := exec.Command( config.BinPaths.DeviceTrigger )
 
         outputPipe, _ := cmd.StdoutPipe()
         errPipe, _ := cmd.StderrPipe()

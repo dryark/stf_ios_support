@@ -17,11 +17,11 @@ func start_proc_wdaproxy(
     }
     
     arguments := []string {
-        config.WDAWrapperBin,
+        config.BinPaths.WdaWrapper,
         "-port", strconv.Itoa(config.WDAProxyPort),
         "-uuid", uuid,
         "-iosVersion", iosVersion,
-        "-wdaRoot", config.WDARoot,
+        "-wdaRoot", config.WdaFolder,
     }
     
     label := fmt.Sprintf("com.tmobile.coordinator.wdawrapper_%s", uuid )
@@ -29,8 +29,8 @@ func start_proc_wdaproxy(
     keepalive := true
     asRoot := false
     stfLauncher := NewLauncher( label, arguments, keepalive, wd, asRoot )
-    stfLauncher.stdout = config.WDAWrapperStdout
-    stfLauncher.stderr = config.WDAWrapperStderr
+    stfLauncher.stdout = config.Log.WDAWrapperStdout
+    stfLauncher.stderr = config.Log.WDAWrapperStderr
     stfLauncher.load()
     
     devd.wdaWrapper = stfLauncher
