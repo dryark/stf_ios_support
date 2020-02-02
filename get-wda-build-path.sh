@@ -11,4 +11,4 @@ abspath() {
 
 BPATH=$(xcodebuild -project repos/WebDriverAgent/WebDriverAgent.xcodeproj -showBuildSettings -configuration Debug | grep TARGET_BUILD | awk '{print $3}' | tr -d "\n")
 #echo BUILD_PATH="$BPATH"
-echo PROD_PATH="$(abspath $BPATH/..)"
+echo "$(abspath $BPATH/..)"
