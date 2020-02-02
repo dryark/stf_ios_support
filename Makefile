@@ -96,10 +96,10 @@ bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgen
 	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
 	$(eval XCODEOPS=$(shell jq '.xcode_build_ops // ""' config.json -j))
 	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner -allowProvisioningUpdates -destination generic/platform=iOS $(XCODEOPS) CODE_SIGN_IDENTITY="iPhone Developer" DEVELOPMENT_TEAM="$(DEVID)" build-for-testing
-	@# Spits out PROD_PATH
-	$(eval $(shell ./get-wda-build-path.sh)) 
-	@cp -r $(PROD_PATH)/ bin/wda/
-	@./get-version-info.sh wda > bin/wda/build_info.json
+	$(eval PROD_PATH=$(shell ./get-wda-build-path.sh))
+	if [ "$(PROD_PATH)" != "" ]; then cp -r $(PROD_PATH)/ bin/wda/; fi;
+	if [ "$(PROD_PATH)" != "" ]; then ./get-version-info.sh wda > bin/wda/build_info.json; fi;
+	if [ "$(PROD_PATH)" == "" ]; then echo FAIL TO GET PRODUCTION PATH; exit 1; fi;
 
 # --- WDAProxy ---
 
@@ -180,6 +180,7 @@ cleanstf:
 
 cleanwda:
 	$(RM) -rf bin/wda
+	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner clean
 
 cleanapp:
 	$(RM) -rf STF\ Coordinator.app

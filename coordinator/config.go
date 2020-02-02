@@ -187,6 +187,7 @@ func read_config( configPath string ) *Config {
         
         //jsonCombined, _ := json.MarshalIndent(config, "", "  ")
         //fmt.Printf("Combined config:%s\n", string( jsonCombined ) )
+        //os.Exit(0)
         
         if config.ConfigPath != "" {
             configPath = config.ConfigPath

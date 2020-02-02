@@ -15,8 +15,16 @@ import (
 )
 
 type Config struct {
-    LogFile         string `json:"log_file"`
-    LinesLogFile    string `json:"lines_log_file"`
+    Log LogConfig
+    //LogFile         string `json:"log_file"`
+    //LinesLogFile    string `json:"lines_log_file"`
+}
+
+type LogConfig struct {
+    Main             string `json:"main"`
+    ProcLines        string `json:"proc_lines"`
+    WDAWrapperStdout string `json:"wda_wrapper_stdout"`
+    WDAWrapperStderr string `json:"wda_wrapper_stderr"`
 }
 
 func main() {
@@ -26,7 +34,7 @@ func main() {
     
     config := read_config( *configFile )
   
-    fileName := config.LinesLogFile
+    fileName := config.Log.ProcLines
     
     if *findProc == "" {
         fmt.Println("specify a log to view / tail ( view_log -proc [proc] ):\n  wdaproxy\n  stf_device_ios\n  device_trigger\n  video_enabler\n  stf_provider\n  ffmpeg\n  wda\n  device_trigger\n")
@@ -94,7 +102,7 @@ func read_config( configPath string ) *Config {
             "error": serr,
             "config_path": configPath,
         } ).Fatal("Could not read specified config path")
-    }    
+    }
     var configFile string
     switch mode := fh.Mode(); {
         case mode.IsDir():
@@ -115,6 +123,21 @@ func read_config( configPath string ) *Config {
       
     jsonBytes, _ := ioutil.ReadAll( configFh )
     config := Config{}
+    
+    defaultJson := `{
+      "log":{
+        "main":               "logs/coordinator",
+        "proc_lines":         "logs/procs",
+        "wda_wrapper_stdout": "./logs/wda_wrapper_stdout",
+        "wda_wrapper_stderr": "./logs/wda_wrapper_stderr"
+      }
+    }`    
+    
+    err = json.Unmarshal( []byte( defaultJson ), &config )
+    if err != nil {
+      log.Fatal( "1 ", err )
+    }
+        
     json.Unmarshal( jsonBytes, &config )
     return &config
 }
