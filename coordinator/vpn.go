@@ -7,6 +7,7 @@ import (
   "fmt"
   "os"
   "os/exec"
+  //"path/filepath"
   "strings"
   "time"
   log "github.com/sirupsen/logrus"
@@ -180,6 +181,10 @@ func check_vpn_status( config *Config, baseProgs *BaseProgs, vpnEventCh chan<- V
         }
     } else if vpnType == "openvpn" {
         vpnLauncher := openvpn_NewLauncher( config )
+        
+        //wd, _ := os.Getwd()
+        //abs, _ := filepath.Abs( "logs/openvpn.log" )
+        //log.Info("current directory: ", wd, ", absolute path: ", abs )
         
         // TODO: create file if it doesn't exist
         vpnLog := "logs/openvpn.log"

@@ -57,6 +57,7 @@ type InstallConfig struct {
 
 type LogConfig struct {
     Main             string `json:"main"`
+    MainApp          string `json:"main_app"`
     ProcLines        string `json:"proc_lines"`
     WDAWrapperStdout string `json:"wda_wrapper_stdout"`
     WDAWrapperStderr string `json:"wda_wrapper_stderr"`
@@ -142,6 +143,7 @@ func read_config( configPath string ) *Config {
           },
           "log":{
             "main":               "logs/coordinator",
+            "main_app":           "logs/app",
             "proc_lines":         "logs/procs",
             "wda_wrapper_stdout": "./logs/wda_wrapper_stdout",
             "wda_wrapper_stderr": "./logs/wda_wrapper_stderr"

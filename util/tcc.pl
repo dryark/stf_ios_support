@@ -26,33 +26,14 @@ my %usehex = (
 );
 
 my $action = $ARGV[0] || 'usage';
-if( $action eq 'getcamera') {
-  print_all_camera_access();
-}
-elsif( $action eq 'getcontrol' ) {
-  print_all_control();
-}
-elsif( $action eq 'getall' ) {
-  print_all_access();
-}
-elsif( $action eq 'addcamera' ) {
-  my $app = $ARGV[1] || '/Applications/STF Coordinator.app';
-  add_camera_access( $app );
-}
-elsif( $action eq 'delcamera' ) {
-  my $app = $ARGV[1];
-  del_camera_access( $app );
-}
-elsif( $action eq 'addcontrol' ) {
-  my $app = $ARGV[1];
-  my $app2 = $ARGV[2];
-  add_control( $app, $app2 );
-}
-elsif( $action eq 'delcontrol' ) {
-  my $app = $ARGV[1];
-  my $app2 = $ARGV[2];
-  del_control( $app, $app2 );
-}
+if   ( $action eq 'getcamera'  ) { print_all_camera_access(); }
+elsif( $action eq 'getcontrol' ) { print_all_control(); }
+elsif( $action eq 'getall'     ) { print_all_access(); }
+elsif( $action eq 'addcamera'  ) { add_camera_access( $ARGV[1] || '/Applications/STF Coordinator.app' ); }
+elsif( $action eq 'delcamera'  ) { del_camera_access( $ARGV[1] || '/Applications/STF Coordinator.app' ); }
+elsif( $action eq 'hascamera'  ) { has_camera_access( $ARGV[1] || '/Applications/STF Coordinator.app' ); }
+elsif( $action eq 'addcontrol' ) { add_control( $ARGV[1], $ARGV[2] ); }
+elsif( $action eq 'delcontrol' ) { del_control( $ARGV[1], $ARGV[2] ); }
 elsif( $action eq 'usage' ) {
   my $w = "\033[97m";
   my $o = "\033[0m";
@@ -133,6 +114,26 @@ sub get_access {
     }
   }
   return \@rows;
+}
+
+sub has_camera_access {
+  my $app = shift;
+  my $rows = get_access( { service => "'kTCCServiceCamera'" } );
+  my $idents = get_app_idents();
+  for my $row ( @$rows ) {
+    if( $row->{allowed} ) {
+      my $clientNoQuote = substr( $row->{client}, 1, -1 );
+      if( $idents->{ $clientNoQuote } ) {
+        my $full = $idents->{ $clientNoQuote };
+        if( $full eq $app ) {
+          print "yes\n";
+          exit( 0 );
+        }
+      }
+    }
+  }
+  print "no\n";
+  exit( 1 );
 }
 
 sub print_all_camera_access {
