@@ -4,6 +4,7 @@ import (
     "flag"
     "fmt"
     "os"
+    "os/exec"
     "path/filepath"
     "strings"
     "sync"
@@ -83,6 +84,11 @@ func main() {
     var vpnlist    = flag.Bool( "vpnlist" , false        , "List VPNs then exit" )
     var loadVpn    = flag.Bool( "loadVpn" , false        , "Setup / Load OpenVPN plist" )
     var unloadVpn  = flag.Bool( "unloadVpn",false        , "Unload / Remove OpenVPN plist" )
+    var load       = flag.Bool( "load"    , false        , "Load Coordinator plist" )
+    var unload     = flag.Bool( "unload"  , false        , "Unload Coordinator plist" )
+    var addNetPerm = flag.Bool( "addNetPerm", false      , "Add network permission for coordinator app" )
+    var getNetPerm = flag.Bool( "getNetPerm", false      , "Show apps with network permission" )
+    var delNetPerm = flag.Bool( "delNetPerm", false      , "Delete network permission for coordinator app" )
     var configFile = flag.String( "config", "config.json", "Config file path"    )
     flag.Parse()
 
@@ -96,20 +102,48 @@ func main() {
     }
     
     dir, _ := filepath.Abs( filepath.Dir( os.Args[0] ) )
+    changeDir := false
     if strings.HasSuffix( dir, "/Contents/MacOS" ) { // running via App
         resDir, _ := filepath.Abs( dir + "/../Resources" )
         configFileA := resDir + "/config.json"
         configFile = &configFileA
+        changeDir = true
     }
     
     config := read_config( *configFile )
 
+    if changeDir {
+        os.Chdir( config.Install.RootPath )
+    }
+    
     if *loadVpn {
         openvpn_load( config )
         os.Exit(0)
     }
     if *unloadVpn {
         openvpn_unload( config )
+        os.Exit(0)
+    }
+    
+    if *load {
+        coordinator_load( config )
+        os.Exit(0)
+    }
+    if *unload {
+        coordinator_unload( config )
+        os.Exit(0)
+    }
+    
+    if *addNetPerm {
+        firewall_ensureperm( "/Applications/STF Coordinator.app" )
+        os.Exit(0)
+    }
+    if *getNetPerm {
+        firewall_showperms()
+        os.Exit(0)
+    }
+    if *delNetPerm {
+        firewall_delperm( "/Applications/STF Coordinator.app" )
         os.Exit(0)
     }
     
@@ -196,6 +230,47 @@ func main() {
 
     // process devEvents
     event_loop( config, curIP, devEventCh, vpnEventCh, ifName, pubEventCh, runningDevs, portMap, lineLog, &baseProgs )
+}
+
+func coordinator_NewLauncher( config *Config ) (*Launcher) {
+    arguments := []string {
+        "/Applications/STF Coordinator.app/Contents/MacOS/coordinator",
+    }
+    
+    label := fmt.Sprintf("com.tmobile.coordinator.app")
+    wd := "/Applications/STF Coordinator.app/Contents/MacOS"
+    keepalive := true
+    asRoot := false
+    cLauncher := NewLauncher( label, arguments, keepalive, wd, asRoot )
+    cLauncher.stdout = config.Log.MainApp
+    //cLauncher.stderr = config.WDAWrapperStderr
+    
+    return cLauncher
+}
+
+func coordinator_load( config *Config ) {
+    // Check that the App is installed
+    // TODO
+    
+    // Check that the App has video permissions
+    bytes, _ := exec.Command( "/usr/bin/perl", "./util/tcc.pl", "hascamera" ).Output()
+    if strings.Index( string( bytes ), "no" ) != -1 {
+        log.Fatal( "App does not has video permissions; run `sudo utils/tcc.pl addcamera`" )
+    }
+    
+    // Check that the App has network permissions
+    hasNetPerm := firewall_hasperm( "/Applications/STF Coordinator.app/Contents/MacOS/coordinator" )
+    if !hasNetPerm {
+        log.Fatal( "App does not has firewall permissions; run `sudo bin/coordinator -addNetPerm`" )
+    }
+    
+    cLauncher := coordinator_NewLauncher( config )
+    cLauncher.load()
+}
+
+func coordinator_unload( config *Config ) {
+    cLauncher := coordinator_NewLauncher( config )
+    cLauncher.unload()
 }
 
 func NewRunningDev( 

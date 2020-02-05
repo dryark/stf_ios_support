@@ -201,7 +201,8 @@ STF\ Coordinator.app: | bin/coordinator icns
 	mkdir -p STF\ Coordinator.app/Contents/Resources
 	cp icon/stf.icns STF\ Coordinator.app/Contents/Resources/icon.icns
 	cp bin/coordinator STF\ Coordinator.app/Contents/MacOS/
-	cp config.json STF\ Coordinator.app/Contents/Resources/
+	$(eval CONFIGPATH=$(shell jq .install.config_path config.json -j))
+	echo '{"config_path":"$(CONFIGPATH)"}' > STF\ Coordinator.app/Contents/Resources/
 	cp Info.plist STF\ Coordinator.app/Contents/
 	./get-version-info.sh ios_support > STF\ Coordinator.app/Contents/Resources/build_info.json
 	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
