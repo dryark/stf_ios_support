@@ -1,12 +1,11 @@
+.DS_Store
 repos
 bin
-offline/*.tgz
-offline/stf_ios_support
-icon/stf.icns
-icon/stf.iconset/
-icon/stf.iconset1/
-icon/stf.iconset2/
+offline
+coordinator/icon/stf.icns
+coordinator/icon/stf.iconset*
 config.json
-log
-log_lines
+logs
+view_log
+wda_wrapper/go.sum
 STF Coordinator.app/
