@@ -89,13 +89,22 @@ repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent
 
 wda: bin/wda/build_info.json
 
+xcodebuildoptions1 := \
+	-scheme WebDriverAgentRunner \
+	-allowProvisioningUpdates \
+	-destination generic/platform=iOS
+
+xcodebuildoptions2 := \
+	CODE_SIGN_IDENTITY="iPhone Developer" \
+	DEVELOPMENT_TEAM="$(DEVID)"
+
 bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgent/WebDriverAgent.xcodeproj
 	@if [ -e bin/wda ]; then rm -rf bin/wda; fi;
 	@mkdir -p bin/wda/Debug-iphoneos
 	ln -s ../../repos/wdaproxy/web bin/wda/web
 	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
 	$(eval XCODEOPS=$(shell jq '.xcode_build_ops // ""' config.json -j))
-	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner -allowProvisioningUpdates -destination generic/platform=iOS $(XCODEOPS) CODE_SIGN_IDENTITY="iPhone Developer" DEVELOPMENT_TEAM="$(DEVID)" build-for-testing
+	cd repos/WebDriverAgent && xcodebuild $(xcodebuildoptions1) $(XCODEOPS) $(xcodebuildoptions2) build-for-testing
 	$(eval PROD_PATH=$(shell ./get-wda-build-path.sh))
 	if [ "$(PROD_PATH)" != "" ]; then cp -r $(PROD_PATH)/ bin/wda/; fi;
 	if [ "$(PROD_PATH)" != "" ]; then ./get-version-info.sh wda > bin/wda/build_info.json; fi;
@@ -152,7 +161,6 @@ dist: offline/dist.tgz
 
 offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/package-lock.json
 	mkdir -p offline/repos/stf-ios-provider
-	mkdir -p offline/logs
 	rm -rf offline/repos/stf-ios-provider/*
 	ln -s ../../../repos/stf-ios-provider/node_modules/     offline/repos/stf-ios-provider/node_modules
 	ln -s ../../../repos/stf-ios-provider/package.json      offline/repos/stf-ios-provider/package.json
@@ -163,17 +171,32 @@ offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/pa
 
 # --- BINARY DISTRIBUTION ---
 
+distfiles := \
+	video_pipes \
+	run \
+	stf_ios_support.rb \
+	*.sh \
+	view_log \
+	empty.tgz \
+	bin/ \
+	util/*.pl \
+	config.json
+
+offlinefiles := \
+	repos/ \
+	logs/ \
+	build_info.json
+
 offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log
 	@./get-version-info.sh > offline/build_info.json
-	tar -h -czf offline/dist.tgz video_pipes run stf_ios_support.rb *.sh view_log empty.tgz bin/ config.json -C offline repos/ build_info.json
-
-pipe:
-	mkfifo pipe
+	mkdir -p offline/logs
+	touch offline/logs/openvpn.log
+	tar -h -czf offline/dist.tgz $(distfiles) -C offline $(offlinefiles)
 
 clean: cleanstf cleanwda cleanicon cleanlogs
 	$(MAKE) -C coordinator clean
 	$(MAKE) -C video_enabler clean
-	$(RM) pipe build_info.json
+	$(RM) build_info.json
 
 cleanstf:
 	$(MAKE) -C repos/stf clean
@@ -186,7 +209,7 @@ cleanapp:
 	$(RM) -rf STF\ Coordinator.app
 
 cleanicon:
-	$(RM) -rf icon/stf.iconset icon/stf.iconset1 icon/stf.iconset2
+	$(RM) -rf coordinator/icon/stf.iconset coordinator/icon/stf.iconset1 coordinator/icon/stf.iconset2
 
 cleanlogs:
 	$(RM) logs/*
@@ -199,52 +222,52 @@ app: STF\ Coordinator.app
 STF\ Coordinator.app: | bin/coordinator icns
 	mkdir -p STF\ Coordinator.app/Contents/MacOS
 	mkdir -p STF\ Coordinator.app/Contents/Resources
-	cp icon/stf.icns STF\ Coordinator.app/Contents/Resources/icon.icns
+	cp coordinator/icon/stf.icns STF\ Coordinator.app/Contents/Resources/icon.icns
 	cp bin/coordinator STF\ Coordinator.app/Contents/MacOS/
 	$(eval CONFIGPATH=$(shell jq .install.config_path config.json -j))
-	echo '{"config_path":"$(CONFIGPATH)"}' > STF\ Coordinator.app/Contents/Resources/
-	cp Info.plist STF\ Coordinator.app/Contents/
+	echo '{"config_path":"$(CONFIGPATH)"}' > STF\ Coordinator.app/Contents/Resources/config.json
+	cp coordinator/app/Info.plist STF\ Coordinator.app/Contents/
 	./get-version-info.sh ios_support > STF\ Coordinator.app/Contents/Resources/build_info.json
 	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
 	./util/signers.pl sign "$(DEVID)" "STF Coordinator.app"
 
-icon/stf.iconset: | icon/stf.iconset1 icon/stf.iconset2 icons
-	mkdir -p icon/stf.iconset
-	cp icon/stf.iconset1/* icon/stf.iconset
-	cp icon/stf.iconset2/* icon/stf.iconset
+coordinator/icon/stf.iconset: | coordinator/icon/stf.iconset1 coordinator/icon/stf.iconset2 icons
+	mkdir -p coordinator/icon/stf.iconset
+	cp coordinator/icon/stf.iconset1/* icon/stf.iconset
+	cp coordinator/icon/stf.iconset2/* icon/stf.iconset
 
-icon/stf.iconset1:
-	mkdir icon/stf.iconset1
+coordinator/icon/stf.iconset1:
+	mkdir coordinator/icon/stf.iconset1
 
-icon/stf.iconset2:
-	mkdir icon/stf.iconset2
+coordinator/icon/stf.iconset2:
+	mkdir coordinator/icon/stf.iconset2
 
-icon/stf.iconset: 
+coordinator/icon/stf.iconset: 
 
 icons: \
- icon/stf.iconset1\
- icon/stf.iconset2\
- icon/stf.iconset1/icon_16x16.png\
- icon/stf.iconset2/icon_16x16@2x.png\
- icon/stf.iconset1/icon_32x32.png\
- icon/stf.iconset2/icon_32x32@2x.png\
- icon/stf.iconset1/icon_64x64.png\
- icon/stf.iconset2/icon_64x64@2x.png\
- icon/stf.iconset1/icon_128x128.png\
- icon/stf.iconset2/icon_128x128@2x.png\
- icon/stf.iconset1/icon_256x256.png\
- icon/stf.iconset2/icon_256x256@2x.png\
- icon/stf.iconset1/icon_512x512.png\
- icon/stf.iconset2/icon_512x512@2x.png\
- icon/stf.iconset1/icon_1024x1024.png
+ coordinator/icon/stf.iconset1\
+ coordinator/icon/stf.iconset2\
+ coordinator/icon/stf.iconset1/icon_16x16.png\
+ coordinator/icon/stf.iconset2/icon_16x16@2x.png\
+ coordinator/icon/stf.iconset1/icon_32x32.png\
+ coordinator/icon/stf.iconset2/icon_32x32@2x.png\
+ coordinator/icon/stf.iconset1/icon_64x64.png\
+ coordinator/icon/stf.iconset2/icon_64x64@2x.png\
+ coordinator/icon/stf.iconset1/icon_128x128.png\
+ coordinator/icon/stf.iconset2/icon_128x128@2x.png\
+ coordinator/icon/stf.iconset1/icon_256x256.png\
+ coordinator/icon/stf.iconset2/icon_256x256@2x.png\
+ coordinator/icon/stf.iconset1/icon_512x512.png\
+ coordinator/icon/stf.iconset2/icon_512x512@2x.png\
+ coordinator/icon/stf.iconset1/icon_1024x1024.png
 
-icon/stf.iconset1/icon_%.png: icon/stf_icon.png
-	sips -z $(firstword $(subst x, ,$*)) $(firstword $(subst x, ,$*)) icon/stf_icon.png --out $@
+coordinator/icon/stf.iconset1/icon_%.png: coordinator/icon/stf_icon.png
+	sips -z $(firstword $(subst x, ,$*)) $(firstword $(subst x, ,$*)) coordinator/icon/stf_icon.png --out $@
 
-icon/stf.iconset2/icon_%@2x.png: icon/stf_icon.png
-	sips -z $$( echo $(firstword $(subst x, ,$*))*2 | bc) $$( echo $(firstword $(subst x, ,$*))*2 | bc) icon/stf_icon.png --out $@
+coordinator/icon/stf.iconset2/icon_%@2x.png: icon/stf_icon.png
+	sips -z $$( echo $(firstword $(subst x, ,$*))*2 | bc) $$( echo $(firstword $(subst x, ,$*))*2 | bc) coordinator/icon/stf_icon.png --out $@
 
-icns: icon/stf.icns
+icns: coordinator/icon/stf.icns
 
-icon/stf.icns: icon/stf.iconset
-	iconutil -c icns -o icon/stf.icns icon/stf.iconset
+icon/stf.icns: coordinator/icon/stf.iconset
+	iconutil -c icns -o coordinator/icon/stf.icns coordinator/icon/stf.iconset
