@@ -31,7 +31,7 @@ func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, line
                 "server_hostname": serverHostname,
             } ).Info("Process start - stf_provider")
 
-            cmd := exec.Command( "/usr/local/opt/node@8/bin/node",
+            cmd := exec.Command( "/usr/local/opt/node@12/bin/node",
                 "--inspect=127.0.0.1:9230",
                 "runmod.js"      , "provider",
                 "--name"         , fmt.Sprintf("macmini/%s", clientHostname),
