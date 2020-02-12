@@ -10,13 +10,13 @@ import (
   log "github.com/sirupsen/logrus"
 )
 
-func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *BaseProgs, runningDevs map [string] *RunningDev ) {
+func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *BaseProgs, runningDevs map [string] *RunningDev, lineTracker *InMemTracker ) {
     // start web server waiting for trigger http command for device connect and disconnect
     var listen_addr = fmt.Sprintf( "0.0.0.0:%d", config.Network.Coordinator )
-    go startServer( devEventCh, listen_addr, baseProgs, runningDevs )
+    go startServer( devEventCh, listen_addr, baseProgs, runningDevs, lineTracker )
 }
 
-func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *BaseProgs, runningDevs map[string] *RunningDev ) {
+func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *BaseProgs, runningDevs map[string] *RunningDev, lineTracker *InMemTracker ) {
     log.WithFields( log.Fields{
         "type": "http_start",
     } ).Debug("HTTP server started")
@@ -26,6 +26,9 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
     }
     devinfoClosure := func( w http.ResponseWriter, r *http.Request ) {
         reqDevInfo( w, r, baseProgs, runningDevs )
+    }
+    logClosure := func( w http.ResponseWriter, r *http.Request ) {
+        handleLog( w, r, baseProgs, runningDevs, lineTracker )
     }
     http.HandleFunc( "/devinfo", devinfoClosure )
     http.HandleFunc( "/", rootClosure )
@@ -41,6 +44,7 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
     http.HandleFunc( "/dev_connect", connectClosure )
     http.HandleFunc( "/dev_disconnect", disconnectClosure )
     http.HandleFunc( "/new_interface", ifaceClosure )
+    http.HandleFunc( "/log", logClosure )
     log.Fatal( http.ListenAndServe( listen_addr, nil ) )
 }
 
@@ -121,6 +125,23 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
     } )
 }
 
+func handleLog( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map[string] *RunningDev, lineTracker *InMemTracker ) {
+    procTracker := lineTracker.procTrackers["stf_device_ios"]
+    
+    w.Header().Set("Content-Type", "text/html; charset=utf-8")
+    
+    que := procTracker.que
+    item := que.Back()
+    for {
+        json := item.Value.(string)
+        fmt.Fprintf( w, "%s<br>\n",json )
+        item = item.Prev()
+        if item == nil {
+            break
+        }
+    }
+}
+
 func deviceConnect( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
     // signal device loop of device connect
     devEvent := DevEvent{}
@@ -161,9 +182,12 @@ func newInterface( w http.ResponseWriter, r *http.Request, devEventCh chan<- Dev
     
     log.WithFields( log.Fields{
         "type": "iface_body",
-        "body": body.String(),
-        "struct": ifaceData,
-    } ).Debug("New Interface")
+        //"body": body.String(),
+        //"struct": ifaceData,
+        "uuid": ifaceData.Serial,
+        "class": ifaceData.Class,
+        "subclass": ifaceData.SubClass,
+    } ).Info("New Interface")
     
     if ifaceData.Class == "ff" && ifaceData.SubClass == "2a" {
         // signal device loop of video interface addition

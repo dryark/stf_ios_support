@@ -6,6 +6,7 @@ import (
   "fmt"
   "io"
   "strconv"
+  "sync"
   "time"
   log "github.com/sirupsen/logrus"
   zmq "github.com/zeromq/goczmq"
@@ -124,8 +125,9 @@ func reqDevInfoJSON( uuid string ) (string) {
     return res
 }
 
-func devListJSON( runningDevs map[string] *RunningDev ) (string) {
+func devListJSON( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex ) (string) {
     devOut := ""
+    devMapLock.Lock()
     for _, dev := range runningDevs {
         mirror := "<font color='green'>on</font>"
         if dev.mirror == nil { mirror = "off" }
@@ -150,10 +152,11 @@ func devListJSON( runningDevs map[string] *RunningDev ) (string) {
         } )
         devOut += str.String()
     }
+    devMapLock.Unlock()
     return devOut
 }
 
-func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubEventCh  chan<- PubEvent, devEventCh chan<- DevEvent ) {
+func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, lineLog *log.Entry, pubEventCh  chan<- PubEvent, devEventCh chan<- DevEvent ) {
     plog := log.WithFields( log.Fields{ "coro": "zmqpull" } )
     
     wdaLineLog := lineLog.WithFields( log.Fields{
@@ -216,23 +219,32 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "proc": "wdaproxy",
                             "uuid": uuid,
                         } ).Info("Process start - WDAProxy")
+                        devMapLock.Lock()
                         devd := runningDevs[ uuid ]
+                        devMapLock.Unlock()
                         
                         // Everything is started; notify stf via zmq published event
                         pubEvent := PubEvent{}
                         pubEvent.action  = 0
                         pubEvent.uuid    = msg["uuid"]
-                        pubEvent.name    = devd.name
-                        pubEvent.wdaPort = devd.wdaPort
-                        pubEvent.vidPort = devd.vidPort
+                        
+                        devd.lock.Lock()
+                        devName := devd.name
+                        wdaPort := devd.wdaPort
+                        vidPort := devd.vidPort
+                        devd.lock.Unlock()
+                        
+                        pubEvent.name    = devName
+                        pubEvent.wdaPort = wdaPort
+                        pubEvent.vidPort = vidPort
                         pubEventCh <- pubEvent
                         
                         pubEvent = PubEvent{}
                         pubEvent.action  = 3
                         pubEvent.uuid    = msg["uuid"]
-                        pubEvent.name    = devd.name
-                        pubEvent.wdaPort = devd.wdaPort
-                        pubEvent.vidPort = devd.vidPort
+                        pubEvent.name    = devName
+                        pubEvent.wdaPort = wdaPort
+                        pubEvent.vidPort = vidPort
                         pubEventCh <- pubEvent
                         
                         devd.heartbeatChan = coro_heartbeat( msg["uuid"], pubEventCh )
@@ -260,8 +272,14 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, lineLog *log.Entry, pubE
                             "uuid": uuid,
                         } ).Error("WDA Error")
                     } else if msgType == "wdaproxy_ended" {
+                        devMapLock.Lock()
                         devd := runningDevs[ uuid ]
+                        devMapLock.Unlock()
+                        
+                        devd.lock.Lock()
                         devd.heartbeatChan <- true
+                        devd.lock.Unlock()
+                        
                         plog.WithFields( log.Fields{
                             "type": "wdaproxy_ended",
                             "proc": "wdaproxy",

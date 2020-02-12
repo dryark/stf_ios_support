@@ -152,7 +152,7 @@ func main() {
     }
     
     useVPN := true
-    if config.Vpn.TblickName == "none" && config.Vpn.VpnType != "openvpn" {
+    if ( config.Vpn.TblickName == "none" && config.Vpn.VpnType != "openvpn" ) || config.Vpn.VpnType == "none" {
         useVPN = false
     }
 
@@ -163,15 +163,16 @@ func main() {
         check_vpn_status( config, &baseProgs, vpnEventCh )
     }
 
-    lineLog := setup_log( config, *debug, *jsonLog )
+    lineLog, lineTracker := setup_log( config, *debug, *jsonLog )
 
     pubEventCh := make( chan PubEvent, 2 )
 
     runningDevs := make( map [string] *RunningDev )
+    var devMapLock sync.Mutex
     
     devEventCh := make( chan DevEvent, 2 )
     
-    coro_zmqPull( runningDevs, lineLog, pubEventCh, devEventCh )
+    coro_zmqPull( runningDevs, &devMapLock, lineLog, pubEventCh, devEventCh )
     coro_zmqReqRep( runningDevs )
     coro_zmqPub( pubEventCh )
 
@@ -190,6 +191,7 @@ func main() {
     } else {
         ifName = config.Network.Iface
         curIP = ifAddr( ifName )
+        baseProgs.okStage1 = true
     }
 
     cleanup_procs( config )
@@ -206,7 +208,7 @@ func main() {
     
     baseProgs.shuttingDown = false
 
-    coro_http_server( config, devEventCh, &baseProgs, runningDevs )
+    coro_http_server( config, devEventCh, &baseProgs, runningDevs, lineTracker )
     proc_device_trigger( config, &baseProgs, lineLog )
     if config.Video.Enabled {
         //ensure_proper_pipe( config )
@@ -229,7 +231,7 @@ func main() {
     coro_sigterm( runningDevs, &baseProgs, config )
 
     // process devEvents
-    event_loop( config, curIP, devEventCh, vpnEventCh, ifName, pubEventCh, runningDevs, portMap, lineLog, &baseProgs )
+    event_loop( config, curIP, devEventCh, vpnEventCh, ifName, pubEventCh, runningDevs, &devMapLock, portMap, lineLog, &baseProgs )
 }
 
 func coordinator_NewLauncher( config *Config ) (*Launcher) {
@@ -276,6 +278,7 @@ func coordinator_unload( config *Config ) {
 func NewRunningDev( 
         gConfig *Config,
         runningDevs map[string] *RunningDev,
+        devMapLock *sync.Mutex,
         portMap *PortMap,
         uuid string ) ( *RunningDev ) {
         
@@ -307,7 +310,9 @@ func NewRunningDev(
     
     devd.name = getDeviceName( uuid )
     
+    devMapLock.Lock()
     runningDevs[uuid] = &devd
+    devMapLock.Unlock()
     
     log.WithFields( log.Fields{
         "type":     "devd_create",
@@ -330,6 +335,7 @@ func event_loop(
         tunName     string,
         pubEventCh  chan<- PubEvent,
         runningDevs map[string] *RunningDev,
+        devMapLock *sync.Mutex,
         portMap     *PortMap,
         lineLog     *log.Entry,
         baseProgs *BaseProgs ) {
@@ -351,6 +357,10 @@ func event_loop(
         }
     }
 
+    log.WithFields( log.Fields{
+        "type":     "event_loop_start",
+    } ).Info("Event loop start")
+    
     for {
         select {
         case vpnEvent := <- vpnEventCh:
@@ -365,8 +375,12 @@ func event_loop(
             var devd *RunningDev = nil
             var ok = false
             
+            devMapLock.Lock()
             if devd, ok = runningDevs[uuid]; !ok {
-                devd = NewRunningDev( gConfig, runningDevs, portMap, uuid )
+                devMapLock.Unlock()
+                devd = NewRunningDev( gConfig, runningDevs, devMapLock, portMap, uuid )
+            } else {
+                devMapLock.Unlock()
             }
             
             if devEvent.action == 0 { // device connect
@@ -397,7 +411,9 @@ func event_loop(
                 
                 closeRunningDev( devd, portMap )
     
+                devMapLock.Lock()
                 delete( runningDevs, uuid )
+                devMapLock.Unlock()
                 devd = nil
                 
                 // Notify stf that the device is gone
@@ -414,7 +430,7 @@ func event_loop(
                     "type":     "vid_interface",
                     "dev_name": devd.name,
                     "dev_uuid": uuid,
-                } ).Debug("Video - interface available")
+                } ).Info("Video - interface available")
                 devd.okVidInterface = true
             }
             if devEvent.action == 3 { // first video frame
