@@ -8,8 +8,18 @@ import (
   "strings"
   "syscall"
   "sync"
+  "container/list"
   log "github.com/sirupsen/logrus"
 )
+
+type ProcTracker struct {
+    que *list.List
+    length int
+}
+
+type InMemTracker struct {
+    procTrackers map[string] *ProcTracker
+}
 
 type JSONLog struct {
 	  file      *os.File
@@ -18,6 +28,8 @@ type JSONLog struct {
 	  failed    bool
 	  hupData   *HupData
 	  id        int
+	  inMemTracker *InMemTracker
+	  mutex     sync.Mutex
 }
 
 type HupData struct {
@@ -71,6 +83,12 @@ func ( hook *JSONLog ) Fire( entry *log.Entry ) error {
         str = strings.Replace( str, "\"level\":\"info\",", "", 1 )
         str = strings.Replace( str, "\"msg\":\"\",", "", 1 )
         _, err = fh.WriteString( str )
+        
+        // Possibly better to us a coroutine to accept new log messages
+        //   rather than lock on every one.
+        hook.mutex.Lock()
+        hook.inMemTracker.addEntry( entry, str )
+        hook.mutex.Unlock()
     } else {
         _, err = fh.WriteString( string( jsonformat ) )
     }
@@ -83,10 +101,33 @@ func ( hook *JSONLog ) Fire( entry *log.Entry ) error {
 
     return nil
 }
+func (tracker *InMemTracker) addEntry( entry *log.Entry, json string ) {
+    if proc, ok := entry.Data["proc"]; ok {
+        procS := proc.(string)
+        var ok2 bool
+        var pt *ProcTracker
+        if pt, ok2 = tracker.procTrackers[ procS ]; !ok2 {
+            pt = &ProcTracker{
+                que: list.New(),
+                length: 0,
+            }
+            tracker.procTrackers[ procS ] = pt
+        }
+        
+        pt.length = pt.length + 1
+        pt.que.PushBack( json )
+        
+        // Max out at 20 elements per queue
+        if pt.length > 20 {
+            e := pt.que.Front()
+            pt.que.Remove(e)
+        }
+    }
+}
 func (hook *JSONLog) Levels() []log.Level {
     return []log.Level{ log.PanicLevel, log.FatalLevel, log.ErrorLevel, log.WarnLevel, log.InfoLevel, log.DebugLevel }
 }
-func AddJSONLog( logger *log.Logger, fileName string, id int, hupData *HupData ) {
+func AddJSONLog( logger *log.Logger, fileName string, id int, hupData *HupData ) ( *JSONLog ) {
     logFile, err := os.OpenFile( fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666 )
     if err != nil {
         fmt.Fprintf( os.Stderr, "Unable to open file for writing: %v", err )
@@ -99,6 +140,7 @@ func AddJSONLog( logger *log.Logger, fileName string, id int, hupData *HupData )
         failed:    false,
         hupData:   hupData,
         id:        id,
+        inMemTracker: NewInMemTracker(),
     }
 
     if logger == nil {
@@ -106,15 +148,21 @@ func AddJSONLog( logger *log.Logger, fileName string, id int, hupData *HupData )
     } else {
         logger.AddHook( &fileHook )
     }
+    return &fileHook
 }
-
+func NewInMemTracker() ( *InMemTracker ) {
+    newt := InMemTracker{
+        procTrackers: make( map [string] *ProcTracker ),
+    }
+    return &newt
+}
 type DummyWriter struct {
 }
 func (self *DummyWriter) Write( p[]byte) (n int, err error) {
     return len(p), nil
 }
 
-func setup_log( config *Config, debug bool, jsonLog bool ) (*log.Entry) {
+func setup_log( config *Config, debug bool, jsonLog bool ) (*log.Entry, *InMemTracker) {
     if jsonLog {
         log.SetFormatter( &log.JSONFormatter{} )
     }
@@ -136,9 +184,10 @@ func setup_log( config *Config, debug bool, jsonLog bool ) (*log.Entry) {
     hupData := coro_sighup()
 
     AddJSONLog( nil, config.Log.Main, 1, hupData )
-    AddJSONLog( lineLogger1, config.Log.ProcLines, 2, hupData )
-
-    return lineLogger
+    lineJsonLog := AddJSONLog( lineLogger1, config.Log.ProcLines, 2, hupData )
+    lineTracker := lineJsonLog.inMemTracker
+    
+    return lineLogger, lineTracker
 }
 
 func coro_sighup() ( *HupData ) {
