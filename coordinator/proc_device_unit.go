@@ -43,7 +43,7 @@ func proc_device_ios_unit( config *Config, devd *RunningDev, uuid string, curIP 
                 vncPort = devd.vncPort
             }
             
-            cmd := exec.Command( "/usr/local/opt/node@8/bin/node",
+            cmd := exec.Command( "/usr/local/opt/node@12/bin/node",
                 fmt.Sprintf("--inspect=0.0.0.0:%d", devd.devIosPort),
                 "runmod.js"              , "device-ios",
                 "--serial"               , uuid,

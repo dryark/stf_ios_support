@@ -12,16 +12,6 @@ function install_brew_if_needed() {
   fi
 }
 
-function install_node8_if_needed() {
-  NODE_MAJOR_VERSION="none"
-  if [ -f "/usr/local/opt/node@8/bin/node" ]; then
-    echo -e "${GR}Node 8 installed$RST"
-  else
-    echo -e "Installing Node 8"
-    brew install node@8
-  fi
-}
-
 function assert_has_xcodebuild() {
   XCODE_VERSION="none"
   XCODE_MAJOR_VERSION="0"
@@ -49,6 +39,5 @@ function assert_has_xcodebuild() {
 install_brew_if_needed
 ./util/brewser.pl ensurehead libusbmuxd
 ./util/brewser.pl ensurehead libimobiledevice
-install_node8_if_needed
 assert_has_xcodebuild
 ./util/brewser.pl installdeps stf_ios_support.rb

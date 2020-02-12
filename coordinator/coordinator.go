@@ -359,7 +359,7 @@ func event_loop(
 
     log.WithFields( log.Fields{
         "type":     "event_loop_start",
-    } ).Info("Event loop start")
+    } ).Debug("Event loop start")
     
     for {
         select {
