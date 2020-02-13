@@ -165,7 +165,7 @@ func read_config( configPath string ) *Config {
           },
           "repos":{
             "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
-            "wda": "https://github.com/appium/WebDriverAgent.git"
+            "wda": "https://github.com/nanoscopic/WebDriverAgent.git"
           }
         }`
         

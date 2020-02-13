@@ -94,6 +94,8 @@ xcodebuildoptions1 := \
 	-allowProvisioningUpdates \
 	-destination generic/platform=iOS
 
+DEVID := $(shell jq .xcode_dev_team_id config.json -j)
+
 xcodebuildoptions2 := \
 	CODE_SIGN_IDENTITY="iPhone Developer" \
 	DEVELOPMENT_TEAM="$(DEVID)"
@@ -102,7 +104,6 @@ bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgen
 	@if [ -e bin/wda ]; then rm -rf bin/wda; fi;
 	@mkdir -p bin/wda/Debug-iphoneos
 	ln -s ../../repos/wdaproxy/web bin/wda/web
-	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
 	$(eval XCODEOPS=$(shell jq '.xcode_build_ops // ""' config.json -j))
 	cd repos/WebDriverAgent && xcodebuild $(xcodebuildoptions1) $(XCODEOPS) $(xcodebuildoptions2) build-for-testing
 	$(eval PROD_PATH=$(shell ./get-wda-build-path.sh))
@@ -135,7 +136,7 @@ repos/stf_ios_mirrorfeed:
 	git clone https://github.com/tmobile/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
 
 repos/WebDriverAgent:
-	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/appium/WebDriverAgent.git"' config.json -j))
+	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/nanoscopic/WebDriverAgent.git"' config.json -j))
 	$(eval REPO_BR=$(shell jq '.repo_wda_branch // "master"' config.json -j))
 	git clone $(REPO) repos/WebDriverAgent --branch $(REPO_BR)
 
