@@ -15,10 +15,6 @@
   "install": {
     "root_path": "[desired stf provider install folder]",
     "config_path": "[desired stf provider install folder]/config.json",
-  },
-  "vpn": {
-    "type": "openvpn",
-    "ovpn_config": "[path to your openvpn config file]"
   }
 }
 
@@ -56,7 +52,7 @@
     "wda_wrapper_stderr": "./logs/wda_wrapper_stderr"
   },
   "vpn": {
-    "type": "openvpn",
+    "type": "none",
     "ovpn_working_dir": "/usr/local/etc/openvpn",
     "tblick_name": ""
   },

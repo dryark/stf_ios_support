@@ -149,7 +149,7 @@ func read_config( configPath string ) *Config {
             "wda_wrapper_stderr": "./logs/wda_wrapper_stderr"
           },
           "vpn":{
-            "type":             "openvpn",
+            "type":             "none",
             "ovpn_working_dir": "/usr/local/etc/openvpn",
             "tblick_name":      ""
           },
