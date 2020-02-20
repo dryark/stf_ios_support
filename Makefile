@@ -128,6 +128,8 @@ bin/wdaproxy: | wdaproxybin
 
 checkout: repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider
 
+repos/stf-ios-provider/package.json: repos/stf-ios-provider
+
 repos/stf-ios-provider:
 	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/nanoscopic/stf-ios-provider.git"' config.json -j))
 	git clone $(REPO) repos/stf-ios-provider --branch master
@@ -153,7 +155,7 @@ repos/wdaproxy:
 
 stf: repos/stf-ios-provider/package-lock.json
 
-repos/stf-ios-provider/package-lock.json: | repos/stf-ios-provider
+repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider/package.json
 	cd repos/stf-ios-provider && PATH=$(PATH):/usr/local/opt/node\@12/bin npm install
 
 # --- OFFLINE STF ---
