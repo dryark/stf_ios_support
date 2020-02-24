@@ -1,8 +1,9 @@
 #!/usr/bin/perl -w
 use strict;
 use File::Temp qw/tempfile/;
+use Data::Dumper;
 
-my $action = $ARGV[0];
+my $action = $ARGV[0] || '';
 
 my $goalou = "";
 my $tosign = "";
