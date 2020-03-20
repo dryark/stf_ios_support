@@ -1,4 +1,4 @@
-all: config.json bin/coordinator video_enabler mirrorfeed device_trigger wda ffmpegalias wdaproxyalias view_log app wda_wrapper stf
+all: config.json bin/coordinator video_enabler mirrorfeed device_trigger wda ffmpegalias wdaproxyalias view_log app wda_wrapper stf bin/wda/web
 
 .PHONY:\
  checkout\
@@ -157,12 +157,13 @@ stf: repos/stf-ios-provider/package-lock.json
 
 repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider/package.json
 	cd repos/stf-ios-provider && PATH=$(PATH):/usr/local/opt/node\@12/bin npm install
+	touch repos/stf-ios-provider/package-lock.json
 
 # --- OFFLINE STF ---
 
 dist: offline/dist.tgz
 
-offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/package-lock.json
+offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/package-lock.json bin/wda/web
 	mkdir -p offline/repos/stf-ios-provider
 	rm -rf offline/repos/stf-ios-provider/*
 	ln -s ../../../repos/stf-ios-provider/node_modules/     offline/repos/stf-ios-provider/node_modules
@@ -170,7 +171,9 @@ offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/pa
 	ln -s ../../../repos/stf-ios-provider/package-lock.json offline/repos/stf-ios-provider/package-lock.json
 	ln -s ../../../repos/stf-ios-provider/runmod.js         offline/repos/stf-ios-provider/runmod.js
 	ln -s ../../../repos/stf-ios-provider/lib/              offline/repos/stf-ios-provider/lib
-	@if [ ! -e bin/wda/web ]; then ln -s ../../repos/wdaproxy/web bin/wda/web; fi;
+
+bin/wda/web:
+	@if [ ! -L bin/wda/web ]; then ln -s ../../../repos/wdaproxy/web bin/wda/web; fi;
 
 # --- BINARY DISTRIBUTION ---
 
@@ -180,7 +183,6 @@ distfiles := \
 	stf_ios_support.rb \
 	*.sh \
 	view_log \
-	empty.tgz \
 	bin/ \
 	util/*.pl \
 	config.json
