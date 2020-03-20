@@ -1,6 +1,7 @@
-// Minimal Example
+// Minimal Example; DO NOT COPY THIS LINE OR ANY LINE STARTING WITH //
+// To get your xcode dev org, view "Apple Development" cert in keychain, and look at "Organizational Unit"
 {
-  "xcode_dev_team_id": "[your xcode developer ID; ~10 char alphanumeric]",
+  "xcode_dev_team_id": "[your xcode developer org; ~10 char alphanumeric]",
   "stf": {
     "ip": "[your stf server ip]",
     "hostname": "[your stf server hostname]"
@@ -14,10 +15,12 @@
   },
   "install": {
     "root_path": "[desired stf provider install folder]",
-    "config_path": "[desired stf provider install folder]/config.json",
+    "config_path": "[desired stf provider install folder]/config.json"
   }
 }
 
+// HERE AND BELOW IS TO SHOW DEFAULTS AND ALL OPTIONS
+// DO NOT COPY THIS INTO YOUR config.json FILE
 // Defaults
 {
   "wda_folder": "./bin/wda",
