@@ -1,4 +1,4 @@
-all: config.json bin/coordinator video_enabler mirrorfeed device_trigger wda ffmpegalias wdaproxyalias view_log app wda_wrapper stf bin/wda/web
+all: config.json bin/coordinator video_enabler mirrorfeed device_trigger wda ffmpegalias wdaproxyalias view_log wda_wrapper stf bin/wda/web app
 
 .PHONY:\
  checkout\
@@ -238,8 +238,8 @@ STF\ Coordinator.app: | bin/coordinator icns
 
 coordinator/icon/stf.iconset: | coordinator/icon/stf.iconset1 coordinator/icon/stf.iconset2 icons
 	mkdir -p coordinator/icon/stf.iconset
-	cp coordinator/icon/stf.iconset1/* icon/stf.iconset
-	cp coordinator/icon/stf.iconset2/* icon/stf.iconset
+	cp coordinator/icon/stf.iconset1/* coordinator/icon/stf.iconset
+	cp coordinator/icon/stf.iconset2/* coordinator/icon/stf.iconset
 
 coordinator/icon/stf.iconset1:
 	mkdir coordinator/icon/stf.iconset1
@@ -269,10 +269,10 @@ icons: \
 coordinator/icon/stf.iconset1/icon_%.png: coordinator/icon/stf_icon.png
 	sips -z $(firstword $(subst x, ,$*)) $(firstword $(subst x, ,$*)) coordinator/icon/stf_icon.png --out $@
 
-coordinator/icon/stf.iconset2/icon_%@2x.png: icon/stf_icon.png
+coordinator/icon/stf.iconset2/icon_%@2x.png: coordinator/icon/stf_icon.png
 	sips -z $$( echo $(firstword $(subst x, ,$*))*2 | bc) $$( echo $(firstword $(subst x, ,$*))*2 | bc) coordinator/icon/stf_icon.png --out $@
 
 icns: coordinator/icon/stf.icns
 
-icon/stf.icns: coordinator/icon/stf.iconset
+coordinator/icon/stf.icns: coordinator/icon/stf.iconset
 	iconutil -c icns -o coordinator/icon/stf.icns coordinator/icon/stf.iconset
