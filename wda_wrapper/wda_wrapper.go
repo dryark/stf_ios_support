@@ -128,6 +128,8 @@ func proc_wdaproxy(
                     // send line to linelog ( through zmq )
                 }
             }
+            
+            time.Sleep( time.Millisecond * 20 )
         } ()
         scanner := bufio.NewScanner( errPipe )
         for scanner.Scan() {
@@ -151,6 +153,8 @@ func proc_wdaproxy(
               "line": line,
               "uuid": uuid,
             } )
+            
+            time.Sleep( time.Millisecond * 20 )
         }
         
         cmd.Wait()

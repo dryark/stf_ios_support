@@ -1,4 +1,4 @@
-module wda_wrapper.go
+module wda_wrapper
 
 go 1.12
 
