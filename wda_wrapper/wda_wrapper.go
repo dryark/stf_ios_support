@@ -11,6 +11,7 @@ import (
   "time"
   zmq "github.com/zeromq/goczmq"
   log "github.com/sirupsen/logrus"
+  gocmd "github.com/go-cmd/cmd"
 )
 
 var exit bool
@@ -68,43 +69,8 @@ func proc_wdaproxy(
 
         cmd.Dir = wdaRoot
 
-        outputPipe, err1 := cmd.StdoutPipe()
-        if err1 != nil {
-            log.WithFields( log.Fields{
-                "type": "stdout_pipe_err",
-                "err": err1,
-            } ).Error("stdout pipe err")
-        }
-        errPipe, err2 := cmd.StderrPipe()
-        if err2 != nil {
-            log.WithFields( log.Fields{
-                "type": "stderr_pipe_err",
-                "err": err2,
-            } ).Error("stderr pipe err")
-        }
-        
-        backoff.markStart()
-        err := cmd.Start()
-        if err != nil {
-            log.WithFields( log.Fields{
-                "type": "proc_err",
-                "error": err,
-            } ).Error("Error starting wdaproxy")
-            backoff.markEnd()
-            backoff.wait()
-            continue
-        }
-        
-        // send message that it has started
-        msgCoord( map[string]string{
-          "type": "wdaproxy_started",
-          "uuid": uuid,
-        } )
-        
         go func() {
-            scanner := bufio.NewScanner( outputPipe )
-            for scanner.Scan() {
-                line := scanner.Text()
+           for line := range stdoutChan {
 
                 if strings.Contains( line, "is implemented in both" ) {
                 } else if strings.Contains( line, "Couldn't write value" ) {
@@ -131,31 +97,57 @@ func proc_wdaproxy(
             
             time.Sleep( time.Millisecond * 20 )
         } ()
-        scanner := bufio.NewScanner( errPipe )
-        for scanner.Scan() {
-            line := scanner.Text()
-
-            if strings.Contains( line, "[WDA] successfully started" ) {
-                // send message that WDA has started to coordinator
+  
+        for func() {
+            for line := range stderrChan {
+                if strings.Contains( line, "[WDA] successfully started" ) {
+                    // send message that WDA has started to coordinator
+                    msgCoord( map[string]string{
+                      "type": "wda_started",
+                      "uuid": uuid,
+                    } )
+                }
+                
+                // send line to coordinator
+                log.WithFields( log.Fields{
+                    "type": "proc_stderr",
+                    "line": line,
+                } ).Error("")
                 msgCoord( map[string]string{
-                  "type": "wda_started",
+                  "type": "wda_stderr",
+                  "line": line,
                   "uuid": uuid,
                 } )
+                
+                time.Sleep( time.Millisecond * 20 )
             }
-            
-            // send line to coordinator
-            log.WithFields( log.Fields{
-                "type": "proc_stderr",
-                "line": line,
-            } ).Error("")
-            msgCoord( map[string]string{
-              "type": "wda_stderr",
-              "line": line,
-              "uuid": uuid,
-            } )
-            
-            time.Sleep( time.Millisecond * 20 )
         }
+        
+        stdoutChan := make(chan string, 100)
+        stdStream := gocmd.NewOutputStream(stdoutChan)
+        cmd.Stdout = stdStream
+        
+        stderrChan := make(chan string, 100)
+        errStream := gocmd.NewOutputStream(stderrChan)
+        cmd.Stderr = errStream
+                
+        backoff.markStart()
+        err := cmd.Start()
+        if err != nil {
+            log.WithFields( log.Fields{
+                "type": "proc_err",
+                "error": err,
+            } ).Error("Error starting wdaproxy")
+            backoff.markEnd()
+            backoff.wait()
+            continue
+        }
+        
+        // send message that it has started
+        msgCoord( map[string]string{
+          "type": "wdaproxy_started",
+          "uuid": uuid,
+        } )
         
         cmd.Wait()
         
