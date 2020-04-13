@@ -4,6 +4,7 @@ import (
   "fmt"
   "net"
   "os"
+  "strings"
   log "github.com/sirupsen/logrus"
 )
 
@@ -32,7 +33,10 @@ func ifAddr( ifName string ) ( addrOut string ) {
                     fmt.Printf("Unknown type\n")
             }
             if iface.Name == ifName {
-                addrOut = ip.String()
+                str := ip.String()
+                if !strings.Contains(str,":") {
+                    addrOut = str
+                }
             }
         }
     }

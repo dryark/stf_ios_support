@@ -260,18 +260,29 @@ func scanForInterface( scanner *bufio.Scanner, vpnEventCh chan<- VpnEvent ) {
     }
 }
 
-func scanForLastInterface( scanner *bufio.Scanner, vpnEventCh chan<- VpnEvent ) {
+func scanForLastInterface( scanner *bufio.Scanner, vpnEventCh chan<- VpnEvent ) (bool){
     lastUpLine := ""
+    lastUpLineNo := 0
+    startLineNo := 0
+    lineNo := 0
     for scanner.Scan() {
         line := scanner.Text()
+        lineNo = lineNo + 1
         //log.WithFields( log.Fields{ "type": "vpn_log_line", "line": line } ).Info("VPN log line")
+        if strings.Contains( line, "OpenVPN" ) && strings.Contains( line, "built on" ) {
+            startLineNo = lineNo
+        }
         if strings.Contains( line, "ifconfig" ) && strings.HasSuffix( line, " up" ) {
-            lastUpLine = line 
+            lastUpLine = line
+            lastUpLineNo = lineNo
         }
     }
-    if lastUpLine != "" {
+    
+    if lastUpLineNo > startLineNo && lastUpLine != "" {
         interfaceNotice( uplineToInterface( lastUpLine ), vpnEventCh )
+        return true
     }
+    return false
 }
 
 func interfaceNotice( iface string, vpnEventCh chan<- VpnEvent ) {
