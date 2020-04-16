@@ -46,7 +46,18 @@ bin/ffmpeg: | ffmpegbin
 ffmpegbin: repos/ffmpeg/ffmpeg
 
 repos/ffmpeg/ffmpeg: | repos/ffmpeg
-	cd repos/ffmpeg && ./configure  --prefix=/usr/local --enable-gpl --enable-nonfree --enable-libx264 --enable-libx265 --enable-libxvid
+	cd repos/ffmpeg && ./configure  --prefix=/usr/local --enable-gpl --disable-nonfree --disable-libx264 --disable-libx265 --disable-libxvid --disable-sdl2 --disable-lzma \
+ --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
+ --disable-decoders --enable-decoder=rawvideo --disable-decoder=h263 --disable-decoder=h264 --disable-decoder=hevc --disable-decoder=mpeg1video --disable-decoder=mpeg2video --disable-decoder=mpeg4 \
+ --disable-encoders --enable-encoder=mjpeg \
+ --disable-parsers \
+ --disable-muxers --enable-muxer=mjpeg \
+ --disable-demuxers --enable-demuxer=rawvideo \
+ --disable-protocols --enable-protocol=pipe \
+ --disable-filters --enable-filter=scale \
+ --disable-network --disable-securetransport \
+ --disable-bsfs --enable-bsf=mjpeg2jpeg --enable-bsf=mjpega_dump_header \
+ --disable-ffprobe --disable-appkit --disable-iconv --disable-debug
 	$(MAKE) -C repos/ffmpeg
 
 # --- COORDINATOR ---
