@@ -1,7 +1,6 @@
 package main
 
 import (
-  "bufio"
   "flag"
   "fmt"
   "encoding/json"
@@ -69,6 +68,9 @@ func proc_wdaproxy(
 
         cmd.Dir = wdaRoot
 
+        stdoutChan := make(chan string, 100)
+        stderrChan := make(chan string, 100)
+        
         go func() {
            for line := range stdoutChan {
 
@@ -98,7 +100,7 @@ func proc_wdaproxy(
             time.Sleep( time.Millisecond * 20 )
         } ()
   
-        for func() {
+        go func() {
             for line := range stderrChan {
                 if strings.Contains( line, "[WDA] successfully started" ) {
                     // send message that WDA has started to coordinator
@@ -121,13 +123,11 @@ func proc_wdaproxy(
                 
                 time.Sleep( time.Millisecond * 20 )
             }
-        }
+        } ()
         
-        stdoutChan := make(chan string, 100)
         stdStream := gocmd.NewOutputStream(stdoutChan)
         cmd.Stdout = stdStream
         
-        stderrChan := make(chan string, 100)
         errStream := gocmd.NewOutputStream(stderrChan)
         cmd.Stderr = errStream
                 
