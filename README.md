@@ -22,7 +22,7 @@
 
 ### Build provider files:
 1. Update config.json
-1. Run `make dist`
+1. Run `make` then `make dist`
 
     1. offline/dist.tgz will be created
 
