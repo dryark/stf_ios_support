@@ -4,9 +4,12 @@ import (
   "flag"
   "fmt"
   "encoding/json"
+  "os"
   "os/exec"
+  "os/signal"
   "strconv"
   "strings"
+  "syscall"
   "time"
   zmq "github.com/zeromq/goczmq"
   log "github.com/sirupsen/logrus"
@@ -26,6 +29,7 @@ func main() {
     var wdaRoot    = flag.String( "wdaRoot", "", "WDA Folder Path"    )
     flag.Parse()
     
+    coro_sigterm()
     setup_zmq()
     proc_wdaproxy( *wdaPort, *uuid, *iosVersion, *wdaRoot )
 }
@@ -48,32 +52,13 @@ func proc_wdaproxy(
 
     backoff := Backoff{}
     
-    for {
-        ops := []string{
-          "-p", strconv.Itoa( wdaPort ),
-          "-q", strconv.Itoa( wdaPort ),
-          "-d",
-          "-W", ".",
-          "-u", uuid,
-          fmt.Sprintf("--iosversion=%s", iosVersion),
-        }
-
-        log.WithFields( log.Fields{
-            "type": "proc_cmdline",
-            "cmd": "../wdaproxy",
-            "args": ops,
-        } ).Info("")
-        
-        cmd := exec.Command( "../wdaproxy", ops... )
-
-        cmd.Dir = wdaRoot
-
-        stdoutChan := make(chan string, 100)
-        stderrChan := make(chan string, 100)
-        
-        go func() {
-           for line := range stdoutChan {
-
+    stdoutChan := make(chan string, 100)
+    stderrChan := make(chan string, 100)
+    
+    go func() {
+        for {
+            for line := range stdoutChan {
+    
                 if strings.Contains( line, "is implemented in both" ) {
                 } else if strings.Contains( line, "Couldn't write value" ) {
                 } else if strings.Contains( line, "GET /status " ) {
@@ -98,9 +83,13 @@ func proc_wdaproxy(
             }
             
             time.Sleep( time.Millisecond * 20 )
-        } ()
-  
-        go func() {
+            
+            if exit { break }
+        }
+    } ()
+
+    go func() {
+        for {
             for line := range stderrChan {
                 if strings.Contains( line, "[WDA] successfully started" ) {
                     // send message that WDA has started to coordinator
@@ -120,11 +109,34 @@ func proc_wdaproxy(
                   "line": line,
                   "uuid": uuid,
                 } )
-                
-                time.Sleep( time.Millisecond * 20 )
             }
-        } ()
+            
+            time.Sleep( time.Millisecond * 20 )
+            
+            if exit { break }
+        }
+    } ()
+    
+    for {
+        ops := []string{
+          "-p", strconv.Itoa( wdaPort ),
+          "-q", strconv.Itoa( wdaPort ),
+          "-d",
+          "-W", ".",
+          "-u", uuid,
+          fmt.Sprintf("--iosversion=%s", iosVersion),
+        }
+
+        log.WithFields( log.Fields{
+            "type": "proc_cmdline",
+            "cmd": "../wdaproxy",
+            "args": ops,
+        } ).Info("")
         
+        cmd := exec.Command( "../wdaproxy", ops... )
+
+        cmd.Dir = wdaRoot
+
         stdStream := gocmd.NewOutputStream(stdoutChan)
         cmd.Stdout = stdStream
         
@@ -243,4 +255,17 @@ func zmqRequest( jsonOut []byte ) {
             "err": err,
         } ).Error("ZMQ Send Error")
     }
+}
+
+func coro_sigterm() {
+    c := make(chan os.Signal, 2)
+    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+    go func() {
+        <- c
+        exit = true
+
+        time.Sleep( time.Millisecond * 1000 )
+        
+        os.Exit(0)
+    }()
 }
