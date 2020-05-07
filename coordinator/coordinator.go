@@ -8,7 +8,7 @@ import (
     "path/filepath"
     "strings"
     "sync"
-    "syscall"
+    //"syscall"
     "time"
     log "github.com/sirupsen/logrus"
     fsnotify "github.com/fsnotify/fsnotify"
@@ -21,25 +21,55 @@ type DevEvent struct {
     height int
 }
 
+func (self *RunningDev) dup() ( *RunningDev ) {
+    if self == nil { return nil }
+    self.lock.Lock()
+    dup := *self
+    self.lock.Unlock()
+    return &dup
+}
+
+func (self *RunningDev) setBackoff( procName string, b *Backoff, base *BaseProgs ) {
+    if self == nil {
+        base.lock.Lock()
+        base.backoff[ procName ] = b
+        base.lock.Unlock()
+        return
+    }
+    self.lock.Lock()
+    self.backoff[ procName ] = b
+    self.lock.Unlock()
+}
+
+func (self *RunningDev) setProcess( procName string, b *os.Process, base *BaseProgs ) {
+    if self == nil {
+        base.lock.Lock()
+        base.process[ procName ] = b
+        base.lock.Unlock()
+        return
+    }
+    self.lock.Lock()
+    self.process[ procName ] = b
+    self.lock.Unlock()
+}
+
+func (self *RunningDev) getShuttingDown( base *BaseProgs ) (bool){
+    if self == nil {
+        base.lock.Lock()
+        sd := base.shuttingDown
+        base.lock.Unlock()
+        return sd
+    }
+    self.lock.Lock()
+    sd := self.shuttingDown
+    self.lock.Unlock()
+    return sd
+}
+
 type RunningDev struct {
     uuid          string
     name          string
-    
-    // mirrorfeed
-    mirror        *os.Process
-    mirrorBackoff *Backoff
-    
-    // ffmpeg
-    ff            *os.Process
-    ffBackoff     *Backoff
-    
-    // iproxy to forward localhost:vncPort to phone:5900
-    iproxy        *os.Process
-    iproxyBackoff *Backoff
-    
     wdaWrapper    *Launcher
-    device        *os.Process
-    deviceBackoff *Backoff
     shuttingDown  bool
     lock          sync.Mutex
     failed        bool
@@ -47,7 +77,6 @@ type RunningDev struct {
     vidPort       int
     devIosPort    int
     vncPort       int
-    pipe          string
     wdaStdoutPipe string
     wdaStderrPipe string
     heartbeatChan chan<- bool
@@ -59,12 +88,13 @@ type RunningDev struct {
     okFirstFrame  bool
     okVidInterface bool
     okAllUp        bool
+    process       map[string] *os.Process
+    backoff       map[string] *Backoff
 }
 
 type BaseProgs struct {
-    trigger    *os.Process
-    vidEnabler *os.Process
-    stf        *os.Process
+    process    map[string] *os.Process
+    backoff    map[string] *Backoff
     shuttingDown bool
     vpnLauncher *Launcher
     vpnLogWatcher *fsnotify.Watcher
@@ -72,6 +102,7 @@ type BaseProgs struct {
     vpnIface   string
     okStage1   bool
     okVpn      bool
+    lock       sync.Mutex
 }
 
 var gStop bool
@@ -156,7 +187,10 @@ func main() {
         useVPN = false
     }
 
-    baseProgs := BaseProgs{}
+    baseProgs := BaseProgs{
+        process: make( map[string] *os.Process ),
+        backoff: make( map[string] *Backoff ),
+    }
     
     vpnEventCh := make( chan VpnEvent, 2 )
     if useVPN {
@@ -208,24 +242,28 @@ func main() {
     
     baseProgs.shuttingDown = false
 
+    procOptions := ProcOptions {
+        config: config,
+        baseProgs: &baseProgs,
+        lineLog: lineLog,
+    }   
+    
     coro_http_server( config, devEventCh, &baseProgs, runningDevs, lineTracker )
-    proc_device_trigger( config, &baseProgs, lineLog )
+    proc_device_trigger( procOptions )
     if config.Video.Enabled {
-        //ensure_proper_pipe( config )
-        proc_video_enabler( config, &baseProgs )
+        proc_video_enabler( procOptions )
     }
 
     if useVPN {
         if vpnMissing {
             log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
-            baseProgs.stf = nil
         } else if config.Vpn.VpnType == "tunnelblick" {
             // Start provider here because tunnelblick is connected in the check_vpn_status call above
             // "stage1" is done
-            proc_stf_provider( &baseProgs, curIP, config, lineLog )
+            proc_stf_provider( procOptions, curIP )
         }
     } else {
-        proc_stf_provider( &baseProgs, curIP, config, lineLog )
+        proc_stf_provider( procOptions, curIP )
     }
 
     coro_sigterm( runningDevs, &baseProgs, config )
@@ -282,30 +320,25 @@ func NewRunningDev(
         portMap *PortMap,
         uuid string ) ( *RunningDev ) {
         
-    wdaPort, vidPort, devIosPort, vncPort, config := assign_ports( gConfig, portMap )
+    wdaPort, vidPort, devIosPort, vncPort, _, _, config := assign_ports( gConfig, portMap )
   
     devd := RunningDev{
         uuid: uuid,
         shuttingDown:  false,
         failed:        false,
-        mirror:        nil,
-        ff:            nil,
-        device:        nil,
-        deviceBackoff: nil,
-        //proxy:         nil,
         wdaPort:       wdaPort,
         vidPort:       vidPort,
         devIosPort:    devIosPort,
         vncPort:       vncPort,
-        pipe:          fmt.Sprintf("video_pipes/pipe_%d", vidPort ),
         confDup:       config,
-        wdaWrapper:    nil,
         videoReady:    false,
         streamWidth:   0,
         streamHeight:  0,
-        okFirstFrame:  false,
+        okFirstFrame:  true,
         okVidInterface: false,
         okAllUp:        false,
+        process: make( map[string] *os.Process ),
+        backoff: make( map[string] *Backoff ),
     }
     
     devd.name = getDeviceName( uuid )
@@ -340,6 +373,12 @@ func event_loop(
         lineLog     *log.Entry,
         baseProgs *BaseProgs ) {
     
+    gProcOptions := ProcOptions {
+        config: gConfig,
+        baseProgs: baseProgs,
+        lineLog: lineLog,
+    }
+
     if baseProgs.okStage1 == false {
         for {
             vpnEvent := <- vpnEventCh
@@ -350,7 +389,7 @@ func event_loop(
             }
             
             if baseProgs.okVpn == true && baseProgs.okStage1 == false {
-                proc_stf_provider( baseProgs, curIP, gConfig, lineLog )
+                proc_stf_provider( gProcOptions, curIP )
                 baseProgs.okStage1 = true
                 break
             }
@@ -375,6 +414,12 @@ func event_loop(
             var devd *RunningDev = nil
             var ok = false
             
+            o := ProcOptions {
+                devd: devd,
+                baseProgs: baseProgs,
+                lineLog: lineLog,
+            }
+            
             devMapLock.Lock()
             if devd, ok = runningDevs[uuid]; !ok {
                 devMapLock.Unlock()
@@ -382,6 +427,7 @@ func event_loop(
             } else {
                 devMapLock.Unlock()
             }
+            o.devd = devd
             
             if devEvent.action == 0 { // device connect
                 devName := devd.name
@@ -392,12 +438,11 @@ func event_loop(
                     "dev_uuid": uuid,                
                 } ).Info("Device connected")
     
-                config := devd.confDup
+                o.config = devd.confDup
                 
-                if config.Video.Enabled {
-                    ensure_proper_pipe( devd.pipe )
-                    proc_mirrorfeed( config, tunName, devd, lineLog )
-                    proc_ffmpeg( config, devd, devName, lineLog )
+                if o.config.Video.Enabled {
+                    proc_h264_to_jpeg( o )
+                    proc_ios_video_stream( o, tunName )
                 }
             }
             if devEvent.action == 1 { // device disconnect
@@ -447,22 +492,22 @@ func event_loop(
             }
             
            if devd != nil && devd.okAllUp == false {
-                config := devd.confDup
+                o.config = devd.confDup
                 
-                if !config.Video.Enabled || ( devd.okVidInterface == true && devd.okFirstFrame == true ) {
-                    devd.okAllUp = true
-                    continue_dev_start( config, devd, curIP, lineLog )
+                if !o.config.Video.Enabled || ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) {
+                    o.devd.okAllUp = true
+                    continue_dev_start( o, curIP )
                 }
             }
         }
     }
 }
 
-func continue_dev_start( config *Config, devd *RunningDev, curIP string, lineLog *log.Entry ) {
-    uuid := devd.uuid
+func continue_dev_start( o ProcOptions, curIP string ) {
+    uuid := o.devd.uuid
     
-    if config.Video.Enabled && config.Video.UseVnc {
-        proc_vnc_proxy( devd.confDup, devd, lineLog )
+    if o.config.Video.Enabled && o.config.Video.UseVnc {
+        proc_vnc_proxy( o )
     }
     
     time.Sleep( time.Second * 2 )
@@ -471,37 +516,14 @@ func continue_dev_start( config *Config, devd *RunningDev, curIP string, lineLog
 
     log.WithFields( log.Fields{
         "type":     "ios_version",
-        "dev_name": devd.name,
+        "dev_name": o.devd.name,
         "dev_uuid": uuid,
         "ios_version": iosVersion,
     } ).Debug("IOS Version")
     
-    start_proc_wdaproxy( devd.confDup, devd, uuid, iosVersion )
+    start_proc_wdaproxy( o, uuid, iosVersion )
     
     time.Sleep( time.Second * 3 )
 
-    proc_device_ios_unit( devd.confDup, devd, uuid, curIP, lineLog )
-}
-
-func ensure_proper_pipe( file string ) {
-    info, err := os.Stat( file )
-    if os.IsNotExist( err ) {
-        log.WithFields( log.Fields{
-            "type": "pipe_create",
-            "pipe_file": file,
-        } ).Info("Pipe did not exist; creating as fifo")
-        // create the pipe
-        syscall.Mkfifo( file, 0600 )
-        return
-    }
-    mode := info.Mode()
-    if ( mode & os.ModeNamedPipe ) == 0 {
-        log.WithFields( log.Fields{
-            "type": "pipe_fix",
-            "pipe_file": file,
-        } ).Info("Pipe was incorrect type; deleting and recreating as fifo")
-        // delete the file then create it properly as a pipe
-        os.Remove( file )
-        syscall.Mkfifo( file, 0600 )
-    }
+    proc_device_ios_unit( o, uuid, curIP )
 }

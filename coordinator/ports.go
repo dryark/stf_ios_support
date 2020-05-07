@@ -16,6 +16,7 @@ type PortMap struct {
     vidPorts    map[int] *PortItem
     devIosPorts map[int] *PortItem
     vncPorts    map[int] *PortItem
+    decodePorts map[int] *PortItem
 }
 
 func NewPortMap( config *Config ) ( *PortMap ) {
@@ -23,11 +24,13 @@ func NewPortMap( config *Config ) ( *PortMap ) {
     vidPorts    := construct_ports( "Video", config, config.Network.Video  )
     devIosPorts := construct_ports( "Dev IOS", config, config.Network.DevIos ) 
     vncPorts    := construct_ports( "VNC", config, config.Network.Vnc    )
+    decodePorts := construct_ports( "Decode", config, config.Network.Decode )
     portMap := PortMap {
         wdaPorts: wdaPorts,
         vidPorts: vidPorts,
         devIosPorts: devIosPorts,
         vncPorts: vncPorts,
+        decodePorts: decodePorts,
     }
     return &portMap
 }
@@ -54,87 +57,50 @@ func construct_ports( name string, config *Config, spec string ) ( map [int] *Po
     return ports
 }
 
-func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,*Config ) {
+func map_keys( amap map[int] *PortItem ) ( []int ) {
+    arr := make( []int, len(amap) )
+    i := 0
+    for k := range amap {
+        arr[i] = k
+        i++
+    }
+    sort.Ints( arr )
+    return arr
+}
+
+func assign_port( amap map[int] *PortItem ) (int) {
+    arr := map_keys( amap )
+    for _,port := range arr {
+        portItem := amap[port]
+        if portItem.available {
+            portItem.available = false
+            return port
+        }
+    }
+    return 0
+}
+
+func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,int,int,*Config ) {
     dupConfig := *gConfig
 
-    wdaPort := 0
-    vidPort := 0
-    devIosPort := 0
-    vncPort := 0
-
-    wKeys := make( []int, len(portMap.wdaPorts) )
-    wI := 0
-    for k := range portMap.wdaPorts {
-        wKeys[wI] = k
-        wI++
-    }
-    sort.Ints( wKeys )
-
-    vKeys := make( []int, len(portMap.vidPorts) )
-    vI := 0
-    for k := range portMap.vidPorts {
-        vKeys[vI] = k
-        vI++
-    }
-    sort.Ints( vKeys )
+    wdaPort := assign_port( portMap.wdaPorts )
+    dupConfig.WDAProxyPort = wdaPort
     
-    xKeys := make( []int, len(portMap.devIosPorts) )
-    xI := 0
-    for k := range portMap.devIosPorts {
-        xKeys[xI] = k
-        xI++
-    }
-    sort.Ints( xKeys )
+    vidPort := assign_port( portMap.vidPorts )
+    dupConfig.MirrorFeedPort = vidPort
     
-    vncKeys := make( []int, len(portMap.vncPorts) )
-    vncI := 0
-    for k := range portMap.vncPorts {
-        vncKeys[vncI] = k
-        vncI++
-    }
-    sort.Ints( vncKeys )
-
-    for _,port := range wKeys {
-        portItem := portMap.wdaPorts[port]
-        if portItem.available {
-            portItem.available = false
-            dupConfig.WDAProxyPort = port
-            wdaPort = port
-            break
-        }
-    }
-
-    for _,port := range vKeys {
-        portItem := portMap.vidPorts[port]
-        if portItem.available {
-            portItem.available = false
-            dupConfig.MirrorFeedPort = port
-            vidPort = port
-            break
-        }
-    }
+    devIosPort := assign_port( portMap.devIosPorts )
+    dupConfig.DevIosPort = devIosPort
     
-    for _,port := range xKeys {
-        portItem := portMap.devIosPorts[port]
-        if portItem.available {
-            portItem.available = false
-            dupConfig.DevIosPort = port
-            devIosPort = port
-            break
-        }
-    }
+    vncPort := assign_port( portMap.vncPorts )
+    dupConfig.VncPort = vncPort
     
-    for _,port := range vncKeys {
-        portItem := portMap.vncPorts[port]
-        if portItem.available {
-            portItem.available = false
-            dupConfig.VncPort = port
-            vncPort = port
-            break
-        }
-    }
+    nanoOutPort := assign_port( portMap.decodePorts )
+    nanoInPort := assign_port( portMap.decodePorts )
+    dupConfig.DecodeOutPort = nanoOutPort
+    dupConfig.DecodeInPort = nanoInPort
 
-    return wdaPort, vidPort, devIosPort, vncPort, &dupConfig
+    return wdaPort, vidPort, devIosPort, vncPort, nanoOutPort, nanoInPort, &dupConfig
 }
 
 func free_ports(

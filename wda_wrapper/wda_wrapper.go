@@ -57,61 +57,56 @@ func proc_wdaproxy(
     
     go func() {
         for {
-            for line := range stdoutChan {
+            line := <- stdoutChan
     
-                if strings.Contains( line, "is implemented in both" ) {
-                } else if strings.Contains( line, "Couldn't write value" ) {
-                } else if strings.Contains( line, "GET /status " ) {
-                } else if strings.Contains( line, "] Error" ) {
-                    msgCoord( map[string]string{
-                      "type": "wda_error",
-                      "line": line,
-                      "uuid": uuid,
-                    } )
-                } else {
-                    log.WithFields( log.Fields{
-                        "type": "proc_stdout",
-                        "line": line,
-                    } ).Info("")
-                    msgCoord( map[string]string{
-                      "type": "wda_stdout",
-                      "line": line,
-                      "uuid": uuid,
-                    } )
-                    // send line to linelog ( through zmq )
-                }
+            if strings.Contains( line, "is implemented in both" ) {
+            } else if strings.Contains( line, "Couldn't write value" ) {
+            } else if strings.Contains( line, "GET /status " ) {
+            } else if strings.Contains( line, "] Error" ) {
+                msgCoord( map[string]string{
+                  "type": "wda_error",
+                  "line": line,
+                  "uuid": uuid,
+                } )
+            } else {
+                log.WithFields( log.Fields{
+                    "type": "proc_stdout",
+                    "line": line,
+                } ).Info("")
+                msgCoord( map[string]string{
+                  "type": "wda_stdout",
+                  "line": line,
+                  "uuid": uuid,
+                } )
+                // send line to linelog ( through zmq )
             }
-            
-            time.Sleep( time.Millisecond * 20 )
-            
+          
             if exit { break }
         }
     } ()
 
     go func() {
         for {
-            for line := range stderrChan {
-                if strings.Contains( line, "[WDA] successfully started" ) {
-                    // send message that WDA has started to coordinator
-                    msgCoord( map[string]string{
-                      "type": "wda_started",
-                      "uuid": uuid,
-                    } )
-                }
-                
-                // send line to coordinator
-                log.WithFields( log.Fields{
-                    "type": "proc_stderr",
-                    "line": line,
-                } ).Error("")
+            line := <- stderrChan
+            
+            if strings.Contains( line, "[WDA] successfully started" ) {
+                // send message that WDA has started to coordinator
                 msgCoord( map[string]string{
-                  "type": "wda_stderr",
-                  "line": line,
+                  "type": "wda_started",
                   "uuid": uuid,
                 } )
             }
             
-            time.Sleep( time.Millisecond * 20 )
+            // send line to coordinator
+            log.WithFields( log.Fields{
+                "type": "proc_stderr",
+                "line": line,
+            } ).Error("")
+            msgCoord( map[string]string{
+              "type": "wda_stderr",
+              "line": line,
+              "uuid": uuid,
+            } )
             
             if exit { break }
         }

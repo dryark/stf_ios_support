@@ -3,7 +3,7 @@ package main
 import (
   "os"
   "os/signal"
-  "strings"
+  //"strings"
   "syscall"
   "time"
   log "github.com/sirupsen/logrus"
@@ -15,42 +15,28 @@ func cleanup_procs(config *Config) {
         "type": "proc_cleanup_kill",
     } )
 
+    procMap := map[string]string {
+        "ios_video_stream": config.BinPaths.IosVideoStream,
+        "video_enabler": config.BinPaths.VideoEnabler,
+        "device_trigger": config.BinPaths.DeviceTrigger,
+        "h264_to_jpeg": config.BinPaths.H264ToJpeg,
+    }
+    
     // Cleanup hanging processes if any
     procs := ps.GetAllProcessesInfo()
     for _, proc := range procs {
         cmd := proc.CommandLine
-        cmdFlat := strings.Join( cmd, " " )
-        if cmd[0] == "bin/ffmpeg" {
-            plog.WithFields( log.Fields{
-                "proc": "ffmpeg",
-            } ).Debug("Leftover FFmpeg - Sending SIGTERM")
-
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
+        //cmdFlat := strings.Join( cmd, " " )
+        
+        for k,v := range procMap {
+            if cmd[0] == v {
+                plog.WithFields( log.Fields{ "proc": k } ).Info("Leftover " + k + " - Sending SIGTERM")
+                syscall.Kill( proc.Pid, syscall.SIGTERM )
+            }
         }
-        if cmd[0] == "bin/mirrorfeed" {
-            plog.WithFields( log.Fields{
-                "proc": "mirrorfeed",
-            } ).Debug("Leftover Mirrorfeed - Sending SIGTERM")
-
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
-        }
-        if cmdFlat == config.BinPaths.VideoEnabler {
-            plog.WithFields( log.Fields{
-                "proc": "video_enabler",
-            } ).Debug("Leftover Proc - Sending SIGTERM")
-
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
-        }
-        if cmdFlat == config.BinPaths.DeviceTrigger {
-            plog.WithFields( log.Fields{
-                "proc": "device_trigger",
-            } ).Debug("Leftover Proc - Sending SIGTERM")
-
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
-        }
-
+        
         // node --inspect=[ip]:[port] runmod.js device-ios
-        if cmd[0] == "/usr/local/opt/node@8/bin/node" && cmd[3] == "device-ios" {
+        if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "device-ios" {
             plog.WithFields( log.Fields{
                 "proc": "device-ios",
             } ).Debug("Leftover Proc - Sending SIGTERM")
@@ -59,7 +45,7 @@ func cleanup_procs(config *Config) {
         }
 
         // node --inspect=[ip]:[port] runmod.js provider
-        if cmd[0] == "/usr/local/opt/node@8/bin/node" && cmd[3] == "provider" {
+        if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "provider" {
             plog.WithFields( log.Fields{
                 "proc": "stf_provider",
             } ).Debug("Leftover Proc - Sending SIGTERM")
@@ -93,21 +79,9 @@ func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
 
     plog.Info("Closing running dev")
 
-    /*if devd.proxy != nil {
-        plog.WithFields( log.Fields{ "proc": "wdaproxy" } ).Debug("Killing wdaproxy")
-        devd.proxy.Kill()
-    }*/
-    if devd.ff != nil {
-        plog.WithFields( log.Fields{ "proc": "ffmpeg" } ).Debug("Killing ffmpeg")
-        devd.ff.Kill()
-    }
-    if devd.mirror != nil {
-        plog.WithFields( log.Fields{ "proc": "mirrorfeed" } ).Debug("Killing mirrorfeed")
-        devd.mirror.Kill()
-    }
-    if devd.device != nil {
-        plog.WithFields( log.Fields{ "proc": "device_ios_unit" } ).Debug("Killing device_ios_unit")
-        devd.device.Kill()
+    for k,v := range( devd.process ) {
+        plog.WithFields( log.Fields{ "proc": k } ).Debug("Killing "+k)
+        if v != nil { v.Kill() }
     }
 }
 
@@ -115,21 +89,11 @@ func closeBaseProgs( baseProgs *BaseProgs ) {
     baseProgs.shuttingDown = true
     vpn_shutdown( baseProgs )
     
-    plog := log.WithFields( log.Fields{
-        "type": "proc_cleanup_kill",
-    } )
+    plog := log.WithFields( log.Fields{ "type": "proc_cleanup_kill" } )
 
-    if baseProgs.trigger != nil {
-        plog.WithFields( log.Fields{ "proc": "device_trigger" } ).Debug("Killing device_trigger")
-        baseProgs.trigger.Kill()
-    }
-    if baseProgs.vidEnabler != nil {
-        plog.WithFields( log.Fields{ "proc": "video_enabler" } ).Debug("Killing video_enabler")
-        baseProgs.vidEnabler.Kill()
-    }
-    if baseProgs.stf != nil {
-        plog.WithFields( log.Fields{ "proc": "stf_provider" } ).Debug("Killing stf_provider")
-        baseProgs.stf.Kill()
+    for k,v := range( baseProgs.process ) {
+        plog.WithFields( log.Fields{ "proc": k } ).Debug("Killing "+k)
+        v.Kill()
     }
 }
 
