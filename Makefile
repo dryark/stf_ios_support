@@ -41,7 +41,8 @@ halias: bin/decode
 
 bin/decode: | hbin
 	@if [ -e bin/deocde ]; then rm bin/decode; fi;
-	cd bin &&	ln -s ../repos/h264_to_jpeg/decode decode
+	ln -s ../repos/h264_to_jpeg/decode bin/decode
+	ln -s ../repos/h264_to_jpeg/ffmpeg bin/ffmpeg
 
 hbin: repos/h264_to_jpeg/decode
 
