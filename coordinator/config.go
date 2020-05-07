@@ -24,7 +24,8 @@ type Config struct {
     MirrorFeedPort int
     DevIosPort     int
     VncPort        int
-    Pipe           string
+    DecodeInPort   int
+    DecodeOutPort  int
 }
 
 type NetConfig struct {
@@ -34,6 +35,7 @@ type NetConfig struct {
     DevIos      string `json:"dev_ios_ports"`
     Vnc         string `json:"vnc_ports"`
     Wda         string `json:"proxy_ports"`
+    Decode      string `json:"decode_ports"`
     Iface       string `json:"interface"`
 }
 
@@ -67,11 +69,11 @@ type BinPathConfig struct {
     WdaProxy      string `json:"wdaproxy"`
     DeviceTrigger string `json:"device_trigger"`
     VideoEnabler  string `json:"video_enabler"`
-    MirrorFeed    string `json:"mirrorfeed"`
+    IosVideoStream string `json:"ios_video_stream"`
+    H264ToJpeg    string `json:"h264_to_jpeg"`
     Openvpn       string `json:"openvpn"`
     Iproxy        string `json:"iproxy"`
     WdaWrapper    string `json:"wdawrapper"`
-    Ffmpeg        string `json:"ffmpeg"`
 }
 
 type VPNConfig struct {
@@ -124,6 +126,7 @@ func read_config( configPath string ) *Config {
             "dev_ios_ports":   "9240-9250",
             "vnc_ports":       "5901-5911",
             "proxy_ports":     "8100-8105",
+            "decode_ports":    "7878-7888",
             "interface": "en0"
           },
           "stf":{
@@ -157,11 +160,11 @@ func read_config( configPath string ) *Config {
             "wdaproxy":       "bin/wdaproxy",
             "device_trigger": "bin/osx_ios_device_trigger",
             "video_enabler":  "bin/osx_ios_video_enabler",
-            "mirrorfeed":     "bin/mirrorfeed",
             "openvpn":        "/usr/local/opt/openvpn/sbin/openvpn",
             "iproxy":         "/usr/local/bin/iproxy",
             "wdawrapper":     "bin/wda_wrapper",
-            "ffmpeg":         "bin/ffmpeg"
+            "ios_video_stream":"bin/ios_video_stream",
+            "h264_to_jpeg":   "bin/decode"
           },
           "repos":{
             "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
@@ -170,11 +173,12 @@ func read_config( configPath string ) *Config {
         }`
         
         config = Config{
-          Pipe: "pipe",
           MirrorFeedPort:  8000,
           WDAProxyPort:    8100,
           DevIosPort:      9240,
           VncPort:         5901,
+          DecodeOutPort:   7878,
+          DecodeInPort:    7879,
         }
         
         err = json.Unmarshal( []byte( defaultJson ), &config )

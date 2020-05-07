@@ -85,32 +85,28 @@ func reqDevInfo( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
 
 func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map[string] *RunningDev ) {
     device_trigger := "<font color='green'>on</font>"
-    if baseProgs.trigger == nil { device_trigger = "off" }
+    if baseProgs.process["device_trigger"] == nil { device_trigger = "off" }
     video_enabler := "<font color='green'>on</font>"
-    if baseProgs.vidEnabler == nil { video_enabler = "off" }
+    if baseProgs.process["video_enabler"] == nil { video_enabler = "off" }
     stf := "<font color='green'>on</font>"
-    if baseProgs.stf == nil { stf = "off" }
+    if baseProgs.process["stf_ios_provider"] == nil { stf = "off" }
 
     devOut := ""
     for _, dev := range runningDevs {
         mirror := "<font color='green'>on</font>"
-        if dev.mirror == nil { mirror = "off" }
-
-        ff := "<font color='green'>on</font>"
-        if dev.ff == nil { ff = "off" }
+        if dev.process["mirror"] == nil { mirror = "off" }
 
         //proxy := "<font color='green'>on</font>"
         //if dev.proxy == nil { proxy = "off" }
 
         device := "<font color='green'>on</font>"
-        if dev.device == nil { device = "off" }
+        if dev.process["stf_device_ios"] == nil { device = "off" }
 
         var str bytes.Buffer
         deviceTpl.Execute( &str, map[string] string {
             "uuid":   "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
             "name":   dev.name,
             "mirror": mirror,
-            "ff":     ff,
             //"proxy":  proxy,
             "device": device,
         } )
@@ -213,10 +209,6 @@ var deviceTpl = template.Must(template.New("device").Parse(`
   <tr>
     <td>Video Mirror</td>
     <td>{{.mirror}}</td>
-  </tr>
-  <tr>
-    <td>FFMpeg</td>
-    <td>{{.ff}}</td>
   </tr>
   <tr>
     <td>WDA Proxy</td>

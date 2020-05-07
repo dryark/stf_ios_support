@@ -130,23 +130,19 @@ func devListJSON( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex ) 
     devMapLock.Lock()
     for _, dev := range runningDevs {
         mirror := "<font color='green'>on</font>"
-        if dev.mirror == nil { mirror = "off" }
-
-        ff := "<font color='green'>on</font>"
-        if dev.ff == nil { ff = "off" }
+        if dev.process["mirror"] == nil { mirror = "off" }
 
         //proxy := "<font color='green'>on</font>"
         //if dev.proxy == nil { proxy = "off" }
 
         device := "<font color='green'>on</font>"
-        if dev.device == nil { device = "off" }
+        if dev.process["device"] == nil { device = "off" }
 
         var str bytes.Buffer
         deviceTpl.Execute( &str, map[string] string {
             "uuid":   "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
             "name":   dev.name,
             "mirror": mirror,
-            "ff":     ff,
             //"proxy":  proxy,
             "device": device,
         } )

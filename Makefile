@@ -1,13 +1,13 @@
-all: config.json bin/coordinator video_enabler mirrorfeed device_trigger wda ffmpegalias wdaproxyalias view_log wda_wrapper stf bin/wda/web app
+all: config.json bin/coordinator video_enabler ios_video_stream device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web app
 
 .PHONY:\
  checkout\
  stf\
  video_enabler\
- mirrorfeed\
+ ios_video_stream\
  device_trigger\
- ffmpegalias\
- ffmpegbin\
+ halias\
+ hbin\
  wda\
  offline\
  coordinator\
@@ -35,19 +35,18 @@ view_log: view_log.go
 	go get github.com/sirupsen/logrus
 	go build view_log.go
 
-# --- FFMPEG ---
+# --- H264_TO_JPEG ---
 
-ffmpegalias: bin/ffmpeg
+halias: bin/decode
 
-bin/ffmpeg: | ffmpegbin
-	@if [ -e bin/ffmpeg ]; then rm bin/ffmpeg; fi;
-	cd bin &&	ln -s ../repos/ffmpeg/ffmpeg ffmpeg
+bin/decode: | hbin
+	@if [ -e bin/deocde ]; then rm bin/decode; fi;
+	cd bin &&	ln -s ../repos/h264_to_jpeg/decode decode
 
-ffmpegbin: repos/ffmpeg/ffmpeg
+hbin: repos/h264_to_jpeg/decode
 
-repos/ffmpeg/ffmpeg: | repos/ffmpeg
-	curl -L https://github.com/nanoscopic/ffmpeg/releases/download/v1.0/ffmpeg.tgz -o repos/ffmpeg/ffmpeg.tgz
-	tar -xf repos/ffmpeg/ffmpeg.tgz -C repos/ffmpeg/
+repos/h264_to_jpeg/decode: repos/h264_to_jpeg repos/h264_to_jpeg/hw_decode.c repos/h264_to_jpeg/tracker.h
+	$(MAKE) -C repos/h264_to_jpeg
 
 # --- COORDINATOR ---
 
@@ -65,13 +64,12 @@ wda_wrapper: bin/wda_wrapper
 bin/wda_wrapper: wda_wrapper/wda_wrapper.go
 	$(MAKE) -C wda_wrapper
 
-# --- MIRROR FEED ---
+# --- IOS VIDEO STREAM ---
 
-mirrorfeed: bin/stf_ios_mirrorfeed
+ios_video_stream: bin/ios_video_stream
 
-bin/stf_ios_mirrorfeed: repos/stf_ios_mirrorfeed repos/stf_ios_mirrorfeed/mirrorfeed/mirrorfeed.go
-	$(MAKE) -C repos/stf_ios_mirrorfeed/mirrorfeed
-	touch bin/stf_ios_mirrorfeed
+bin/ios_video_stream: repos/ios_video_stream
+	$(MAKE) -C repos/ios_video_stream
 
 # --- VIDEO ENABLER ---
 
@@ -134,8 +132,8 @@ repos/stf-ios-provider:
 	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/nanoscopic/stf-ios-provider.git"' config.json -j))
 	git clone $(REPO) repos/stf-ios-provider --branch master
 
-repos/stf_ios_mirrorfeed:
-	git clone https://github.com/tmobile/stf_ios_mirrorfeed.git repos/stf_ios_mirrorfeed
+repos/ios_video_stream:
+	git clone https://github.com/nanoscopic/ios_video_stream.git repos/ios_video_stream
 
 repos/WebDriverAgent:
 	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/nanoscopic/WebDriverAgent.git"' config.json -j))
@@ -145,8 +143,8 @@ repos/WebDriverAgent:
 repos/osx_ios_device_trigger:
 	git clone https://github.com/tmobile/osx_ios_device_trigger.git repos/osx_ios_device_trigger
 
-repos/ffmpeg:
-	mkdir repos/ffmpeg
+repos/h264_to_jpeg:
+	git clone https://github.com/nanoscopic/h264_to_jpeg.git repos/h264_to_jpeg
 
 repos/wdaproxy:
 	git clone https://github.com/nanoscopic/wdaproxy.git repos/wdaproxy
@@ -178,7 +176,6 @@ bin/wda/web:
 # --- BINARY DISTRIBUTION ---
 
 distfiles := \
-	video_pipes \
 	run \
 	stf_ios_support.rb \
 	*.sh \
@@ -192,7 +189,7 @@ offlinefiles := \
 	logs/ \
 	build_info.json
 
-offline/dist.tgz: mirrorfeed wda device_trigger ffmpegalias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log
+offline/dist.tgz: ios_video_stream wda device_trigger halias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log
 	@./get-version-info.sh > offline/build_info.json
 	mkdir -p offline/logs
 	touch offline/logs/openvpn.log

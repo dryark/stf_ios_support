@@ -1,87 +1,47 @@
 package main
 
 import (
-  "bufio"
   "fmt"
   "os"
-  "os/exec"
   "strings"
   log "github.com/sirupsen/logrus"
 )
 
-func proc_stf_provider( baseProgs *BaseProgs, curIP string, config *Config, lineLog *log.Entry ) {
-    plog := log.WithFields( log.Fields{ "proc": "stf_provider" } )
-    lineLog = lineLog.WithFields( log.Fields{
-        "proc": "stf_provider",
-    } )
+func proc_stf_provider( o ProcOptions, curIP string ) {
+    o.binary = o.config.BinPaths.IosVideoStream
     
-    backoff := Backoff{}
-    
-    go func() {
-        for {
-            serverHostname := config.Stf.HostName
-            clientHostname, _ := os.Hostname()
-            serverIP := config.Stf.Ip
-
-            plog.WithFields( log.Fields{
-                "type":            "proc_start",
-                "client_ip":       curIP,
-                "server_ip":       serverIP,
-                "client_hostname": clientHostname,
-                "server_hostname": serverHostname,
-            } ).Info("Process start - stf_provider")
-
-            cmd := exec.Command( "/usr/local/opt/node@12/bin/node",
-                "--inspect=127.0.0.1:9230",
-                "runmod.js"      , "provider",
-                "--name"         , fmt.Sprintf("macmini/%s", clientHostname),
-                "--connect-sub"  , fmt.Sprintf("tcp://%s:7250", serverIP),
-                "--connect-push" , fmt.Sprintf("tcp://%s:7270", serverIP),
-                "--storage-url"  , fmt.Sprintf("https://%s", serverHostname),
-                "--public-ip"    , curIP,
-                "--min-port=7400",
-                "--max-port=7700",
-                "--heartbeat-interval=10000",
-                "--server-ip"    , serverIP,
-                "--no-cleanup" )
-
-            outputPipe, _ := cmd.StderrPipe()
-            cmd.Dir = "./repos/stf-ios-provider"
-            cmd.Stdout = os.Stdout
-
-            backoff.markStart()
+    serverHostname := o.config.Stf.HostName
+    clientHostname, _ := os.Hostname()
+    serverIP := o.config.Stf.Ip
             
-            err := cmd.Start()
-            if err != nil {
-                plog.WithFields( log.Fields{
-                    "type": "proc_err",
-                    "error": err,
-                } ).Error("Error starting stf")
-
-                baseProgs.stf = nil
-            } else {
-                baseProgs.stf = cmd.Process
-            }
-
-            scanner := bufio.NewScanner( outputPipe )
-            for scanner.Scan() {
-                line := scanner.Text()
-                if strings.Contains( line, " IOS Heartbeat:" ) {
-                } else {
-                    lineLog.WithFields( log.Fields{ "line": line } ).Info("")
-                }
-            }
-            
-            cmd.Wait()
-            backoff.markEnd()
-
-            plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Process end - stf_provider")
-
-            if baseProgs.shuttingDown {
-                break
-            }
-            
-            backoff.wait()
+    o.startFields = log.Fields {
+        "client_ip":       curIP,
+        "server_ip":       serverIP,
+        "client_hostname": clientHostname,
+        "server_hostname": serverHostname,
+    }
+    o.binary = "/usr/local/opt/node@12/bin/node"
+    o.args = []string {
+        "--inspect=127.0.0.1:9230",
+        "runmod.js"      , "provider",
+        "--name"         , fmt.Sprintf("macmini/%s", clientHostname),
+        "--connect-sub"  , fmt.Sprintf("tcp://%s:7250", serverIP),
+        "--connect-push" , fmt.Sprintf("tcp://%s:7270", serverIP),
+        "--storage-url"  , fmt.Sprintf("https://%s", serverHostname),
+        "--public-ip"    , curIP,
+        "--min-port=7400",
+        "--max-port=7700",
+        "--heartbeat-interval=10000",
+        "--server-ip"    , serverIP,
+        "--no-cleanup",
+    }
+    o.procName = "stf_ios_provider"
+    o.startDir = "./repos/stf-ios-provider"
+    o.stdoutHandler = func( line string, plog *log.Entry  ) (bool) {
+        if strings.Contains( line, " IOS Heartbeat:" ) {
+            return false
         }
-    }()
+        return true
+    }
+    proc_generic( o )
 }
