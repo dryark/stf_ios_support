@@ -20,6 +20,7 @@ type ProcOptions struct {
     stdoutHandler OutputHandler
     startFields log.Fields
     startDir  string
+    env       map[string]string
 }
 
 func proc_generic( opt ProcOptions ) {
@@ -87,6 +88,14 @@ func proc_generic( opt ProcOptions ) {
         
         if opt.startDir != "" {
             cmd.Dir = opt.startDir
+        }
+        
+        if opt.env != nil {
+            var envArr []string
+            for k,v := range( opt.env ) {
+                envArr = append( envArr, k, v )
+            }
+            cmd.Env = envArr
         }
 
         cmd.Stdout = stdStream
