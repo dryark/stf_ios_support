@@ -28,4 +28,6 @@ class StfIosSupport < Formula
   depends_on "node@12"
   depends_on "libsodium"
   depends_on "czmq"
+  depends_on "jpeg-turbo"
+  depends_on "nanomsg"
 end
