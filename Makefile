@@ -1,4 +1,11 @@
+ERR := $(shell perl ./makefile_preflight.pl)
+ifdef ERR
+all: error
+error:
+	$(error preflight errors)
+else
 all: config.json bin/coordinator video_enabler ios_video_stream device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web app
+endif
 
 .PHONY:\
  checkout\
@@ -83,8 +90,13 @@ bin/osx_ios_video_enabler: video_enabler/Makefile
 
 wdabootstrap: repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer
 
+ifeq (,$(wildcard repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer))
 repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent
 	cd repos/WebDriverAgent && ./Scripts/bootstrap.sh
+else
+repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent
+	@true
+endif
 
 wda: bin/wda/build_info.json
 
@@ -107,7 +119,7 @@ bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgen
 	cd repos/WebDriverAgent && xcodebuild $(xcodebuildoptions1) $(XCODEOPS) $(xcodebuildoptions2) build-for-testing
 	$(eval PROD_PATH=$(shell ./get-wda-build-path.sh))
 	@if [ "$(PROD_PATH)" != "" ]; then cp -r $(PROD_PATH)/ bin/wda/; fi;
-	@if [ "$(PROD_PATH)" != "" ]; then ./get-version-info.sh wda > bin/wda/build_info.json; fi;
+	@if [ "$(PROD_PATH)" != "" ]; then ./get-version-info.sh --repo wda > bin/wda/build_info.json; fi;
 	@if [ "$(PROD_PATH)" == "" ]; then echo FAIL TO GET PRODUCTION PATH - you should rerun make; exit 1; fi;
 
 # --- WDAProxy ---
@@ -230,7 +242,7 @@ STF\ Coordinator.app: | bin/coordinator icns
 	$(eval CONFIGPATH=$(shell jq .install.config_path config.json -j))
 	echo '{"config_path":"$(CONFIGPATH)"}' > STF\ Coordinator.app/Contents/Resources/config.json
 	cp coordinator/app/Info.plist STF\ Coordinator.app/Contents/
-	./get-version-info.sh ios_support > STF\ Coordinator.app/Contents/Resources/build_info.json
+	./get-version-info.sh --repo ios_support > STF\ Coordinator.app/Contents/Resources/build_info.json
 	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
 	./util/signers.pl sign "$(DEVID)" "STF Coordinator.app"
 
