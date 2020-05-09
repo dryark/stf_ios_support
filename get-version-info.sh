@@ -13,9 +13,18 @@ args = parser.parse_args()
 
 def git_info( dir ):
   if args.unix==1:
-    res = subprocess.check_output( "git -C ./"+dir+" log -1 --date=unix | head -3", shell=True )
+    cmd = ["/usr/bin/git","-C","./"+dir,"log","-1","--date=unix"]
   else:
-    res = subprocess.check_output( "git -C ./"+dir+" log -1 | head -3", shell=True )
+    cmd = ["/usr/bin/git","-C","./"+dir,"log","-1"]
+
+  try:
+    res = subprocess.check_output( cmd, stderr=subprocess.STDOUT )
+  except subprocess.CalledProcessError as e:
+    sys.stderr.write( e.output )
+    return {
+      "error": e.output
+    }
+  
   remote = subprocess.check_output( ["/usr/bin/git", "-C", "./" + dir, "remote","-v"] )
   
   res = res[:-1] # remove trailing "\n"

@@ -4,7 +4,7 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator video_enabler ios_video_stream device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web app
+all: config.json bin/coordinator video_enabler ios_video_stream device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web
 endif
 
 .PHONY:\
@@ -20,10 +20,7 @@ endif
  coordinator\
  dist\
  wdaproxyalias\
- wdaproxybin\
- app\
- icons\
- icns
+ wdaproxybin
 
 config.json:
 	cp config.json.example config.json
@@ -46,14 +43,13 @@ view_log: view_log.go
 
 halias: bin/decode
 
-bin/decode: | hbin
-	@if [ -e bin/deocde ]; then rm bin/decode; fi;
-	ln -s ../repos/h264_to_jpeg/decode bin/decode
+bin/decode: repos/h264_to_jpeg/decode
 	ln -s ../repos/h264_to_jpeg/ffmpeg bin/ffmpeg
+	cp repos/h264_to_jpeg/decode bin/decode
 
 hbin: repos/h264_to_jpeg/decode
 
-repos/h264_to_jpeg/decode: repos/h264_to_jpeg repos/h264_to_jpeg/hw_decode.c repos/h264_to_jpeg/tracker.h
+repos/h264_to_jpeg/decode: repos/h264_to_jpeg/hw_decode.c repos/h264_to_jpeg/tracker.h | repos/h264_to_jpeg
 	$(MAKE) -C repos/h264_to_jpeg
 
 # --- COORDINATOR ---
@@ -88,15 +84,8 @@ bin/osx_ios_video_enabler: video_enabler/Makefile
 
 # --- WDA / WebDriverAgent ---
 
-wdabootstrap: repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer
-
-ifeq (,$(wildcard repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer))
-repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent
+repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer/Info.plist: | repos/WebDriverAgent
 	cd repos/WebDriverAgent && ./Scripts/bootstrap.sh
-else
-repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer: repos/WebDriverAgent
-	@true
-endif
 
 wda: bin/wda/build_info.json
 
@@ -111,7 +100,7 @@ xcodebuildoptions2 := \
 	CODE_SIGN_IDENTITY="iPhone Developer" \
 	DEVELOPMENT_TEAM="$(DEVID)"
 
-bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgent/WebDriverAgent.xcodeproj
+bin/wda/build_info.json: repos/WebDriverAgent/WebDriverAgent.xcodeproj | repos/WebDriverAgent repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer/Info.plist
 	@if [ -e bin/wda ]; then rm -rf bin/wda; fi;
 	@mkdir -p bin/wda/Debug-iphoneos
 	ln -s ../../repos/wdaproxy/web bin/wda/web
@@ -126,14 +115,13 @@ bin/wda/build_info.json: | wdabootstrap repos/WebDriverAgent repos/WebDriverAgen
 
 wdaproxybin: repos/wdaproxy/wdaproxy
 
-repos/wdaproxy/wdaproxy: repos/wdaproxy
+repos/wdaproxy/wdaproxy: repos/wdaproxy/main.go | repos/wdaproxy
 	$(MAKE) -C repos/wdaproxy
 
 wdaproxyalias: bin/wdaproxy
 
-bin/wdaproxy: | wdaproxybin
-	@if [ -e bin/wdaproxy ]; then rm bin/wdaproxy; fi;
-	cd bin &&	ln -s ../repos/wdaproxy/wdaproxy wdaproxy
+bin/wdaproxy: repos/wdaproxy/wdaproxy
+	cp repos/wdaproxy/wdaproxy bin/wdaproxy
 
 # --- REPO CLONES ---
 
@@ -148,6 +136,8 @@ repos/stf-ios-provider:
 repos/ios_video_stream:
 	git clone https://github.com/nanoscopic/ios_video_stream.git repos/ios_video_stream
 
+repos/WebDriverAgent/WebDriverAgent.xcodeproj: repos/WebDriverAgent
+
 repos/WebDriverAgent:
 	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/nanoscopic/WebDriverAgent.git"' config.json -j))
 	$(eval REPO_BR=$(shell jq '.repo_wda_branch // "master"' config.json -j))
@@ -156,8 +146,13 @@ repos/WebDriverAgent:
 repos/osx_ios_device_trigger:
 	git clone https://github.com/tmobile/osx_ios_device_trigger.git repos/osx_ios_device_trigger
 
+repos/h264_to_jpeg/hw_decode.c: repos/h264_to_jpeg
+repos/h264_to_jpeg/tracker.h: repos/h264_to_jpeg
+
 repos/h264_to_jpeg:
 	git clone https://github.com/nanoscopic/h264_to_jpeg.git repos/h264_to_jpeg
+
+repos/wdaproxy/main.go: repos/wdaproxy	
 
 repos/wdaproxy:
 	git clone https://github.com/nanoscopic/wdaproxy.git repos/wdaproxy
@@ -171,8 +166,6 @@ repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider/package.json
 	touch repos/stf-ios-provider/package-lock.json
 
 # --- OFFLINE STF ---
-
-dist: offline/dist.tgz
 
 offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/package-lock.json bin/wda/web
 	mkdir -p offline/repos/stf-ios-provider
@@ -188,6 +181,8 @@ bin/wda/web:
 
 # --- BINARY DISTRIBUTION ---
 
+dist: dist.tgz
+
 distfiles := \
 	run \
 	stf_ios_support.rb \
@@ -202,7 +197,7 @@ offlinefiles := \
 	logs/ \
 	build_info.json
 
-offline/dist.tgz: ios_video_stream wda device_trigger halias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log
+dist.tgz: ios_video_stream wda device_trigger halias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log wdaproxyalias
 	@./get-version-info.sh > offline/build_info.json
 	mkdir -p offline/logs
 	touch offline/logs/openvpn.log
@@ -220,69 +215,6 @@ cleanwda:
 	$(RM) -rf bin/wda
 	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner clean
 
-cleanapp:
-	$(RM) -rf STF\ Coordinator.app
-
-cleanicon:
-	$(RM) -rf coordinator/icon/stf.iconset coordinator/icon/stf.iconset1 coordinator/icon/stf.iconset2
-
 cleanlogs:
 	$(RM) logs/*
 	touch logs/.gitkeep
-
-# --- APP ---
-
-app: STF\ Coordinator.app
-
-STF\ Coordinator.app: | bin/coordinator icns
-	mkdir -p STF\ Coordinator.app/Contents/MacOS
-	mkdir -p STF\ Coordinator.app/Contents/Resources
-	cp coordinator/icon/stf.icns STF\ Coordinator.app/Contents/Resources/icon.icns
-	cp bin/coordinator STF\ Coordinator.app/Contents/MacOS/
-	$(eval CONFIGPATH=$(shell jq .install.config_path config.json -j))
-	echo '{"config_path":"$(CONFIGPATH)"}' > STF\ Coordinator.app/Contents/Resources/config.json
-	cp coordinator/app/Info.plist STF\ Coordinator.app/Contents/
-	./get-version-info.sh --repo ios_support > STF\ Coordinator.app/Contents/Resources/build_info.json
-	$(eval DEVID=$(shell jq .xcode_dev_team_id config.json -j))
-	./util/signers.pl sign "$(DEVID)" "STF Coordinator.app"
-
-coordinator/icon/stf.iconset: | coordinator/icon/stf.iconset1 coordinator/icon/stf.iconset2 icons
-	mkdir -p coordinator/icon/stf.iconset
-	cp coordinator/icon/stf.iconset1/* coordinator/icon/stf.iconset
-	cp coordinator/icon/stf.iconset2/* coordinator/icon/stf.iconset
-
-coordinator/icon/stf.iconset1:
-	mkdir coordinator/icon/stf.iconset1
-
-coordinator/icon/stf.iconset2:
-	mkdir coordinator/icon/stf.iconset2
-
-coordinator/icon/stf.iconset: 
-
-icons: \
- coordinator/icon/stf.iconset1\
- coordinator/icon/stf.iconset2\
- coordinator/icon/stf.iconset1/icon_16x16.png\
- coordinator/icon/stf.iconset2/icon_16x16@2x.png\
- coordinator/icon/stf.iconset1/icon_32x32.png\
- coordinator/icon/stf.iconset2/icon_32x32@2x.png\
- coordinator/icon/stf.iconset1/icon_64x64.png\
- coordinator/icon/stf.iconset2/icon_64x64@2x.png\
- coordinator/icon/stf.iconset1/icon_128x128.png\
- coordinator/icon/stf.iconset2/icon_128x128@2x.png\
- coordinator/icon/stf.iconset1/icon_256x256.png\
- coordinator/icon/stf.iconset2/icon_256x256@2x.png\
- coordinator/icon/stf.iconset1/icon_512x512.png\
- coordinator/icon/stf.iconset2/icon_512x512@2x.png\
- coordinator/icon/stf.iconset1/icon_1024x1024.png
-
-coordinator/icon/stf.iconset1/icon_%.png: coordinator/icon/stf_icon.png
-	sips -z $(firstword $(subst x, ,$*)) $(firstword $(subst x, ,$*)) coordinator/icon/stf_icon.png --out $@
-
-coordinator/icon/stf.iconset2/icon_%@2x.png: coordinator/icon/stf_icon.png
-	sips -z $$( echo $(firstword $(subst x, ,$*))*2 | bc) $$( echo $(firstword $(subst x, ,$*))*2 | bc) coordinator/icon/stf_icon.png --out $@
-
-icns: coordinator/icon/stf.icns
-
-coordinator/icon/stf.icns: coordinator/icon/stf.iconset
-	iconutil -c icns -o coordinator/icon/stf.icns coordinator/icon/stf.iconset
