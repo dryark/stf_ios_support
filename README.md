@@ -36,10 +36,21 @@
 1. Tweak `config.json` as desired
 
 ### Starting provider
+1. Register(provision) your IOS device to your developer account as a developer device
+
+    1. Use the API?? https://developer.apple.com/documentation/appstoreconnectapi/devices
+    1. Follow these instructions: https://www.telerik.com/blogs/how-to-add-ios-devices-to-your-developer-profile
+       I couldn't find updated instructions on Apples website. If you find them please let me know so I can link to them.
+1. Plug your IOS device in
+1. Pair it with your system
+1. Have Xcode setup the "developer image" on your IOS device:
+
+    1. Open Xcode
+    1. Go to Windows... Devices and Simulators
+    1. Wait while Developer Image is installed to your phone
 1. Run `./run` ( and leave it running )
-1. Plugin one IOS device in ( multiple don't yet work )
-1. Permissions dialog boxes appear; select accept for all of them
-1. Device(s) shows up in STF with video and can be controlled. Yay
+1. Permissions dialog boxes appear for coordinator to listen on various ports; select accept for all of them
+1. Device shows up in STF with video and can be controlled. Yay
 
 ### Setting up with VPN
 1. Install openvpn-server on your STF server machine
