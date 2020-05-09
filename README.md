@@ -20,20 +20,24 @@
 
 		1. docker-compose up
 
+### Using a standard OpenSTF server:
+1. Setup your server as normal following upstream instructions
+1. Alter stf_ios_support/coordinator/proc_stf_provider --connect-sub and --connect-push lines to match your server config
+
 ### Build provider files:
 1. Update config.json
 1. Run `make dist`
 
-    1. offline/dist.tgz will be created
+    1. dist.tgz will be created
 
 ### Deploy provider setup:
-1. Copy `offline/dist.tgz` from build machine
+1. Copy `dist.tgz` from build machine
 1. Run `tar -xf dist.tgz`
 1. Tweak `config.json` as desired
 
 ### Starting provider
 1. Run `./run` ( and leave it running )
-1. Plugin one or more IOS device(s)
+1. Plugin one IOS device in ( multiple don't yet work )
 1. Permissions dialog boxes appear; select accept for all of them
 1. Device(s) shows up in STF with video and can be controlled. Yay
 
@@ -47,8 +51,8 @@
 1. Start coordinator/provider on each provider machine
 
 ### Handling video not working
-1. Run `./view_log -proc ffmpeg` to check for errors from ffmpeg
-1. Run `./view_log -proc mirrorfeed` to check for errors from video feed process
+1. Run `./view_log -proc ios_video_stream` to check for errors from video fetching and frame serving process
+1. Run `./view_log -proc h264_to_jpeg` to check for errors from video decoding process
 1. Reboot your IOS device and try again
 
 ### Increase clicking speed
@@ -66,3 +70,6 @@
 ### Debugging
 1. run `./view_log` to see list of things that log
 1. run `./view_log -proc [one from list]`
+
+### FAQ
+See https://github.com/tmobile/stf_ios_support/wiki/FAQ
