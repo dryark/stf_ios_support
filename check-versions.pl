@@ -25,7 +25,7 @@ my $reqs = {
 for my $name ( keys %$reqs ) {
     my $repo = $ob->{ $name };
     if( !$repo ) {
-        #print "repos/$name is missing\n";
+        print "repos/$name is missing\n";
         next;
     }
     my $remote = $repo->{remote};

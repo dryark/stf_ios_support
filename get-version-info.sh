@@ -20,9 +20,9 @@ def git_info( dir ):
   try:
     res = subprocess.check_output( cmd, stderr=subprocess.STDOUT )
   except subprocess.CalledProcessError as e:
-    sys.stderr.write( e.output )
+    #sys.stderr.write( e.output )
     return {
-      "error": e.output
+      "error": "missing"#e.output
     }
   
   remote = subprocess.check_output( ["/usr/bin/git", "-C", "./" + dir, "remote","-v"] )
