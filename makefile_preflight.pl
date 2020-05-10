@@ -1,4 +1,4 @@
-#!/bin/perl -w
+#!/usr/bin/perl -w
 use strict;
 my $brew_check = `./util/brewser.pl checkdeps stf_ios_support.rb`;
 if( $brew_check =~ m/Missing/ ) {
