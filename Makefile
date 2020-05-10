@@ -44,7 +44,7 @@ view_log: view_log.go
 halias: bin/decode
 
 bin/decode: repos/h264_to_jpeg/decode
-	ln -s ../repos/h264_to_jpeg/ffmpeg bin/ffmpeg
+	ln -f -s ../repos/h264_to_jpeg/ffmpeg bin/ffmpeg
 	cp repos/h264_to_jpeg/decode bin/decode
 
 hbin: repos/h264_to_jpeg/decode
@@ -100,7 +100,7 @@ xcodebuildoptions2 := \
 	CODE_SIGN_IDENTITY="iPhone Developer" \
 	DEVELOPMENT_TEAM="$(DEVID)"
 
-bin/wda/build_info.json: repos/WebDriverAgent/WebDriverAgent.xcodeproj | repos/WebDriverAgent repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer/Info.plist
+bin/wda/build_info.json: repos/WebDriverAgent repos/WebDriverAgent/WebDriverAgent.xcodeproj | repos/WebDriverAgent repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer/Info.plist
 	@if [ -e bin/wda ]; then rm -rf bin/wda; fi;
 	@mkdir -p bin/wda/Debug-iphoneos
 	ln -s ../../repos/wdaproxy/web bin/wda/web
@@ -115,7 +115,7 @@ bin/wda/build_info.json: repos/WebDriverAgent/WebDriverAgent.xcodeproj | repos/W
 
 wdaproxybin: repos/wdaproxy/wdaproxy
 
-repos/wdaproxy/wdaproxy: repos/wdaproxy/main.go | repos/wdaproxy
+repos/wdaproxy/wdaproxy: repos/wdaproxy repos/wdaproxy/main.go | repos/wdaproxy
 	$(MAKE) -C repos/wdaproxy
 
 wdaproxyalias: bin/wdaproxy
