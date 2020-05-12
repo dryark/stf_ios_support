@@ -4,13 +4,12 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator video_enabler ios_video_stream device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web
+all: config.json bin/coordinator ios_video_stream device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web
 endif
 
 .PHONY:\
  checkout\
  stf\
- video_enabler\
  ios_video_stream\
  device_trigger\
  halias\
@@ -79,13 +78,6 @@ repos/ios_video_stream/ios_video_stream: repos/ios_video_stream $(ivs_sources) |
 
 bin/ios_video_stream: repos/ios_video_stream/ios_video_stream
 	cp repos/ios_video_stream/ios_video_stream bin/ios_video_stream
-
-# --- VIDEO ENABLER ---
-
-video_enabler: bin/osx_ios_video_enabler
-
-bin/osx_ios_video_enabler: video_enabler/Makefile
-	$(MAKE) -C video_enabler
 
 # --- WDA / WebDriverAgent ---
 
@@ -202,15 +194,14 @@ offlinefiles := \
 	logs/ \
 	build_info.json
 
-dist.tgz: ios_video_stream wda device_trigger halias bin/coordinator video_enabler offline/repos/stf-ios-provider config.json view_log wdaproxyalias
+dist.tgz: ios_video_stream wda device_trigger halias bin/coordinator offline/repos/stf-ios-provider config.json view_log wdaproxyalias
 	@./get-version-info.sh > offline/build_info.json
 	mkdir -p offline/logs
 	touch offline/logs/openvpn.log
 	tar -h -czf offline/dist.tgz $(distfiles) -C offline $(offlinefiles)
 
-clean: cleanstf cleanwda cleanicon cleanlogs
+clean: cleanstf cleanwda cleanlogs cleanivs cleanwdaproxy
 	$(MAKE) -C coordinator clean
-	$(MAKE) -C video_enabler clean
 	$(RM) build_info.json
 
 cleanwdaproxy:

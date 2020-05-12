@@ -30,11 +30,11 @@ func proc_generic( opt ProcOptions ) {
     if devd != nil {
         plog = log.WithFields( log.Fields{
             "proc": opt.procName,
-            "uuid": devd.uuid,
+            "uuid": censor_uuid( devd.uuid ),
         } )
         lineLog = opt.lineLog.WithFields( log.Fields{
             "proc": opt.procName,
-            "uuid": devd.uuid,
+            "uuid": censor_uuid( devd.uuid ),
         } )
     } else {
         plog = log.WithFields( log.Fields{ "proc": opt.procName } )
