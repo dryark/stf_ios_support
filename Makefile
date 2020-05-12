@@ -72,8 +72,13 @@ bin/wda_wrapper: wda_wrapper/wda_wrapper.go
 
 ios_video_stream: bin/ios_video_stream
 
-bin/ios_video_stream: repos/ios_video_stream
+ivs_sources := $(wildcard repos/ios_video_stream/*.go)
+
+repos/ios_video_stream/ios_video_stream: repos/ios_video_stream $(ivs_sources) | repos/ios_video_stream
 	$(MAKE) -C repos/ios_video_stream
+
+bin/ios_video_stream: repos/ios_video_stream/ios_video_stream
+	cp repos/ios_video_stream/ios_video_stream bin/ios_video_stream
 
 # --- VIDEO ENABLER ---
 
@@ -214,6 +219,10 @@ cleanwdaproxy:
 
 cleanstf:
 	$(MAKE) -C repos/stf clean
+
+cleanivs:
+	$(MAKE) -C repos/ios_video_stream clean
+	$(RM) bin/ios_video_stream
 
 cleanwda:
 	$(RM) -rf bin/wda
