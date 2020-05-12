@@ -213,7 +213,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         plog.WithFields( log.Fields{
                             "type": "wdaproxy_started",
                             "proc": "wdaproxy",
-                            "uuid": uuid,
+                            "uuid": censor_uuid( uuid ),
                         } ).Info("Process start - WDAProxy")
                         devMapLock.Lock()
                         devd := runningDevs[ uuid ]
@@ -248,7 +248,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         plog.WithFields( log.Fields{
                             "type": "wda_started",
                             "proc": "wdaproxy",
-                            "uuid": uuid,
+                            "uuid": censor_uuid( uuid ),
                         } ).Info("WDA Running")
                     } else if msgType == "wda_stdout" {
                         wdaLineLog.WithFields( log.Fields {
@@ -265,7 +265,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                             "type": "wda_error",
                             "proc": "wdaproxy",
                             "line": msg["line"],
-                            "uuid": uuid,
+                            "uuid": censor_uuid( uuid ),
                         } ).Error("WDA Error")
                     } else if msgType == "wdaproxy_ended" {
                         devMapLock.Lock()
@@ -279,7 +279,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         plog.WithFields( log.Fields{
                             "type": "wdaproxy_ended",
                             "proc": "wdaproxy",
-                            "uuid": uuid,
+                            "uuid": censor_uuid( uuid ),
                         } ).Error("Process end - WDAProxy")
                     } else if msgType == "mirrorfeed_dimensions" {
                         width, _ := strconv.Atoi( msg["width"] )

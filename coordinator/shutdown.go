@@ -17,7 +17,6 @@ func cleanup_procs(config *Config) {
 
     procMap := map[string]string {
         "ios_video_stream": config.BinPaths.IosVideoStream,
-        "video_enabler": config.BinPaths.VideoEnabler,
         "device_trigger": config.BinPaths.DeviceTrigger,
         "h264_to_jpeg": config.BinPaths.H264ToJpeg,
     }
@@ -74,7 +73,7 @@ func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
 
     plog := log.WithFields( log.Fields{
         "type": "proc_cleanup_kill",
-        "uuid": devd.uuid,
+        "uuid": censor_uuid( devd.uuid ),
     } )
 
     plog.Info("Closing running dev")

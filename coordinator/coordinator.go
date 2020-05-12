@@ -250,10 +250,7 @@ func main() {
     
     coro_http_server( config, devEventCh, &baseProgs, runningDevs, lineTracker )
     proc_device_trigger( procOptions )
-    if config.Video.Enabled {
-        proc_video_enabler( procOptions )
-    }
-
+    
     if useVPN {
         if vpnMissing {
             log.WithFields( log.Fields{ "type": "vpn_warn" } ).Warn("VPN not enabled; skipping start of STF")
@@ -350,7 +347,7 @@ func NewRunningDev(
     log.WithFields( log.Fields{
         "type":     "devd_create",
         "dev_name": devd.name,
-        "dev_uuid": uuid,
+        "dev_uuid": censor_uuid( uuid ),
         "vid_port": vidPort,
         "wda_port": wdaPort,
         "vnc_port": vncPort,
@@ -435,7 +432,7 @@ func event_loop(
                 log.WithFields( log.Fields{
                     "type":     "dev_connect",
                     "dev_name": devName,
-                    "dev_uuid": uuid,                
+                    "dev_uuid": censor_uuid( uuid ),                
                 } ).Info("Device connected")
     
                 o.config = devd.confDup
@@ -449,7 +446,7 @@ func event_loop(
                 log.WithFields( log.Fields{
                     "type":     "dev_disconnect",
                     "dev_name": devd.name,
-                    "dev_uuid": uuid,
+                    "dev_uuid": censor_uuid( uuid ),
                 } ).Info("Device disconnected")
     
                 // send true to the stop heartbeat channel
@@ -470,37 +467,25 @@ func event_loop(
                 pubEvent.vidPort = 0
                 pubEventCh <- pubEvent
             }
-            if devEvent.action == 2 { // video interface available
+            if devEvent.action ==2 { // video interface available
                 log.WithFields( log.Fields{
-                    "type":     "vid_interface",
+                    "type":     "vid_available",
                     "dev_name": devd.name,
-                    "dev_uuid": uuid,
-                } ).Info("Video - interface available")
-                devd.okVidInterface = true
+                    "dev_uuid": censor_uuid( uuid ),
+                } ).Info("Video Interface Available")
             }
-            if devEvent.action == 3 { // first video frame
-                devd.okFirstFrame = true
-                devd.streamWidth = devEvent.width
-                devd.streamHeight = devEvent.height
-                log.WithFields( log.Fields{
-                    "type": "first_frame",
-                    "proc": "mirrorfeed",
-                    "width": devEvent.width,
-                    "height": devEvent.height,
-                    "uuid": uuid,
-                } ).Info("Video - first frame")
-            }
-            
-           if devd != nil && devd.okAllUp == false {
+                        
+            if devd != nil && devd.okAllUp == false {
                 o.config = devd.confDup
-                
-                if !o.config.Video.Enabled || ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) {
-                    o.devd.okAllUp = true
-                    continue_dev_start( o, curIP )
-                }
+                o.devd.okAllUp = true
+                continue_dev_start( o, curIP )
             }
         }
     }
+}
+
+func censor_uuid( uuid string ) (string) {
+    return "***" + uuid[len(uuid)-4:]
 }
 
 func continue_dev_start( o ProcOptions, curIP string ) {

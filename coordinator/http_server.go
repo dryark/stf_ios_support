@@ -86,8 +86,6 @@ func reqDevInfo( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
 func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map[string] *RunningDev ) {
     device_trigger := "<font color='green'>on</font>"
     if baseProgs.process["device_trigger"] == nil { device_trigger = "off" }
-    video_enabler := "<font color='green'>on</font>"
-    if baseProgs.process["video_enabler"] == nil { video_enabler = "off" }
     stf := "<font color='green'>on</font>"
     if baseProgs.process["stf_ios_provider"] == nil { stf = "off" }
 
@@ -115,7 +113,6 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
 
     rootTpl.Execute( w, map[string] string{
         "device_trigger": device_trigger,
-        "video_enabler":  video_enabler,
         "stf":            stf,
         "devices":        devOut,
     } )
@@ -183,7 +180,7 @@ func newInterface( w http.ResponseWriter, r *http.Request, devEventCh chan<- Dev
         "uuid": ifaceData.Serial,
         "class": ifaceData.Class,
         "subclass": ifaceData.SubClass,
-    } ).Info("New Interface")
+    } ).Debug("New Interface")
     
     if ifaceData.Class == "ff" && ifaceData.SubClass == "2a" {
         // signal device loop of video interface addition
@@ -232,10 +229,6 @@ var rootTpl = template.Must(template.New("root").Parse(`
 	  <tr>
 	    <td>Device Trigger</td>
 	    <td>{{.device_trigger}}</td>
-	  </tr>
-	  <tr>
-	    <td>Video Enabler</td>
-	    <td>{{.video_enabler}}</td>
 	  </tr>
 	  <tr>
 	    <td>STF</td>

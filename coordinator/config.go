@@ -68,7 +68,6 @@ type LogConfig struct {
 type BinPathConfig struct {
     WdaProxy      string `json:"wdaproxy"`
     DeviceTrigger string `json:"device_trigger"`
-    VideoEnabler  string `json:"video_enabler"`
     IosVideoStream string `json:"ios_video_stream"`
     H264ToJpeg    string `json:"h264_to_jpeg"`
     Openvpn       string `json:"openvpn"`
@@ -159,7 +158,6 @@ func read_config( configPath string ) *Config {
           "bin_paths":{
             "wdaproxy":       "bin/wdaproxy",
             "device_trigger": "bin/osx_ios_device_trigger",
-            "video_enabler":  "bin/osx_ios_video_enabler",
             "openvpn":        "/usr/local/opt/openvpn/sbin/openvpn",
             "iproxy":         "/usr/local/bin/iproxy",
             "wdawrapper":     "bin/wda_wrapper",
