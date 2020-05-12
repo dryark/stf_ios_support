@@ -9,13 +9,14 @@ import argparse
 parser = argparse.ArgumentParser( description = "Collect git version info" )
 parser.add_argument('--repo',default="")
 parser.add_argument('--unix',action="count")
+parser.add_argument('--wdasource',action="count")
 args = parser.parse_args()
 
 def git_info( dir ):
   if args.unix==1:
-    cmd = ["/usr/bin/git","-C","./"+dir,"log","-1","--date=unix"]
+    cmd = ["/usr/bin/git","-C","./"+dir,"log","-1","--date=unix", "--no-merges"]
   else:
-    cmd = ["/usr/bin/git","-C","./"+dir,"log","-1"]
+    cmd = ["/usr/bin/git","-C","./"+dir,"log","-1", "--no-merges"]
 
   try:
     res = subprocess.check_output( cmd, stderr=subprocess.STDOUT )
@@ -68,7 +69,8 @@ else:
   if os.path.exists( 'bin/wda/build_info.json' ):
     fh = open( 'bin/wda/build_info.json', 'r' )
     wda_root = json.load( fh )
-    data["wda"] = wda_root["wda"]
+    if args.wdasource != 1:
+      data["wda"] = wda_root["wda"]
 
 print json.dumps( data, indent = 2 )
 
