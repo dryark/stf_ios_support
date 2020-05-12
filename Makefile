@@ -1,4 +1,4 @@
-ERR := $(shell perl ./makefile_preflight.pl)
+ERR := $(shell ./makefile_preflight.pl)
 ifdef ERR
 all: error
 error:
@@ -207,6 +207,10 @@ clean: cleanstf cleanwda cleanicon cleanlogs
 	$(MAKE) -C coordinator clean
 	$(MAKE) -C video_enabler clean
 	$(RM) build_info.json
+
+cleanwdaproxy:
+	$(MAKE) -C repos/wdaproxy clean
+	$(RM) bin/wdaproxy
 
 cleanstf:
 	$(MAKE) -C repos/stf clean

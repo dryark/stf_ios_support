@@ -11,7 +11,7 @@ if( -e "temp/check-ok-$mainT" ) {
     exit;
 }
 
-my $versions = `./get-version-info.sh --unix`;
+my $versions = `./get-version-info.sh --unix --wdasource`;
 $versions =~ s/:/=>/g;
 $versions =~ s/"/'/g;
 
@@ -19,8 +19,10 @@ my $ob = eval( $versions );
 
 my $have_issues = 0;
 my $reqs = {
-    h264_to_jpeg     => { min => 1588831486, },
-    ios_video_stream => { min => 1588301929, }
+    h264_to_jpeg     => { min => 1588831486 },
+    ios_video_stream => { min => 1588301929 },
+    wdaproxy         => { min => 1589245810, message => "Then run `make cleanwdaproxy` then `make`" },
+    wda              => { min => 1588983992, message => "Then run `make cleanwda` them `make`" }
 };
 for my $name ( keys %$reqs ) {
     my $repo = $ob->{ $name };
@@ -35,7 +37,8 @@ for my $name ( keys %$reqs ) {
     if( $req->{ min } ) {
         my $min = $req->{ min };
         if( $date < $min ) {
-            print STDERR "repos/$name is out of date. Please git pull it.\n";
+            my $msg = $req->{ message } || '';
+            print STDERR "repos/$name is out of date. Please git pull it. $msg\n";
             $have_issues = 1;
         }
     }
