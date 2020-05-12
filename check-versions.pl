@@ -20,7 +20,7 @@ my $ob = eval( $versions );
 my $have_issues = 0;
 my $reqs = {
     h264_to_jpeg     => { min => 1588831486 },
-    ios_video_stream => { min => 1588301929 },
+    ios_video_stream => { min => 1589311851, message => "Then run `make cleanivs` them `make`" },
     wdaproxy         => { min => 1589245810, message => "Then run `make cleanwdaproxy` then `make`" },
     wda              => { min => 1588983992, message => "Then run `make cleanwda` them `make`" }
 };
