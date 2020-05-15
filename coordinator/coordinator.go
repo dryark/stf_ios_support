@@ -440,6 +440,7 @@ func event_loop(
                 if o.config.Video.Enabled {
                     proc_h264_to_jpeg( o )
                     proc_ios_video_stream( o, tunName )
+                    proc_ios_video_pull( o )
                 }
             }
             if devEvent.action == 1 { // device disconnect

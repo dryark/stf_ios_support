@@ -4,7 +4,7 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator ios_video_stream device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web
+all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web
 endif
 
 .PHONY:\
@@ -79,6 +79,18 @@ repos/ios_video_stream/ios_video_stream: repos/ios_video_stream $(ivs_sources) |
 bin/ios_video_stream: repos/ios_video_stream/ios_video_stream
 	cp repos/ios_video_stream/ios_video_stream bin/ios_video_stream
 
+# --- IOS VIDEO PULL ---
+
+ios_video_pull: bin/ios_video_pull
+
+ivp_sources := $(wildcard repos/ios_video_pull/*.go)
+
+repos/ios_video_pull/ios_video_pull: repos/ios_video_pull $(ivp_sources) | repos/ios_video_pull
+	$(MAKE) -C repos/ios_video_pull
+
+bin/ios_video_pull: repos/ios_video_pull/ios_video_pull
+	cp repos/ios_video_pull/ios_video_pull bin/ios_video_pull
+
 # --- WDA / WebDriverAgent ---
 
 repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer/Info.plist: | repos/WebDriverAgent
@@ -132,6 +144,9 @@ repos/stf-ios-provider:
 
 repos/ios_video_stream:
 	git clone https://github.com/nanoscopic/ios_video_stream.git repos/ios_video_stream
+
+repos/ios_video_pull:
+	git clone https://github.com/nanoscopic/ios_video_pull.git repos/ios_video_pull
 
 repos/WebDriverAgent/WebDriverAgent.xcodeproj: repos/WebDriverAgent
 

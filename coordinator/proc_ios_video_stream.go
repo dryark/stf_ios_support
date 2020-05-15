@@ -12,15 +12,12 @@ func proc_ios_video_stream( o ProcOptions, tunName string ) {
     port := o.config.MirrorFeedPort
     
     nanoIn := o.config.DecodeInPort
-    nanoOut := o.config.DecodeOutPort 
     
     inSpec := fmt.Sprintf("tcp://127.0.0.1:%d", nanoIn)
-    outSpec := fmt.Sprintf("tcp://127.0.0.1:%d", nanoOut)
     
     o.binary = o.config.BinPaths.IosVideoStream
     o.startFields = log.Fields {
         "tunName": tunName,
-        "pushSpec": outSpec,
         "pullSpec": inSpec,
         "port": port,
     }
@@ -30,8 +27,17 @@ func proc_ios_video_stream( o ProcOptions, tunName string ) {
         "--port", strconv.Itoa( port ),
         "-udid", udid,
         "-interface", tunName,
-        "-pushSpec", outSpec,
         "-pullSpec", inSpec,
+    }
+    secure := o.config.FrameServer.Secure
+    if secure {
+        cert := o.config.FrameServer.Cert
+        key := o.config.FrameServer.Key
+        o.args = append( o.args,
+            "--secure",
+            "--cert", cert,
+            "--key", key,
+        )
     }
     proc_generic( o )
 }

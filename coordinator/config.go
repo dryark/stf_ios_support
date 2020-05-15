@@ -14,6 +14,7 @@ type Config struct {
     Network    NetConfig     `json:"network"`
     Stf        STFConfig     `json:"stf"`
     Video      VideoConfig   `json:"video"`
+    FrameServer FrameServerConfig `json:"frameserver"`
     Install    InstallConfig `json:"install"`
     Log        LogConfig     `json:"log"`
     BinPaths   BinPathConfig `json:"bin_paths"`
@@ -69,6 +70,7 @@ type BinPathConfig struct {
     WdaProxy      string `json:"wdaproxy"`
     DeviceTrigger string `json:"device_trigger"`
     IosVideoStream string `json:"ios_video_stream"`
+    IosVideoPull   string `json:"ios_video_pull"`
     H264ToJpeg    string `json:"h264_to_jpeg"`
     Openvpn       string `json:"openvpn"`
     Iproxy        string `json:"iproxy"`
@@ -80,6 +82,12 @@ type VPNConfig struct {
     TblickName string `json:"tblick_name"`
     OvpnWd     string `json:"ovpn_working_dir"`
     OvpnConfig string `json:"ovpn_config"`
+}
+
+type FrameServerConfig struct {
+    Secure bool `json:"secure"`
+    Cert string `json:"cert"`
+    Key string `json:"key"`
 }
     
 
@@ -139,6 +147,11 @@ func read_config( configPath string ) *Config {
             "vnc_password": "",
             "frame_rate": 5
           },
+          "frameserver":{
+            "secure": false,
+            "cert": "",
+            "key": ""
+          },
           "install":{
             "root_path": "",
             "config_path": ""
@@ -162,6 +175,7 @@ func read_config( configPath string ) *Config {
             "iproxy":         "/usr/local/bin/iproxy",
             "wdawrapper":     "bin/wda_wrapper",
             "ios_video_stream":"bin/ios_video_stream",
+            "ios_video_pull":"bin/ios_video_pull",
             "h264_to_jpeg":   "bin/decode"
           },
           "repos":{

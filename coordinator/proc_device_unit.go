@@ -12,6 +12,15 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
     if o.config.Video.UseVnc && o.config.Video.Enabled {
         vncPort = o.devd.vncPort
     }
+    
+    secure := o.config.FrameServer.Secure
+    var frameServer string
+    if secure {
+        frameServer = fmt.Sprintf("wss://%s:%d/echo", curIP, o.devd.vidPort)
+    } else {
+        frameServer = fmt.Sprintf("ws://%s:%d/echo", curIP, o.devd.vidPort)
+    }
+    
     o.args = []string{
         fmt.Sprintf("--inspect=0.0.0.0:%d", o.devd.devIosPort),
         "runmod.js"              , "device-ios",
@@ -22,7 +31,8 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "--public-ip"            , curIP,
         "--wda-port"             , strconv.Itoa( o.devd.wdaPort ),
         "--storage-url"          , fmt.Sprintf("https://%s", o.config.Stf.HostName),
-        "--screen-ws-url-pattern", fmt.Sprintf("wss://%s/frames/%s/%d/x", o.config.Stf.HostName, curIP, o.devd.vidPort),
+        //"--screen-ws-url-pattern", fmt.Sprintf("wss://%s/frames/%s/%d/x", o.config.Stf.HostName, curIP, o.devd.vidPort),
+        "--screen-ws-url-pattern", frameServer,
         "--vnc-password"         , o.config.Video.VncPassword,
         "--vnc-port"             , strconv.Itoa( vncPort ),
         "--vnc-scale"            , strconv.Itoa( o.config.Video.VncScale ),
@@ -39,6 +49,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "vnc_scale": o.config.Video.VncScale,
         "stream_width": o.devd.streamWidth,
         "stream_height": o.devd.streamHeight,
+        "frame_server": frameServer,
     }
     o.stdoutHandler = func( line string, plog *log.Entry ) (bool) {
         if strings.Contains( line, "Now owned by" ) {
