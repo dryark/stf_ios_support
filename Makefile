@@ -1,4 +1,4 @@
-ERR := $(shell ./makefile_preflight.pl)
+MakefileERR := $(shell ./makefile_preflight.pl)
 ifdef ERR
 all: error
 error:
@@ -213,7 +213,7 @@ dist.tgz: ios_video_stream wda device_trigger halias bin/coordinator offline/rep
 	@./get-version-info.sh > offline/build_info.json
 	mkdir -p offline/logs
 	touch offline/logs/openvpn.log
-	tar -h -czf offline/dist.tgz $(distfiles) -C offline $(offlinefiles)
+	tar -h -czf dist.tgz $(distfiles) -C offline $(offlinefiles)
 
 clean: cleanstf cleanwda cleanlogs cleanivs cleanwdaproxy
 	$(MAKE) -C coordinator clean
