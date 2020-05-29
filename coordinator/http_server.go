@@ -5,9 +5,11 @@ import (
   "encoding/json"
   "fmt"
   "net/http"
+  "strings"
   "text/template"
   
   log "github.com/sirupsen/logrus"
+  uj "github.com/nanoscopic/ujsonin/mod"
 )
 
 func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *BaseProgs, runningDevs map [string] *RunningDev, lineTracker *InMemTracker ) {
@@ -41,9 +43,13 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
     ifaceClosure := func( w http.ResponseWriter, r *http.Request ) {
         newInterface( w, r, devEventCh )
     }
+    frameClosure := func( w http.ResponseWriter, r *http.Request ) {
+        handleFrame( w, r, devEventCh )
+    }
     http.HandleFunc( "/dev_connect", connectClosure )
     http.HandleFunc( "/dev_disconnect", disconnectClosure )
     http.HandleFunc( "/new_interface", ifaceClosure )
+    http.HandleFunc( "/frame", frameClosure )
     http.HandleFunc( "/log", logClosure )
     log.Fatal( http.ListenAndServe( listen_addr, nil ) )
 }
@@ -74,7 +80,6 @@ func reqDevInfo( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
         "InternationalCircuitCardIdentity":      "ICCI",
         "InternationalMobileEquipmentIdentity":  "IMEI",
         "InternationalMobileSubscriberIdentity": "IMSI",
-        
     }
 
     for key, descr := range names {
@@ -191,6 +196,33 @@ func newInterface( w http.ResponseWriter, r *http.Request, devEventCh chan<- Dev
         devEvent.uuid = uuid
         devEventCh <- devEvent
     }
+}
+
+func handleFrame( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
+    body := new(bytes.Buffer)
+    body.ReadFrom(r.Body)
+    str := string(body.Bytes())
+    i := strings.Index( str, "}" )
+    fmt.Printf("String to parse:%s\n", str[:i] )
+    root, _ := uj.Parse( body.Bytes() )
+    
+    msgType := root.Get("type").String()
+    
+    if msgType == "frame1" {
+        width := root.Get("width").Int()
+        height := root.Get("height").Int()
+        clickScale := root.Get("clickScale").Int()
+        uuid := root.Get("uuid").String()
+        devEvent := DevEvent{
+            action: 3,
+            width: width,
+            height: height,
+            clickScale: clickScale,
+            uuid: uuid,
+        }
+        
+        devEventCh <- devEvent
+    } 
 }
 
 var deviceTpl = template.Must(template.New("device").Parse(`

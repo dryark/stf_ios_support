@@ -31,13 +31,16 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "--public-ip"            , curIP,
         "--wda-port"             , strconv.Itoa( o.devd.wdaPort ),
         "--storage-url"          , fmt.Sprintf("https://%s", o.config.Stf.HostName),
-        //"--screen-ws-url-pattern", fmt.Sprintf("wss://%s/frames/%s/%d/x", o.config.Stf.HostName, curIP, o.devd.vidPort),
-        "--screen-ws-url-pattern", frameServer,
+        "--screen-ws-url-pattern", fmt.Sprintf("wss://%s/frames/%s/%d/x", o.config.Stf.HostName, curIP, o.devd.vidPort),
+        //"--screen-ws-url-pattern", frameServer,
         "--vnc-password"         , o.config.Video.VncPassword,
         "--vnc-port"             , strconv.Itoa( vncPort ),
         "--vnc-scale"            , strconv.Itoa( o.config.Video.VncScale ),
         "--stream-width"         , strconv.Itoa( o.devd.streamWidth ),
         "--stream-height"        , strconv.Itoa( o.devd.streamHeight ),
+        "--click-width"          , strconv.Itoa( o.devd.clickWidth ),
+        "--click-height"         , strconv.Itoa( o.devd.clickHeight ),
+        "--click-scale"          , strconv.Itoa( o.devd.clickScale ),
     }
     o.startFields = log.Fields {
         "server_ip": o.config.Stf.Ip,
@@ -49,6 +52,9 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "vnc_scale": o.config.Video.VncScale,
         "stream_width": o.devd.streamWidth,
         "stream_height": o.devd.streamHeight,
+        "clickScale": o.devd.clickScale,
+        "clickWidth": o.devd.clickWidth,
+        "clickHeight": o.devd.clickHeight,
         "frame_server": frameServer,
     }
     o.stdoutHandler = func( line string, plog *log.Entry ) (bool) {

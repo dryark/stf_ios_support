@@ -217,39 +217,48 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         } ).Info("Process start - WDAProxy")
                         devMapLock.Lock()
                         devd := runningDevs[ uuid ]
-                        devMapLock.Unlock()
-                        
-                        // Everything is started; notify stf via zmq published event
-                        pubEvent := PubEvent{}
-                        pubEvent.action  = 0
-                        pubEvent.uuid    = msg["uuid"]
-                        
-                        devd.lock.Lock()
-                        devName := devd.name
-                        wdaPort := devd.wdaPort
-                        vidPort := devd.vidPort
-                        devd.lock.Unlock()
-                        
-                        pubEvent.name    = devName
-                        pubEvent.wdaPort = wdaPort
-                        pubEvent.vidPort = vidPort
-                        pubEventCh <- pubEvent
-                        
-                        pubEvent = PubEvent{}
-                        pubEvent.action  = 3
-                        pubEvent.uuid    = msg["uuid"]
-                        pubEvent.name    = devName
-                        pubEvent.wdaPort = wdaPort
-                        pubEvent.vidPort = vidPort
-                        pubEventCh <- pubEvent
-                        
-                        devd.heartbeatChan = coro_heartbeat( msg["uuid"], pubEventCh )
+                        if devd != nil {
+                            devMapLock.Unlock()
+                            
+                            // Everything is started; notify stf via zmq published event
+                            pubEvent := PubEvent{}
+                            pubEvent.action  = 0
+                            pubEvent.uuid    = msg["uuid"]
+                            
+                            devd.lock.Lock()
+                            devName := devd.name
+                            wdaPort := devd.wdaPort
+                            vidPort := devd.vidPort
+                            devd.lock.Unlock()
+                            
+                            pubEvent.name    = devName
+                            pubEvent.wdaPort = wdaPort
+                            pubEvent.vidPort = vidPort
+                            pubEventCh <- pubEvent
+                            
+                            pubEvent = PubEvent{}
+                            pubEvent.action  = 3
+                            pubEvent.uuid    = msg["uuid"]
+                            pubEvent.name    = devName
+                            pubEvent.wdaPort = wdaPort
+                            pubEvent.vidPort = vidPort
+                            pubEventCh <- pubEvent
+                            
+                            devd.heartbeatChan = coro_heartbeat( msg["uuid"], pubEventCh )
+                        }
                     } else if msgType == "wda_started" {
                         plog.WithFields( log.Fields{
                             "type": "wda_started",
                             "proc": "wdaproxy",
                             "uuid": censor_uuid( uuid ),
                         } ).Info("WDA Running")
+                        
+                        devEvent := DevEvent{
+                            action: 4,
+                            uuid: uuid,
+                        }
+                        
+                        devEventCh <- devEvent
                     } else if msgType == "wda_stdout" {
                         wdaLineLog.WithFields( log.Fields {
                             "line": msg["line"],
@@ -272,15 +281,18 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         devd := runningDevs[ uuid ]
                         devMapLock.Unlock()
                         
-                        devd.lock.Lock()
-                        devd.heartbeatChan <- true
-                        devd.lock.Unlock()
-                        
-                        plog.WithFields( log.Fields{
-                            "type": "wdaproxy_ended",
-                            "proc": "wdaproxy",
-                            "uuid": censor_uuid( uuid ),
-                        } ).Error("Process end - WDAProxy")
+                        if devd == nil {
+                        } else {
+                            devd.lock.Lock()
+                            devd.heartbeatChan <- true
+                            devd.lock.Unlock()
+                            
+                            plog.WithFields( log.Fields{
+                                "type": "wdaproxy_ended",
+                                "proc": "wdaproxy",
+                                "uuid": censor_uuid( uuid ),
+                            } ).Error("Process end - WDAProxy")
+                        }
                     } else if msgType == "mirrorfeed_dimensions" {
                         width, _ := strconv.Atoi( msg["width"] )
                         height, _ := strconv.Atoi( msg["height"] )

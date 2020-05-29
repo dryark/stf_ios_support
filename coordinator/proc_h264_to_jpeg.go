@@ -2,6 +2,7 @@ package main
 
 import (
     "fmt"
+    "strconv"
     log "github.com/sirupsen/logrus"
 )
 
@@ -28,5 +29,16 @@ func proc_h264_to_jpeg( o ProcOptions ) {
         "--frameSkip", "2",
         "--cacheid", udid,
     }
+    
+    width := o.config.FrameServer.Width
+    height := o.config.FrameServer.Height
+    
+    if width != 0 {
+        o.args = append( o.args, "--dw", strconv.Itoa( width ) )
+    }
+    if height != 0 {
+        o.args = append( o.args, "--dh", strconv.Itoa( height ) )
+    }
+    
     proc_generic( o )
 }

@@ -15,6 +15,8 @@ func proc_ios_video_stream( o ProcOptions, tunName string ) {
     
     inSpec := fmt.Sprintf("tcp://127.0.0.1:%d", nanoIn)
     
+    coordinator := fmt.Sprintf( "127.0.0.1:%d", o.config.Network.Coordinator )
+    
     o.binary = o.config.BinPaths.IosVideoStream
     o.startFields = log.Fields {
         "tunName": tunName,
@@ -28,6 +30,7 @@ func proc_ios_video_stream( o ProcOptions, tunName string ) {
         "-udid", udid,
         "-interface", tunName,
         "-pullSpec", inSpec,
+        "-coordinator", coordinator,
     }
     secure := o.config.FrameServer.Secure
     if secure {

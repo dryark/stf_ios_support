@@ -1,17 +1,20 @@
 package main
 
 import (
+    "bytes"
     "flag"
     "fmt"
+    "net/http"
     "os"
     "os/exec"
     "path/filepath"
+    //"strconv"
     "strings"
     "sync"
-    //"syscall"
     "time"
     log "github.com/sirupsen/logrus"
     fsnotify "github.com/fsnotify/fsnotify"
+    uj "github.com/nanoscopic/ujsonin/mod"
 )
 
 type DevEvent struct {
@@ -19,6 +22,7 @@ type DevEvent struct {
     uuid   string
     width  int
     height int
+    clickScale int
 }
 
 func (self *RunningDev) dup() ( *RunningDev ) {
@@ -85,9 +89,12 @@ type RunningDev struct {
     videoReady    bool
     streamWidth   int
     streamHeight  int
+    clickWidth    int
+    clickHeight   int
+    clickScale    int
     okFirstFrame  bool
     okVidInterface bool
-    okAllUp        bool
+    wdaStarted    bool
     process       map[string] *os.Process
     backoff       map[string] *Backoff
 }
@@ -331,9 +338,12 @@ func NewRunningDev(
         videoReady:    false,
         streamWidth:   0,
         streamHeight:  0,
-        okFirstFrame:  true,
+        clickWidth:    0,
+        clickHeight:   0,
+        clickScale:    1000,
+        okFirstFrame:  false,
         okVidInterface: false,
-        okAllUp:        false,
+        wdaStarted:        false,
         process: make( map[string] *os.Process ),
         backoff: make( map[string] *Backoff ),
     }
@@ -435,6 +445,38 @@ func event_loop(
                     "dev_uuid": censor_uuid( uuid ),                
                 } ).Info("Device connected")
     
+                bytes, _ := exec.Command( "./bin/ios_video_pull", "-devices", "-json",
+                    "-udid", uuid,
+                    ).Output()
+                root, _ := uj.Parse( bytes )
+                activated := root.Get("activated").Int()
+                
+                if activated == 1 {
+                    log.WithFields( log.Fields{
+                        "type":     "dev_reset",
+                        "dev_name": devName,
+                        "dev_uuid": censor_uuid( uuid ),                
+                    } ).Info("Device already activated; resetting")
+                    
+                    // Reset the device
+                    time.Sleep( time.Second * 1 )
+                    exec.Command( "./bin/ios_video_pull", "-disable",
+                        "-udid", uuid ).Wait()
+                    
+                    log.WithFields( log.Fields{
+                        "type":     "enabling",
+                        "dev_name": devName,
+                        "dev_uuid": censor_uuid( uuid ),                
+                    } ).Info("Device already activated; enabling after reset")
+                }
+                    
+                // Enable it
+                time.Sleep( time.Second * 1 )
+                exec.Command( "./bin/ios_video_pull", "-enable",
+                    "-udid", uuid ).Wait()
+                
+                time.Sleep( time.Second * 2 )
+                
                 o.config = devd.confDup
                 
                 if o.config.Video.Enabled {
@@ -468,18 +510,106 @@ func event_loop(
                 pubEvent.vidPort = 0
                 pubEventCh <- pubEvent
             }
-            if devEvent.action ==2 { // video interface available
+            if devEvent.action == 2 { // video interface available
+                devd.okVidInterface = true
                 log.WithFields( log.Fields{
                     "type":     "vid_available",
                     "dev_name": devd.name,
                     "dev_uuid": censor_uuid( uuid ),
                 } ).Info("Video Interface Available")
             }
+            if devEvent.action == 3 { // first video frame
+                devd.okFirstFrame = true
+                devd.streamWidth = devEvent.width
+                devd.streamHeight = devEvent.height
+                devd.clickScale = devEvent.clickScale
+                log.WithFields( log.Fields{
+                    "type": "first_frame",
+                    "proc": "ios_video_stream",
+                    "width": devEvent.width,
+                    "height": devEvent.height,
+                    "clickScale": devEvent.clickScale,
+                    "uuid": censor_uuid( uuid ),
+                } ).Info("Video - first frame")
+            }
+            if devEvent.action == 4 {
+                wdaBase := "http://127.0.0.1:8100/"// + strconv.Itoa( devd.wdaPort ) + "/"
+                var sessionId string
+                try := 0
+                for {
+                    resp, _ := http.Get( wdaBase + "status" )
+                    
+                    body := new(bytes.Buffer)
+                    body.ReadFrom(resp.Body)
+                    if string(body.Bytes()) != "" {
+                        str := string(body.Bytes())
                         
-            if devd != nil && devd.okAllUp == false {
+                        str = strings.Replace( str, "true", "\"true\"", -1 )
+                        str = strings.Replace( str, "false", "\"false\"", -1 )
+                        //fmt.Printf("Status response: %s\n", str )
+                        root, _ := uj.Parse( []byte( str ) )
+                        //root.Dump()
+                        sessionId = root.Get("sessionId").String()
+                        
+                        break
+                    }
+                    //fmt.Printf("trying again to getting wda session\n")
+                    try++
+                    if try > 6 {
+                        break
+                    }
+                    time.Sleep( time.Second * 1 )
+                }
+                
+                log.WithFields( log.Fields{
+                    "type": "wda_session",
+                    "id": sessionId,
+                    "uuid": censor_uuid( uuid ),
+                } ).Info("Fetched WDA session")
+                
+                resp2, _ := http.Get( wdaBase + "session/" + sessionId + "/window/size" )
+                body2 := new(bytes.Buffer)
+                body2.ReadFrom(resp2.Body)
+                //fmt.Printf("window size response: %s\n", string(body2.Bytes()) )
+                root2, _ := uj.Parse( body2.Bytes() )
+                
+                val := root2.Get("value")
+                devd.clickWidth = val.Get("width").Int()
+                devd.clickHeight = val.Get("height").Int()
+                
+                log.WithFields( log.Fields{
+                    "type": "device_dimensions",
+                    "width": devd.clickWidth,
+                    "height": devd.clickHeight,
+                    "uuid": censor_uuid( uuid ),
+                } ).Info("Fetched device screen dimensions")
+                
                 o.config = devd.confDup
-                o.devd.okAllUp = true
+                
                 continue_dev_start( o, curIP )
+            }
+                        
+            if devd != nil && !devd.wdaStarted {
+                o.config = devd.confDup
+                
+                if !o.config.Video.Enabled || ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) {
+                    o.devd.wdaStarted = true
+                    
+                    time.Sleep( time.Second * 2 )
+                    
+                    fmt.Printf("trying to get ios version\n")
+                    
+                    iosVersion := getDeviceInfo( uuid, "ProductVersion" )
+                    
+                    log.WithFields( log.Fields{
+                        "type":     "ios_version",
+                        "dev_name": o.devd.name,
+                        "dev_uuid": uuid,
+                        "ios_version": iosVersion,
+                    } ).Debug("IOS Version")
+    
+                    start_proc_wdaproxy( o, uuid, iosVersion )
+                }
             }
         }
     }
@@ -495,21 +625,6 @@ func continue_dev_start( o ProcOptions, curIP string ) {
     if o.config.Video.Enabled && o.config.Video.UseVnc {
         proc_vnc_proxy( o )
     }
-    
-    time.Sleep( time.Second * 2 )
-    
-    iosVersion := getDeviceInfo( uuid, "ProductVersion" )
-
-    log.WithFields( log.Fields{
-        "type":     "ios_version",
-        "dev_name": o.devd.name,
-        "dev_uuid": uuid,
-        "ios_version": iosVersion,
-    } ).Debug("IOS Version")
-    
-    start_proc_wdaproxy( o, uuid, iosVersion )
-    
-    time.Sleep( time.Second * 3 )
 
     proc_device_ios_unit( o, uuid, curIP )
 }

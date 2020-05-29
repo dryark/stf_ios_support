@@ -88,6 +88,8 @@ type FrameServerConfig struct {
     Secure bool `json:"secure"`
     Cert string `json:"cert"`
     Key string `json:"key"`
+    Width int `json:"width"`
+    Height int `json:"height"`
 }
     
 
@@ -150,7 +152,9 @@ func read_config( configPath string ) *Config {
           "frameserver":{
             "secure": false,
             "cert": "",
-            "key": ""
+            "key": "",
+            "width": 0,
+            "height": 0
           },
           "install":{
             "root_path": "",
