@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     "strconv"
+    "strings"
     log "github.com/sirupsen/logrus"
 )
 
@@ -38,6 +39,13 @@ func proc_h264_to_jpeg( o ProcOptions ) {
     }
     if height != 0 {
         o.args = append( o.args, "--dh", strconv.Itoa( height ) )
+    }
+    
+    o.stdoutHandler = func( line string, plog *log.Entry ) (bool) {
+        if strings.Contains( line, "Iframe - size:" ) {
+            return false
+        }
+        return true
     }
     
     proc_generic( o )

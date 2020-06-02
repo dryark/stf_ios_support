@@ -243,8 +243,6 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                             pubEvent.wdaPort = wdaPort
                             pubEvent.vidPort = vidPort
                             pubEventCh <- pubEvent
-                            
-                            devd.heartbeatChan = coro_heartbeat( msg["uuid"], pubEventCh )
                         }
                     } else if msgType == "wda_started" {
                         plog.WithFields( log.Fields{

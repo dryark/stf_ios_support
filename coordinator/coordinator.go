@@ -97,6 +97,7 @@ type RunningDev struct {
     wdaStarted    bool
     process       map[string] *os.Process
     backoff       map[string] *Backoff
+    devUnitStarted bool
 }
 
 type BaseProgs struct {
@@ -206,12 +207,12 @@ func main() {
 
     lineLog, lineTracker := setup_log( config, *debug, *jsonLog )
 
-    pubEventCh := make( chan PubEvent, 2 )
+    pubEventCh := make( chan PubEvent )
 
     runningDevs := make( map [string] *RunningDev )
     var devMapLock sync.Mutex
     
-    devEventCh := make( chan DevEvent, 2 )
+    devEventCh := make( chan DevEvent )
     
     coro_zmqPull( runningDevs, &devMapLock, lineLog, pubEventCh, devEventCh )
     coro_zmqReqRep( runningDevs )
@@ -346,6 +347,7 @@ func NewRunningDev(
         wdaStarted:        false,
         process: make( map[string] *os.Process ),
         backoff: make( map[string] *Backoff ),
+        devUnitStarted: false,
     }
     
     devd.name = getDeviceName( uuid )
@@ -546,7 +548,7 @@ func event_loop(
                         
                         str = strings.Replace( str, "true", "\"true\"", -1 )
                         str = strings.Replace( str, "false", "\"false\"", -1 )
-                        //fmt.Printf("Status response: %s\n", str )
+                        fmt.Printf("Status response: %s\n", str )
                         root, _ := uj.Parse( []byte( str ) )
                         //root.Dump()
                         sessionId = root.Get("sessionId").String()
@@ -585,6 +587,11 @@ func event_loop(
                 } ).Info("Fetched device screen dimensions")
                 
                 o.config = devd.confDup
+                
+                // start the heartbeat
+                if devd.heartbeatChan == nil {
+                    devd.heartbeatChan = coro_heartbeat( uuid, pubEventCh )
+                }
                 
                 continue_dev_start( o, curIP )
             }
@@ -625,6 +632,9 @@ func continue_dev_start( o ProcOptions, curIP string ) {
     if o.config.Video.Enabled && o.config.Video.UseVnc {
         proc_vnc_proxy( o )
     }
-
-    proc_device_ios_unit( o, uuid, curIP )
+    
+    if !o.devd.devUnitStarted {
+        o.devd.devUnitStarted = true
+        proc_device_ios_unit( o, uuid, curIP )
+    }
 }
