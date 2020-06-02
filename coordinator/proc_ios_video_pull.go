@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     //"strconv"
+    "strings"
     log "github.com/sirupsen/logrus"
 )
 
@@ -23,6 +24,12 @@ func proc_ios_video_pull( o ProcOptions ) {
         "-pull",
         "-udid", udid,
         "-pushSpec", outSpec,
+    }
+    o.stdoutHandler = func( line string, plog *log.Entry ) (bool) {
+        if strings.Contains( line, "error: libusb: interrupted" ) {
+            return false
+        }
+        return true
     }
     proc_generic( o )
 }

@@ -14,7 +14,7 @@ func coro_heartbeat( uuid string, pubEventCh chan<- PubEvent ) ( chan<- bool ) {
         done := false
         for {
             select {
-                case _ = <-stopChannel:
+                case <-stopChannel:
                     done = true
                 default:
             }
@@ -22,7 +22,7 @@ func coro_heartbeat( uuid string, pubEventCh chan<- PubEvent ) ( chan<- bool ) {
                 break
             }
 
-            if count >= 10 {
+            if count >= 2 {
                 count = 0
 
                 beatEvent := PubEvent{}
@@ -37,7 +37,7 @@ func coro_heartbeat( uuid string, pubEventCh chan<- PubEvent ) ( chan<- bool ) {
                     "type": "heartbeat",
                 } ).Info("Heartbeat")*/
             }
-            time.Sleep( time.Second * 1 )
+            time.Sleep( time.Second * 5 )
             count++;
         }
     }()

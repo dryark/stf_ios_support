@@ -4,7 +4,7 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web
+all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web devreset
 endif
 
 .PHONY:\
@@ -19,7 +19,8 @@ endif
  coordinator\
  dist\
  wdaproxyalias\
- wdaproxybin
+ wdaproxybin\
+ devreset
 
 config.json:
 	cp config.json.example config.json
@@ -132,6 +133,18 @@ wdaproxyalias: bin/wdaproxy
 bin/wdaproxy: repos/wdaproxy/wdaproxy
 	cp repos/wdaproxy/wdaproxy bin/wdaproxy
 
+# --- DevReset ---
+
+devreset: bin/devreset
+
+devreset_sources := $(wildcard repos/ios_video_pull/*.c)
+
+repos/macos_usbdev_reset/devreset: repos/macos_usbdev_reset $(devreset_sources) | repos/macos_usbdev_reset
+	$(MAKE) -C repos/macos_usbdev_reset
+
+bin/devreset: repos/macos_usbdev_reset/devreset
+	cp repos/macos_usbdev_reset/devreset bin/devreset
+
 # --- REPO CLONES ---
 
 checkout: repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider
@@ -168,6 +181,9 @@ repos/wdaproxy/main.go: repos/wdaproxy
 
 repos/wdaproxy:
 	git clone https://github.com/nanoscopic/wdaproxy.git repos/wdaproxy
+
+repos/macos_usbdev_reset:
+	git clone https://github.com/nanoscopic/macos_usbdev_reset.git repos/macos_usbdev_reset
 
 # --- STF ---
 

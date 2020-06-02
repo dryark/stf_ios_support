@@ -48,10 +48,39 @@
     1. Open Xcode
     1. Go to Windows... Devices and Simulators
     1. Wait while Developer Image is installed to your phone
+1. Run `./bin/ios_video_pull -devices -decimal` to determine the PID ( product ID ) of your IOS device in decimal
+1. Run `./bin/devreset [decimal product ID] 1452` to reset the video streaming status of your IOS device
 1. Run `./run` ( and leave it running )
 1. Permissions dialog boxes appear for coordinator to listen on various ports; select accept for all of them
 1. Device shows up in STF with video and can be controlled. Yay
 
+### Known Issues
+1. libimobiledevice won't install properly right now
+
+    1. The brew version cannot be used because it is both far out of date and broken
+    1. The brew --HEAD version that is installed by init.sh does not build correctly right now because HEAD is broken,
+       and additionally HEAD of libimobiledevice depends on HEAD of libplist which the init.sh script is not setup
+       to build and install correctly.
+    1. This all will be taken care of soon. For the time being; be aware that libimobiledevice won't install via init.sh
+       so you'll need to figure out on your own somehow how to get it installed until this repo is updated to automate
+       that process.
+    1. It is possible to build current HEAD of libimobiledevice using --disable-openssl and by brew installing HEAD
+       of libplist. You'll also need to brew install libgcrypt.
+1. Video streaming will sometimes be left in a "stuck" state
+    
+    1. ios_video_pull sub-process of coordinator depends on quicktime_video_hack upstream repo/library. That library
+       does not properly "stop" itself if you start and then stop reading video from an IOS device. As a result, if
+       you run coordinator, stop it, then start it again, it won't be able to start up again correctly.
+    1. To fix this you can use devreset. This is why the devreset command is mentioned above currently to run before
+       starting coordinator. devreset effectively stops the video streaming entirely, resetting it so that it can
+       be started up again.
+1. The init.sh script does not created ~/Library/LaunchAgents folder; despite it needing to exist
+
+    1. Your system may already have such a folder for your user, in which case everything will work fine.
+    1. If it doesn't exist, coordinator will be unable to create the plist within it used to start WDA. You'll need
+       to create the folder then to fix this. The error message in this case is somewhat obvious; but this issue
+       will bite many users. Autocreation of this folder will be added soon.
+       
 ### Setting up with VPN
 1. Install openvpn-server on your STF server machine
 1. Create client certificate(s) using your favorite process...
@@ -62,8 +91,10 @@
 1. Start coordinator/provider on each provider machine
 
 ### Handling video not working
-1. Run `./view_log -proc ios_video_stream` to check for errors from video fetching and frame serving process
-1. Run `./view_log -proc h264_to_jpeg` to check for errors from video decoding process
+1. Run `./view_log proc ios_video_pull` to check for errors fetching h264 data from the IOS device
+1. Run `./view_log -proc h264_to_jpeg` to check for errors decoding h264 into jpegs
+1. Run `./view_log -proc ios_video_stream` to check for errors streaming jpegs via websocket to browser
+
 1. Reboot your IOS device and try again
 
 ### Increase clicking speed
