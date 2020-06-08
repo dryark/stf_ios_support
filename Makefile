@@ -4,7 +4,7 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web devreset
+all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web devreset libimd
 endif
 
 .PHONY:\
@@ -184,6 +184,23 @@ repos/wdaproxy:
 
 repos/macos_usbdev_reset:
 	git clone https://github.com/nanoscopic/macos_usbdev_reset.git repos/macos_usbdev_reset
+
+repos/libimobiledevice:
+	git clone https://github.com/libimobiledevice/libimobiledevice.git repos/libimobiledevice
+
+# --- LibIMobileDevice ---
+
+libimd: /usr/local/bin/ideviceinfo
+
+/usr/local/bin/ideviceinfo: repos/libimobiledevice repos/libimobiledevice/tools/ideviceinfo | repos/libimobiledevice
+	$(MAKE) -C repos/libimobiledevice install
+
+repos/libimobiledevice/tools/ideviceinfo: repos/libimobiledevice repos/libimobiledevice/Makefile | repos/libimobiledevice
+	$(MAKE) -C repos/libimobiledevice
+
+repos/libimobiledevice/Makefile: | repos/libimobiledevice
+	cd repos/libimobiledevice && NOCONFIGURE=1 ./autogen.sh
+	cd repos/libimobiledevice && ./configure --disable-openssl
 
 # --- STF ---
 

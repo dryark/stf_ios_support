@@ -2,6 +2,7 @@
 use strict;
 use JSON::PP qw/decode_json/;
 use Data::Dumper;
+use Carp qw/confess/;
 
 my $GR="\033[32m";
 my $RED="\033[91m";
@@ -68,15 +69,19 @@ elsif( $action eq 'checkdeps' ) {
 }
 elsif( $action eq 'info' ) {
   my $pkg = $ARGV[1];
-  my $info = install_info( $pkg );
+  my ( $info, $ver ) = install_info( $pkg );
   if( !$info ) {
     print "$pkg is not installed\n";
     exit 1;
   }
   print JSON::PP->new->ascii->pretty->encode( $info );
+  if( $ver =~ m/HEAD/ ) {
+    my $headVersion = head_version( $pkg );
+    print "HEAD version = $headVersion\n";
+  }
 }
 elsif( $action eq 'ensurehead' ) {
-  ensure_head( $ARGV[1] );
+  ensure_head( $ARGV[1], $ARGV[2] || '' );
 }
 else {
   help();
@@ -104,7 +109,8 @@ sub get_pkg_versions {
 }
 
 sub read_file {
-  open( my $fh, "<".shift );
+  my $file = shift;
+  open( my $fh, "<$file" ) or confess("Could not open $file");
   my $data;
   { local $/ = undef; $data = <$fh>; }
   close( $fh );
@@ -120,12 +126,23 @@ sub install_info {
     my @parts = split( "/", $path );
     $ver = pop @parts;
   }
-  return decode_json( read_file( "/usr/local/Cellar/$pkg/$ver/INSTALL_RECEIPT.json" ) );
+  my $receiptFile = "/usr/local/Cellar/$pkg/$ver/INSTALL_RECEIPT.json";
+  #print "Checking $receiptFile\n";
+  return 0 if( ! -e $receiptFile );
+  return decode_json( read_file( $receiptFile ) ), $ver;
+}
+
+sub head_version {
+  my ( $pkg ) = @_;
+  my $pc = "/usr/local/lib/pkgconfig/$pkg.pc";
+  my $version = `cat $pc | grep Version | cut -d\\  -f2`;
+  chomp $version;
+  return $version;
 }
 
 sub ensure_head {
-  my $pkg = shift;
-  my $info = install_info( $pkg );
+  my ( $pkg, $ver ) = @_;
+  my ( $info, $iv ) = install_info( $pkg );
   my $spec = $info ? $info->{source}{spec} : '';
   if( !$spec || $spec ne 'head' ) {
     print "$pkg - Installing HEAD\n";
@@ -134,5 +151,32 @@ sub ensure_head {
   }
   else {
     print "$GR$pkg - HEAD already installed$RST\n";
+    if( $ver ) {
+      my $installedVer = head_version( $pkg );
+      my $greater = version_gte( $ver, $installedVer );
+      if( !$greater ) {
+        print "Installed HEAD version is $installedVer; need $ver\n";
+        `brew uninstall $pkg --ignore-dependencies`;
+        `brew install --HEAD $pkg`;
+      }
+      else {
+        if( $greater == 1 ) { print "$GR$pkg - installed HEAD is version ${installedVer} ( ==$ver )$RST\n"; }
+        elsif( $greater == 2 ) { print "$GR$pkg - installed HEAD is version ${installedVer} ( >$ver )$RST\n"; }
+      }
+    }                            
   }
+}
+
+sub version_gte {
+  my ( $v1, $v2 ) = @_;
+  my @p1 = split(/\./,$v1);
+  my @p2 = split(/\./,$v2);
+  for( my $i=0; $i<3; $i++ ) {
+    my $n1 = $p1[ $i ];
+    my $n2 = $p2[ $i ];
+    #print "Comparing $n1 $n2\n";
+    return 2 if( $n2 > $n1 );
+    return 0 if( $n2 < $n1 );
+  }
+  return 1;
 }

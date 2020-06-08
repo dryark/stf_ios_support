@@ -11,7 +11,7 @@ class StfIosSupport < Formula
 
   # depends_on "cmake" => :build
   depends_on "jq"
-  depends_on "rethinkdb"
+  # depends_on "rethinkdb"
   depends_on "graphicsmagick"
   depends_on "zeromq"
   depends_on "protobuf"
@@ -30,4 +30,8 @@ class StfIosSupport < Formula
   depends_on "czmq"
   depends_on "jpeg-turbo"
   depends_on "nanomsg"
+  depends_on "libgcrypt"
+  depends_on "gnutls"
+  # depends_on "libplist" # need to install with --HEAD
+  # depends_on "libusbmuxd" # need to install with --HEAD
 end

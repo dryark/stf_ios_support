@@ -64,6 +64,7 @@ type LogConfig struct {
     ProcLines        string `json:"proc_lines"`
     WDAWrapperStdout string `json:"wda_wrapper_stdout"`
     WDAWrapperStderr string `json:"wda_wrapper_stderr"`
+    OpenVPN          string `json:"openvpn"`
 }
 
 type BinPathConfig struct {
@@ -165,7 +166,8 @@ func read_config( configPath string ) *Config {
             "main_app":           "logs/app",
             "proc_lines":         "logs/procs",
             "wda_wrapper_stdout": "./logs/wda_wrapper_stdout",
-            "wda_wrapper_stderr": "./logs/wda_wrapper_stderr"
+            "wda_wrapper_stderr": "./logs/wda_wrapper_stderr",
+            "openvpn":            "logs/openvpn.log"
           },
           "vpn":{
             "type":             "none",

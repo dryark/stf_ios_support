@@ -186,8 +186,7 @@ func check_vpn_status( config *Config, baseProgs *BaseProgs, vpnEventCh chan<- V
         //abs, _ := filepath.Abs( "logs/openvpn.log" )
         //log.Info("current directory: ", wd, ", absolute path: ", abs )
         
-        // TODO: create file if it doesn't exist
-        vpnLog := "logs/openvpn.log"
+        vpnLog := config.Log.OpenVPN
         fh, _ := os.Open( vpnLog )
         scanForLastInterface( bufio.NewScanner( fh ), vpnEventCh )   
         
