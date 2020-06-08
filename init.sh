@@ -37,7 +37,7 @@ function assert_has_xcodebuild() {
 }
 
 install_brew_if_needed
-./util/brewser.pl ensurehead libusbmuxd
-./util/brewser.pl ensurehead libimobiledevice
 assert_has_xcodebuild
 ./util/brewser.pl installdeps stf_ios_support.rb
+./util/brewser.pl ensurehead libplist 2.0.2
+./util/brewser.pl ensurehead libusbmuxd 2.0.1
