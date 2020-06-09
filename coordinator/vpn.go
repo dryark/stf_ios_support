@@ -187,7 +187,14 @@ func check_vpn_status( config *Config, baseProgs *BaseProgs, vpnEventCh chan<- V
         //log.Info("current directory: ", wd, ", absolute path: ", abs )
         
         vpnLog := config.Log.OpenVPN
-        fh, _ := os.Open( vpnLog )
+        fh, err := os.Open( vpnLog )
+        if err != nil {
+            log.WithFields( log.Fields{
+                "type": "vpn_open_file",
+                "err": err,
+                "file": vpnLog,
+            } ).Error("Error opening OpenVPN log")
+        }
         scanForLastInterface( bufio.NewScanner( fh ), vpnEventCh )   
         
         curPos, _ := fh.Seek( 0, os.SEEK_END )
@@ -199,8 +206,13 @@ func check_vpn_status( config *Config, baseProgs *BaseProgs, vpnEventCh chan<- V
         
         watcher, err := fsnotify.NewWatcher()
         if err != nil {
-            log.Fatal(err)
+            log.WithFields( log.Fields{
+                "type": "vpn_watch_file",
+                "err": err,
+                "file": vpnLog,
+            } ).Error("Error watching OpenVPN log")
         }
+
         baseProgs.vpnLogWatcher = watcher
         defer watcher.Close()
         

@@ -18,6 +18,11 @@ func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *Ba
     go startServer( devEventCh, listen_addr, baseProgs, runningDevs, lineTracker )
 }
 
+func coro_mini_http_server( config *Config, devEventCh chan<- DevEvent, devd *RunningDev ) {
+    var listen_addr = fmt.Sprintf( "0.0.0.0:%d", config.Network.Coordinator )
+    go startMiniServer( devEventCh, devd, listen_addr )
+}
+
 func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *BaseProgs, runningDevs map[string] *RunningDev, lineTracker *InMemTracker ) {
     log.WithFields( log.Fields{
         "type": "http_start",
@@ -51,7 +56,23 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
     http.HandleFunc( "/new_interface", ifaceClosure )
     http.HandleFunc( "/frame", frameClosure )
     http.HandleFunc( "/log", logClosure )
-    log.Fatal( http.ListenAndServe( listen_addr, nil ) )
+    err := http.ListenAndServe( listen_addr, nil )
+    log.WithFields( log.Fields{
+        "type": "http_server_fail",
+        "error": err,
+    } ).Debug("HTTP ListenAndServe Error")
+}
+
+func startMiniServer( devEventCh chan<- DevEvent, devd *RunningDev, listen_addr string ) {
+    frameClosure := func( w http.ResponseWriter, r *http.Request ) {
+        handleFrame( w, r, devEventCh )
+    }
+    http.HandleFunc( "/frame", frameClosure )
+    err := http.ListenAndServe( listen_addr, nil )
+    log.WithFields( log.Fields{
+        "type": "http_server_fail",
+        "error": err,
+    } ).Debug("HTTP ListenAndServe Error")
 }
 
 func fixUuid( uuid string ) (string) {

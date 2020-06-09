@@ -211,10 +211,10 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                     msgType := msg["type"]
                     if msgType == "wdaproxy_started" {
                         plog.WithFields( log.Fields{
-                            "type": "wdaproxy_started",
+                            "type": "zmq_wdaproxy_started",
                             "proc": "wdaproxy",
                             "uuid": censor_uuid( uuid ),
-                        } ).Info("Process start - WDAProxy")
+                        } ).Info("WDA Wrapper - WDAProxy Started")
                         devMapLock.Lock()
                         devd := runningDevs[ uuid ]
                         if devd != nil {
@@ -289,7 +289,7 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                                 "type": "wdaproxy_ended",
                                 "proc": "wdaproxy",
                                 "uuid": censor_uuid( uuid ),
-                            } ).Error("Process end - WDAProxy")
+                            } ).Error("WDA Wrapper - WDAProxy")
                         }
                     } else if msgType == "mirrorfeed_dimensions" {
                         width, _ := strconv.Atoi( msg["width"] )

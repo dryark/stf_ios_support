@@ -91,3 +91,14 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
     nameStr = nameStr[:len(nameStr)-1]
     return nameStr
 }
+
+func getFirstDeviceId() ( string ) {
+    deviceIds := getDeviceIds()
+    return deviceIds[0]
+}
+
+func getDeviceIds() ( []string ) {
+    output, _ := exec.Command( "/usr/local/bin/idevice_id", "-l" ).Output()
+    lines := strings.Split( string(output), "\n" )
+    return lines
+}

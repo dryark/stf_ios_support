@@ -42,7 +42,7 @@ func proc_generic( opt ProcOptions ) {
     }
     
     shuttingDown := opt.devd.getShuttingDown( opt.baseProgs )
-    if shuttingDown { return }
+    if shuttingDown || gStop { return }
     
     backoff := Backoff{}
     opt.devd.setBackoff( opt.procName, &backoff, opt.baseProgs )
