@@ -128,7 +128,8 @@ func main() {
     var addNetPerm = flag.Bool( "addNetPerm", false      , "Add network permission for coordinator app" )
     var getNetPerm = flag.Bool( "getNetPerm", false      , "Show apps with network permission" )
     var delNetPerm = flag.Bool( "delNetPerm", false      , "Delete network permission for coordinator app" )
-    var configFile = flag.String( "config", "config.json", "Config file path"    )
+    var configFile = flag.String( "config", "config.json", "Config file path" )
+    var testVideo  = flag.Bool( "testVideo", false       , "Test Video Streaming" )
     flag.Parse()
 
     if *vpnlist {
@@ -149,8 +150,10 @@ func main() {
         changeDir = true
     }
     
+    if *debug { fmt.Printf("Loading config\n") }
     config := read_config( *configFile )
-
+    if *debug { fmt.Printf("Config loaded\n") }
+    
     if changeDir {
         os.Chdir( config.Install.RootPath )
     }
@@ -187,6 +190,7 @@ func main() {
     }
     
     if config.Install.RootPath != "" {
+        if *debug { fmt.Printf("Changing directory to %s\n", config.Install.RootPath ) }
         os.Chdir( config.Install.RootPath )
     }
     
@@ -200,22 +204,61 @@ func main() {
         backoff: make( map[string] *Backoff ),
     }
     
+    lineLog, lineTracker := setup_log( config, *debug, *jsonLog )
+    
     vpnEventCh := make( chan VpnEvent, 2 )
     if useVPN {
+        log.Debug("Checking VPN status")
         check_vpn_status( config, &baseProgs, vpnEventCh )
     }
-
-    lineLog, lineTracker := setup_log( config, *debug, *jsonLog )
 
     pubEventCh := make( chan PubEvent )
 
     runningDevs := make( map [string] *RunningDev )
     var devMapLock sync.Mutex
     
+    portMap := NewPortMap( config )
+    
     devEventCh := make( chan DevEvent )
     
+    if *testVideo {
+        devId := getFirstDeviceId()
+        fmt.Printf("First device ID: %s\n", devId )
+        
+        devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
+        
+        o := ProcOptions {
+            config: config,
+            baseProgs: &baseProgs,
+            lineLog: lineLog,
+            devd: devd,
+        }
+    
+        devName := getDeviceName( devId )
+        fmt.Printf( "First device name: %s\n", devName )
+        ivp_enable( devId, devName )
+                
+        proc_h264_to_jpeg( o )
+        proc_ios_video_stream( o, "none" )
+        proc_ios_video_pull( o )
+        
+        coro_sigterm( runningDevs, &baseProgs, config )
+        coro_mini_http_server( config, devEventCh, devd )
+        /*for {
+            shuttingDown := devd.getShuttingDown( o.baseProgs )
+            if shuttingDown { break }
+            time.Sleep( time.Second * 2 )
+        }*/
+        mini_event_loop( devEventCh, devd )
+        
+        os.Exit(0)
+    }
+    
+    log.Debug("Starting ZMQ Pull")
     coro_zmqPull( runningDevs, &devMapLock, lineLog, pubEventCh, devEventCh )
+    log.Debug("Starting ZMQ ReqRep")
     coro_zmqReqRep( runningDevs )
+    log.Debug("Starting ZMQ Pub")
     coro_zmqPub( pubEventCh )
 
     var ifName     string
@@ -238,8 +281,6 @@ func main() {
 
     cleanup_procs( config )
 
-    portMap := NewPortMap( config )
-    
     log.WithFields( log.Fields{
         "type":     "portmap",
         "vid_ports": portMap.vidPorts,
@@ -369,6 +410,28 @@ func NewRunningDev(
     return &devd
 }
 
+func mini_event_loop( devEventCh  <-chan DevEvent, devd *RunningDev ) {
+    for {
+        select {
+        case devEvent := <- devEventCh:
+            uuid := devd.uuid
+            if devEvent.action == 3 { // first video frame
+                devd.streamWidth = devEvent.width
+                devd.streamHeight = devEvent.height
+                devd.clickScale = devEvent.clickScale
+                log.WithFields( log.Fields{
+                    "type": "first_frame",
+                    "proc": "ios_video_stream",
+                    "width": devEvent.width,
+                    "height": devEvent.height,
+                    "clickScale": devEvent.clickScale,
+                    "uuid": censor_uuid( uuid ),
+                } ).Info("Video - first frame")
+            }
+        }
+    }
+}
+
 func event_loop(
         gConfig     *Config,
         curIP       string,
@@ -418,6 +481,7 @@ func event_loop(
             }
             
         case devEvent := <- devEventCh:
+            if gStop { break }
             uuid := devEvent.uuid
     
             var devd *RunningDev = nil
@@ -447,37 +511,7 @@ func event_loop(
                     "dev_uuid": censor_uuid( uuid ),                
                 } ).Info("Device connected")
     
-                bytes, _ := exec.Command( "./bin/ios_video_pull", "-devices", "-json",
-                    "-udid", uuid,
-                    ).Output()
-                root, _ := uj.Parse( bytes )
-                activated := root.Get("activated").Int()
-                
-                if activated == 1 {
-                    log.WithFields( log.Fields{
-                        "type":     "dev_reset",
-                        "dev_name": devName,
-                        "dev_uuid": censor_uuid( uuid ),                
-                    } ).Info("Device already activated; resetting")
-                    
-                    // Reset the device
-                    time.Sleep( time.Second * 1 )
-                    exec.Command( "./bin/ios_video_pull", "-disable",
-                        "-udid", uuid ).Wait()
-                    
-                    log.WithFields( log.Fields{
-                        "type":     "enabling",
-                        "dev_name": devName,
-                        "dev_uuid": censor_uuid( uuid ),                
-                    } ).Info("Device already activated; enabling after reset")
-                }
-                    
-                // Enable it
-                time.Sleep( time.Second * 1 )
-                exec.Command( "./bin/ios_video_pull", "-enable",
-                    "-udid", uuid ).Wait()
-                
-                time.Sleep( time.Second * 2 )
+                ivp_enable( uuid, devName )
                 
                 o.config = devd.confDup
                 
@@ -620,6 +654,40 @@ func event_loop(
             }
         }
     }
+}
+
+func ivp_enable( uuid string, devName string ) {
+    bytes, _ := exec.Command( "./bin/ios_video_pull", "-devices", "-json",
+        "-udid", uuid,
+        ).Output()
+    root, _ := uj.Parse( bytes )
+    activated := root.Get("activated").Int()
+    
+    if activated == 1 {
+        log.WithFields( log.Fields{
+            "type":     "dev_reset",
+            "dev_name": devName,
+            "dev_uuid": censor_uuid( uuid ),                
+        } ).Info("Device already activated; resetting")
+        
+        // Reset the device
+        time.Sleep( time.Second * 1 )
+        exec.Command( "./bin/ios_video_pull", "-disable",
+            "-udid", uuid ).Wait()
+        
+        log.WithFields( log.Fields{
+            "type":     "enabling",
+            "dev_name": devName,
+            "dev_uuid": censor_uuid( uuid ),                
+        } ).Info("Device already activated; enabling after reset")
+    }
+        
+    // Enable it
+    time.Sleep( time.Second * 1 )
+    exec.Command( "./bin/ios_video_pull", "-enable",
+        "-udid", uuid ).Wait()
+    
+    time.Sleep( time.Second * 2 )
 }
 
 func censor_uuid( uuid string ) (string) {

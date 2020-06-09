@@ -106,13 +106,13 @@ func coro_sigterm( runningDevs map [string] *RunningDev, baseProgs *BaseProgs, c
             "state": "begun",
         } ).Info("Shutdown started")
 
-        closeAllRunningDevs( runningDevs )
-        closeBaseProgs( baseProgs )
-        
         // This triggers zmq to stop receiving
         // We don't actually wait after this to ensure it has finished cleanly... oh well :)
         gStop = true
-
+        
+        closeAllRunningDevs( runningDevs )
+        closeBaseProgs( baseProgs )
+        
         time.Sleep( time.Millisecond * 1000 )
         cleanup_procs( config )
 
