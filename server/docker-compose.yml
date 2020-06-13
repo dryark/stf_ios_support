@@ -54,7 +54,11 @@ services:
     restart: unless-stopped
     environment:
       - SECRET
+      - RETHINKDB_PORT_28015_TCP
     command: stf auth-mock --app-url http://${HOSTNAME}/ --port 3000
+    depends_on:
+      - rethinkdb
+      - triproxy
   processor:
     image: ${STF_IMAGE}
     restart: unless-stopped
@@ -173,6 +177,8 @@ services:
       --port 3000
       --connect-sub tcp://triproxy:7150
       --connect-push tcp://triproxy:7170
+      --connect-sub-dev tcp://triproxy:7150
+      --connect-push-dev tcp://triproxy:7170
     ports:
       - 10001:9229
     volumes:
