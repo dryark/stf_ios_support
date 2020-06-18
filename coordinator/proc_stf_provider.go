@@ -13,18 +13,24 @@ func proc_stf_provider( o ProcOptions, curIP string ) {
     serverHostname := o.config.Stf.HostName
     clientHostname, _ := os.Hostname()
     serverIP := o.config.Stf.Ip
+    
+    location := fmt.Sprintf("macmini/%s", clientHostname)
+    if o.config.Stf.Location != "" {
+        location = o.config.Stf.Location
+    }
             
     o.startFields = log.Fields {
         "client_ip":       curIP,
         "server_ip":       serverIP,
         "client_hostname": clientHostname,
         "server_hostname": serverHostname,
+        "location": location,
     }
     o.binary = "/usr/local/opt/node@12/bin/node"
     o.args = []string {
         "--inspect=127.0.0.1:9230",
         "runmod.js"      , "provider",
-        "--name"         , fmt.Sprintf("macmini/%s", clientHostname),
+        "--name"         , location,
         "--connect-sub"  , fmt.Sprintf("tcp://%s:7250", serverIP),
         "--connect-push" , fmt.Sprintf("tcp://%s:7270", serverIP),
         "--storage-url"  , fmt.Sprintf("https://%s", serverHostname),

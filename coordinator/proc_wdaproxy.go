@@ -2,38 +2,65 @@ package main
 
 import (
   "fmt"
-  "os"
+  log "github.com/sirupsen/logrus"
   "strconv"
+  "strings"
 )
 
-func start_proc_wdaproxy( o ProcOptions, uuid string, iosVersion string ) {
-    if o.devd.shuttingDown {
-        return
+func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
+    uuid := o.devd.uuid
+    
+    if temp {
+      o.procName = "wdaproxytemp"
+      o.noRestart = true
+      o.noWait = false
+    } else {
+      o.procName = "wdaproxy"
+      o.noWait = true
+      o.noRestart = false
     }
     
-    arguments := []string {
-        o.config.BinPaths.WdaWrapper,
-        "-port", strconv.Itoa(o.config.WDAProxyPort),
-        "-uuid", uuid,
-        "-iosVersion", iosVersion,
-        "-wdaRoot", o.config.WdaFolder,
+    o.binary = "../wdaproxy" //o.config.BinPaths.WdaProxy
+    o.startFields = log.Fields {
+        "wdaPort": o.config.WDAProxyPort,
+        "iosVersion": o.devd.iosVersion,
     }
-    
-    label := fmt.Sprintf("com.tmobile.coordinator.wdawrapper_%s", uuid )
-    wd, _ := os.Getwd()
-    keepalive := true
-    asRoot := false
-    stfLauncher := NewLauncher( label, arguments, keepalive, wd, asRoot )
-    stfLauncher.stdout = o.config.Log.WDAWrapperStdout
-    stfLauncher.stderr = o.config.Log.WDAWrapperStderr
-    stfLauncher.load()
-    
-    o.devd.wdaWrapper = stfLauncher
-}
-
-func stop_proc_wdaproxy( devd *RunningDev ) {
-    if devd.wdaWrapper != nil {
-        devd.wdaWrapper.unload()
-        devd.wdaWrapper = nil
+    o.args = []string {
+        "-p", strconv.Itoa(o.config.WDAProxyPort),
+        "-q", strconv.Itoa(o.config.WDAProxyPort),
+        "-d",
+        "-W", ".",
+        "-u", uuid,
+        fmt.Sprintf("--iosversion=%s", o.devd.iosVersion),
     }
+    o.startDir = o.config.WdaFolder
+    
+    o.stdoutHandler = func( line string, plog *log.Entry ) (bool) {
+        if strings.Contains( line, "TEST EXECUTE FAILED" ) {
+            plog.WithFields( log.Fields{
+                "type": "wda_failed",
+            } ).Error("WDA Failed")
+            
+            devEventCh <- DevEvent{
+                action: 5,
+                uuid: uuid,
+            }
+        }
+        return true
+    }
+    o.stderrHandler = func( line string, plog *log.Entry ) (bool) {
+        if strings.Contains( line, "[WDA] successfully started" ) {
+            /*plog.WithFields( log.Fields{
+                "type": "wda_started",
+            } ).Info("WDA Running")*/
+            
+            devEventCh <- DevEvent{
+                action: 4,
+                uuid: uuid,
+            }
+        }
+        return true
+    }
+            
+    proc_generic( o )
 }

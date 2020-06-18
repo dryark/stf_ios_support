@@ -19,6 +19,7 @@ func cleanup_procs(config *Config) {
         "ios_video_stream": config.BinPaths.IosVideoStream,
         "device_trigger": config.BinPaths.DeviceTrigger,
         "h264_to_jpeg": config.BinPaths.H264ToJpeg,
+        "wdaproxy": "../wdaproxy",
     }
     
     // Cleanup hanging processes if any
@@ -65,8 +66,6 @@ func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
     devd.shuttingDown = true
     devd.lock.Unlock()
     
-    stop_proc_wdaproxy( devd )
-
     if portMap != nil {
         free_ports( devd.wdaPort, devd.vidPort, devd.devIosPort, devd.vncPort, portMap )
     }

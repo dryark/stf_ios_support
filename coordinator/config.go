@@ -43,6 +43,7 @@ type NetConfig struct {
 type STFConfig struct {
     Ip       string `json:"ip"`
     HostName string `json:"hostname"`
+    Location string `json:"location"`
 }
 
 type VideoConfig struct {
@@ -141,7 +142,8 @@ func read_config( configPath string ) *Config {
           },
           "stf":{
             "ip": "",
-            "hostname": ""
+            "hostname": "",
+            "location": ""
           },
           "video":{
             "enabled": true,
