@@ -23,8 +23,6 @@ type PubEvent struct {
 func coro_zmqPub( pubEventCh <-chan PubEvent ) {
     plog := log.WithFields( log.Fields{ "coro": "pub" } )
 
-    var sentDummy bool = false
-
     // start the zmq pub mechanism
     go func() {
         pubSock := zmq.NewSock(zmq.Pub)
@@ -40,17 +38,13 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
             } ).Fatal("ZMQ binding error")
         }
 
-        // Garbage message with delay to avoid late joiner ZeroMQ madness
-        if !sentDummy {
-            pubSock.SendMessage( [][]byte{ []byte("devEvent"), []byte("dummy") } )
-            time.Sleep( time.Millisecond * 300 )
-        }
+        pubSock.SendMessage( [][]byte{ []byte("devEvent"), []byte("dummy") } )
+        time.Sleep( time.Millisecond * 300 )
 
         for {
             // receive message
             pubEvent := <- pubEventCh
 
-            //uuid := devEvent.uuid
             type DevTest struct {
                 Type    string
                 UUID    string
@@ -74,11 +68,6 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
                 test.Type = "present"
             }
 
-            /*log.WithFields( log.Fields{
-                "type": "zmq_push",
-                "event": test,
-            } ).Info("ZMQ Push")*/
-            
             // publish a zmq message of the DevEvent
             reqMsg, err := json.Marshal( test )
             if err != nil {
@@ -89,8 +78,8 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
             } else {
                 plog.WithFields( log.Fields{
                     "type": "zmq_pub",
-                    "msg": reqMsg,
-                } ).Debug("Publishing to stf")
+                    "msg": string( reqMsg ),
+                } ).Debug("devEvent msg to stf_ios_provider")
 
                 pubSock.SendMessage( [][]byte{ []byte("devEvent"), reqMsg} )
             }
@@ -152,7 +141,7 @@ func devListJSON( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex ) 
     return devOut
 }
 
-func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, lineLog *log.Entry, pubEventCh  chan<- PubEvent, devEventCh chan<- DevEvent ) {
+func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, lineLog *log.Entry, pubEventCh chan<- PubEvent, devEventCh chan<- DevEvent ) {
     plog := log.WithFields( log.Fields{ "coro": "zmqpull" } )
     
     wdaLineLog := lineLog.WithFields( log.Fields{
@@ -217,12 +206,11 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         } ).Info("WDA Wrapper - WDAProxy Started")
                         devMapLock.Lock()
                         devd := runningDevs[ uuid ]
+                        devMapLock.Unlock()
                         if devd != nil {
-                            devMapLock.Unlock()
-                            
                             // Everything is started; notify stf via zmq published event
                             pubEvent := PubEvent{}
-                            pubEvent.action  = 0
+                            pubEvent.action  = 0 // connected
                             pubEvent.uuid    = msg["uuid"]
                             
                             devd.lock.Lock()
@@ -237,11 +225,8 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                             pubEventCh <- pubEvent
                             
                             pubEvent = PubEvent{}
-                            pubEvent.action  = 3
+                            pubEvent.action  = 3 // present
                             pubEvent.uuid    = msg["uuid"]
-                            pubEvent.name    = devName
-                            pubEvent.wdaPort = wdaPort
-                            pubEvent.vidPort = vidPort
                             pubEventCh <- pubEvent
                         }
                     } else if msgType == "wda_started" {
@@ -251,12 +236,38 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                             "uuid": censor_uuid( uuid ),
                         } ).Info("WDA Running")
                         
-                        devEvent := DevEvent{
+                        log.Info("X1")
+                        devEventCh <- DevEvent{
                             action: 4,
                             uuid: uuid,
                         }
                         
-                        devEventCh <- devEvent
+                        log.Info("X2")
+                        devMapLock.Lock()
+                        devd := runningDevs[ uuid ]
+                        devMapLock.Unlock()
+                        
+                        log.Info("X3")
+                        devd.lock.Lock()
+                        devName := devd.name
+                        wdaPort := devd.wdaPort
+                        vidPort := devd.vidPort
+                        devd.lock.Unlock()
+
+                        log.Info("X4")
+                        pubEventCh <- PubEvent{
+                            action: 0, // connected
+                            uuid: uuid,
+                            name: devName,
+                            wdaPort: wdaPort,
+                            vidPort: vidPort,
+                        }
+                        
+                        log.Info("X5")
+                        pubEventCh <- PubEvent{
+                            action: 3, // present
+                            uuid: uuid,
+                        }
                     } else if msgType == "wda_stdout" {
                         wdaLineLog.WithFields( log.Fields {
                             "line": msg["line"],
@@ -281,9 +292,9 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         
                         if devd == nil {
                         } else {
-                            devd.lock.Lock()
+                            //devd.lock.Lock()
                             devd.heartbeatChan <- true
-                            devd.lock.Unlock()
+                            //devd.lock.Unlock()
                             
                             plog.WithFields( log.Fields{
                                 "type": "wdaproxy_ended",

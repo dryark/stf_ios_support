@@ -83,6 +83,9 @@ elsif( $action eq 'info' ) {
 elsif( $action eq 'ensurehead' ) {
   ensure_head( $ARGV[1], $ARGV[2] || '' );
 }
+elsif( $action eq 'fixpc' ) {
+  fix_pc( $ARGV[1], $ARGV[2] );
+}
 else {
   help();
 }
@@ -97,7 +100,8 @@ sub help {
     ensurehead [package name] - ensure HEAD version of a package is installed
       If a non-HEAD version is installed, it will be removed and the current HEAD installed.
       If a HEAD version is installed, even if old, nothing will happen.
-    installdeps [ruby spec file] - install dependencies for a specified brew package spec file\n";
+    installdeps [ruby spec file] - install dependencies for a specified brew package spec file
+    fixpc [package name] [version] - Ensure both [pkg].pc and [pkg]-[ver].pc exist\n";
 }
 sub get_pkg_versions {
   my %pkgs;
@@ -164,6 +168,20 @@ sub ensure_head {
         elsif( $greater == 2 ) { print "$GR$pkg - installed HEAD is version ${installedVer} ( >$ver )$RST\n"; }
       }
     }                            
+  }
+}
+
+sub fix_pc {
+  my ( $pkg, $ver ) = @_;
+  my $f1 = "/usr/local/lib/pkgconfig/$pkg.pc";
+  my $f2 = "/usr/local/lib/pkgconfig/$pkg-$ver.pc";
+  if( -e $f1 && ! -e $f2 ) {
+    print "$f2 was missing; creating symlink to $f1\n";
+    `ln -s $f1 $f2`;
+  }
+  if( -e $f2 && ! -e $f1 ) {
+    print "$f1 was missing; creating symlink to $f2\n";
+    `ln -s $f2 $f1`;  
   }
 }
 

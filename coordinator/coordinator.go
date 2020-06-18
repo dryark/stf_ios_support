@@ -33,30 +33,6 @@ func (self *RunningDev) dup() ( *RunningDev ) {
     return &dup
 }
 
-func (self *RunningDev) setBackoff( procName string, b *Backoff, base *BaseProgs ) {
-    if self == nil {
-        base.lock.Lock()
-        base.backoff[ procName ] = b
-        base.lock.Unlock()
-        return
-    }
-    self.lock.Lock()
-    self.backoff[ procName ] = b
-    self.lock.Unlock()
-}
-
-func (self *RunningDev) setProcess( procName string, b *os.Process, base *BaseProgs ) {
-    if self == nil {
-        base.lock.Lock()
-        base.process[ procName ] = b
-        base.lock.Unlock()
-        return
-    }
-    self.lock.Lock()
-    self.process[ procName ] = b
-    self.lock.Unlock()
-}
-
 func (self *RunningDev) getShuttingDown( base *BaseProgs ) (bool){
     if self == nil {
         base.lock.Lock()
@@ -75,7 +51,7 @@ type RunningDev struct {
     name          string
     wdaWrapper    *Launcher
     shuttingDown  bool
-    lock          sync.Mutex
+    lock          *sync.Mutex
     failed        bool
     wdaPort       int
     vidPort       int
@@ -95,14 +71,12 @@ type RunningDev struct {
     okFirstFrame  bool
     okVidInterface bool
     wdaStarted    bool
-    process       map[string] *os.Process
-    backoff       map[string] *Backoff
+    process       map[string] *GenericProc
     devUnitStarted bool
 }
 
 type BaseProgs struct {
-    process    map[string] *os.Process
-    backoff    map[string] *Backoff
+    process    map[string] *GenericProc
     shuttingDown bool
     vpnLauncher *Launcher
     vpnLogWatcher *fsnotify.Watcher
@@ -110,7 +84,7 @@ type BaseProgs struct {
     vpnIface   string
     okStage1   bool
     okVpn      bool
-    lock       sync.Mutex
+    lock       *sync.Mutex
 }
 
 var gStop bool
@@ -200,8 +174,8 @@ func main() {
     }
 
     baseProgs := BaseProgs{
-        process: make( map[string] *os.Process ),
-        backoff: make( map[string] *Backoff ),
+        process: make( map[string] *GenericProc ),
+        lock: &sync.Mutex{},
     }
     
     lineLog, lineTracker := setup_log( config, *debug, *jsonLog )
@@ -232,11 +206,11 @@ func main() {
             baseProgs: &baseProgs,
             lineLog: lineLog,
             devd: devd,
+            curIP: "127.0.0.1",
         }
     
-        devName := getDeviceName( devId )
-        fmt.Printf( "First device name: %s\n", devName )
-        ivp_enable( devId, devName )
+        fmt.Printf( "First device name: %s\n", devd.name )
+        ivp_enable( o )
                 
         proc_h264_to_jpeg( o )
         proc_ios_video_stream( o, "none" )
@@ -295,6 +269,7 @@ func main() {
         config: config,
         baseProgs: &baseProgs,
         lineLog: lineLog,
+        curIP: curIP,
     }   
     
     coro_http_server( config, devEventCh, &baseProgs, runningDevs, lineTracker )
@@ -386,12 +361,14 @@ func NewRunningDev(
         okFirstFrame:  false,
         okVidInterface: false,
         wdaStarted:        false,
-        process: make( map[string] *os.Process ),
-        backoff: make( map[string] *Backoff ),
+        process: make( map[string] *GenericProc ),
         devUnitStarted: false,
+        lock: &sync.Mutex{},
     }
     
     devd.name = getDeviceName( uuid )
+    
+    devd.iosVersion = getDeviceInfo( uuid, "ProductVersion" )
     
     devMapLock.Lock()
     runningDevs[uuid] = &devd
@@ -435,7 +412,7 @@ func mini_event_loop( devEventCh  <-chan DevEvent, devd *RunningDev ) {
 func event_loop(
         gConfig     *Config,
         curIP       string,
-        devEventCh  <-chan DevEvent,
+        devEventCh  chan DevEvent,
         vpnEventCh  <-chan VpnEvent,
         tunName     string,
         pubEventCh  chan<- PubEvent,
@@ -488,9 +465,11 @@ func event_loop(
             var ok = false
             
             o := ProcOptions {
+                config: gConfig,
                 devd: devd,
                 baseProgs: baseProgs,
                 lineLog: lineLog,
+                curIP: curIP,
             }
             
             devMapLock.Lock()
@@ -511,7 +490,7 @@ func event_loop(
                     "dev_uuid": censor_uuid( uuid ),                
                 } ).Info("Device connected")
     
-                ivp_enable( uuid, devName )
+                ivp_enable( o )
                 
                 o.config = devd.confDup
                 
@@ -568,7 +547,24 @@ func event_loop(
                     "uuid": censor_uuid( uuid ),
                 } ).Info("Video - first frame")
             }
-            if devEvent.action == 4 {
+            if devEvent.action == 4 { // WDA started
+                devName := devd.name
+                wdaPort := devd.wdaPort
+                vidPort := devd.vidPort
+
+                pubEventCh <- PubEvent{
+                    action: 0, // connected
+                    uuid: uuid,
+                    name: devName,
+                    wdaPort: wdaPort,
+                    vidPort: vidPort,
+                }
+                
+                pubEventCh <- PubEvent{
+                    action: 3, // present
+                    uuid: uuid,
+                }              
+              
                 wdaBase := "http://127.0.0.1:8100/"// + strconv.Itoa( devd.wdaPort ) + "/"
                 var sessionId string
                 try := 0
@@ -622,12 +618,27 @@ func event_loop(
                 
                 o.config = devd.confDup
                 
+                // Notify stf that the device is connected
+                /*pubEvent := PubEvent{}
+                pubEvent.action  = 0 // connected
+                pubEvent.uuid    = devEvent.uuid
+                pubEvent.name    = ""
+                pubEvent.wdaPort = 0
+                pubEvent.vidPort = 0
+                pubEventCh <- pubEvent*/
+                
                 // start the heartbeat
                 if devd.heartbeatChan == nil {
                     devd.heartbeatChan = coro_heartbeat( uuid, pubEventCh )
                 }
                 
                 continue_dev_start( o, curIP )
+            }
+            if devEvent.action == 5 { // WDA Startup failed
+                log.WithFields( log.Fields{
+                    "type":     "wdaproxy_fail",
+                    "dev_uuid": uuid,
+                } ).Error("WDAProxy failed to start")
             }
                         
             if devd != nil && !devd.wdaStarted {
@@ -640,23 +651,24 @@ func event_loop(
                     
                     fmt.Printf("trying to get ios version\n")
                     
-                    iosVersion := getDeviceInfo( uuid, "ProductVersion" )
-                    
                     log.WithFields( log.Fields{
                         "type":     "ios_version",
                         "dev_name": o.devd.name,
                         "dev_uuid": uuid,
-                        "ios_version": iosVersion,
+                        "ios_version": o.devd.iosVersion,
                     } ).Debug("IOS Version")
     
-                    start_proc_wdaproxy( o, uuid, iosVersion )
+                    proc_wdaproxy( o, devEventCh, false )
                 }
             }
         }
     }
 }
 
-func ivp_enable( uuid string, devName string ) {
+func ivp_enable( o ProcOptions ) {
+    uuid := o.devd.uuid
+    devName := o.devd.name
+    
     bytes, _ := exec.Command( "./bin/ios_video_pull", "-devices", "-json",
         "-udid", uuid,
         ).Output()
@@ -670,10 +682,14 @@ func ivp_enable( uuid string, devName string ) {
             "dev_uuid": censor_uuid( uuid ),                
         } ).Info("Device already activated; resetting")
         
+        /*
         // Reset the device
         time.Sleep( time.Second * 1 )
         exec.Command( "./bin/ios_video_pull", "-disable",
             "-udid", uuid ).Wait()
+        */
+        
+        aio_reset_media_services( o )
         
         log.WithFields( log.Fields{
             "type":     "enabling",

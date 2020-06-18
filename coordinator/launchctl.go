@@ -50,12 +50,12 @@ func NewLauncher( label string, arguments []string, keepalive bool, cwd string, 
 }
 
 func ( self *Launcher ) pid() (pid int) {
-    user, _ := user.Current()
+    //user, _ := user.Current()
     pid = 0
     
     //log.WithFields( log.Fields{ "type": "blah", "asroot": self.asRoot, "user": user.Username } ).Info("fdfsdfds")
     
-    if self.asRoot && user.Username != "root" {
+    if self.asRoot { //&& user.Username != "root" {
         // trying to find information on a root owned plist, but not running as root
         // cannot use launchctl as a result :(
         
@@ -73,6 +73,9 @@ func ( self *Launcher ) pid() (pid int) {
                 return proc.Pid
             }
         }*/
+        log.WithFields( log.Fields{ "type": "launch_ps_scan", "cmdLine": fullCmdLine } ).
+                Debug( "Scanning ps -Af for Cmd" )
+                
         cmd := exec.Command("/bin/ps","-Af")
         output, _ := cmd.Output()
         
@@ -99,9 +102,15 @@ func ( self *Launcher ) pid() (pid int) {
             }
         }
     } else {
-        output, _ := exec.Command(fmt.Sprintf("launchctl list %s", self.label)).Output()
+        output, _ := exec.Command(fmt.Sprintf("/bin/launchctl list %s", self.label)).Output()
         lines := strings.Split( string(output), "\n" )
         
+        log.WithFields( log.Fields{
+            "type": "launch_ctl_list",
+            "label": self.label,
+            "output": output,
+        } ).Debug( "Fetching launchctl info to get PID" )
+                
         for _, line := range lines {
             if strings.Contains( line, "\"PID\"" ) {
                 pos := strings.Index( line, "\"PID\"" )
@@ -149,6 +158,10 @@ func ( self *Launcher ) load() {
     } )
     
     // create / recreate the plist file
+    log.WithFields( log.Fields{
+        "type": "launch_plist_write",
+        "file": self.file,
+    } ).Debug("Writing plist file")
     err := ioutil.WriteFile( self.file, data.Bytes(), 0600 )
     if err != nil {
         log.WithFields( log.Fields{
@@ -159,8 +172,15 @@ func ( self *Launcher ) load() {
     }
     
     // load it
+    log.WithFields( log.Fields{
+        "type": "launch_plist_load",
+        "file": self.file,
+    } ).Debug("Loading LaunchAgent")
     self.lock.Lock()
-    exec.Command("/bin/launchctl","load",self.file).Run()
+    c := exec.Command("/bin/launchctl","load",self.file)
+    c.Stdout = os.Stdout
+    c.Stderr = os.Stderr
+    c.Run()
     self.lock.Unlock()
 }
 
