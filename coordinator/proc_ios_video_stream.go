@@ -26,7 +26,7 @@ func proc_ios_video_stream( o ProcOptions, tunName string ) {
     o.procName = "ios_video_stream"
     o.args = []string {
         "-stream",
-        "--port", strconv.Itoa( port ),
+        "-port", strconv.Itoa( port ),
         "-udid", udid,
         "-interface", tunName,
         "-pullSpec", inSpec,

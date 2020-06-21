@@ -169,9 +169,11 @@ func main() {
     }
     
     useVPN := true
-    if ( config.Vpn.TblickName == "none" && config.Vpn.VpnType != "openvpn" ) || config.Vpn.VpnType == "none" {
+    if( config.Vpn.TblickName == "none" && config.Vpn.VpnType != "openvpn" ) || config.Vpn.VpnType == "none" {
         useVPN = false
     }
+    
+    videoMethod := config.Video.Method
 
     baseProgs := BaseProgs{
         process: make( map[string] *GenericProc ),
@@ -210,11 +212,18 @@ func main() {
         }
     
         fmt.Printf( "First device name: %s\n", devd.name )
-        ivp_enable( o )
+        if videoMethod == "ivp" {
+            ivp_enable( o )
+        }
                 
-        proc_h264_to_jpeg( o )
         proc_ios_video_stream( o, "none" )
-        proc_ios_video_pull( o )
+        
+        if videoMethod == "avfoundation" {
+            proc_ivf( o )
+        } else if videoMethod == "ivp" {
+            proc_h264_to_jpeg( o )
+            proc_ios_video_pull( o )
+        }
         
         coro_sigterm( runningDevs, &baseProgs, config )
         coro_mini_http_server( config, devEventCh, devd )
@@ -290,7 +299,7 @@ func main() {
     coro_sigterm( runningDevs, &baseProgs, config )
 
     // process devEvents
-    event_loop( config, curIP, devEventCh, vpnEventCh, ifName, pubEventCh, runningDevs, &devMapLock, portMap, lineLog, &baseProgs )
+    event_loop( config, curIP, devEventCh, vpnEventCh, ifName, pubEventCh, runningDevs, &devMapLock, portMap, lineLog, &baseProgs, videoMethod )
 }
 
 func coordinator_NewLauncher( config *Config ) (*Launcher) {
@@ -420,7 +429,8 @@ func event_loop(
         devMapLock *sync.Mutex,
         portMap     *PortMap,
         lineLog     *log.Entry,
-        baseProgs *BaseProgs ) {
+        baseProgs *BaseProgs,
+        videoMethod string ) {
     
     gProcOptions := ProcOptions {
         config: gConfig,
@@ -490,14 +500,21 @@ func event_loop(
                     "dev_uuid": censor_uuid( uuid ),                
                 } ).Info("Device connected")
     
-                ivp_enable( o )
+                if videoMethod == "ivp" {
+                    ivp_enable( o )
+                }
                 
                 o.config = devd.confDup
                 
                 if o.config.Video.Enabled {
-                    proc_h264_to_jpeg( o )
                     proc_ios_video_stream( o, tunName )
-                    proc_ios_video_pull( o )
+                    
+                    if videoMethod == "avfoundation" {
+                        proc_ivf( o )
+                    } else if videoMethod == "ivp" {
+                        proc_h264_to_jpeg( o )
+                        proc_ios_video_pull( o )
+                    }
                 }
             }
             if devEvent.action == 1 { // device disconnect
