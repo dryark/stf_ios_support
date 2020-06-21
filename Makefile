@@ -4,7 +4,7 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web devreset libimd
+all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web ivf devreset libimd
 endif
 
 .PHONY:\
@@ -20,7 +20,8 @@ endif
  dist\
  wdaproxyalias\
  wdaproxybin\
- devreset
+ devreset\
+ ivf
 
 config.json:
 	cp config.json.example config.json
@@ -49,8 +50,18 @@ bin/decode: repos/h264_to_jpeg/decode
 
 hbin: repos/h264_to_jpeg/decode
 
-repos/h264_to_jpeg/decode: repos/h264_to_jpeg/hw_decode.c repos/h264_to_jpeg/tracker.h | repos/h264_to_jpeg
+repos/h264_to_jpeg/decode: repos/h264_to_jpeg repos/h264_to_jpeg/hw_decode.c repos/h264_to_jpeg/tracker.h | repos/h264_to_jpeg
 	$(MAKE) -C repos/h264_to_jpeg
+	
+# --- IOS_AVF_PULL ---
+
+ivf: bin/ivf_pull
+
+bin/ivf_pull: repos/ios_avf_pull/ivf_pull
+	cp repos/ios_avf_pull/ivf_pull bin/ivf_pull
+
+repos/ios_avf_pull/ivf_pull: repos/ios_avf_pull repos/ios_avf_pull/ivf_pull.m repos/ios_avf_pull/uclop.h | repos/ios_avf_pull
+	$(MAKE) -C repos/ios_avf_pull
 
 # --- COORDINATOR ---
 
@@ -187,6 +198,9 @@ repos/macos_usbdev_reset:
 
 repos/libimobiledevice:
 	git clone https://github.com/libimobiledevice/libimobiledevice.git repos/libimobiledevice
+
+repos/ios_avf_pull:
+	git clone https://github.com/nanoscopic/ios_avf_pull.git repos/ios_avf_pull
 
 # --- LibIMobileDevice ---
 

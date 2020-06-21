@@ -48,6 +48,7 @@ type STFConfig struct {
 
 type VideoConfig struct {
     Enabled     bool   `json:"enabled"`
+    Method      string `json:"method"`
     UseVnc      bool   `json:"use_vnc"`
     VncScale    int    `json:"vnc_scale"`
     VncPassword string `json:"vnc_password"`
@@ -77,6 +78,7 @@ type BinPathConfig struct {
     Openvpn       string `json:"openvpn"`
     Iproxy        string `json:"iproxy"`
     WdaWrapper    string `json:"wdawrapper"`
+    IVF           string `json:"ivf"`
 }
 
 type VPNConfig struct {
@@ -147,6 +149,7 @@ func read_config( configPath string ) *Config {
           },
           "video":{
             "enabled": true,
+            "method": "avfoundation",
             "use_vnc": false,
             "vnc_scale": 2,
             "vnc_password": "",
@@ -184,7 +187,8 @@ func read_config( configPath string ) *Config {
             "wdawrapper":     "bin/wda_wrapper",
             "ios_video_stream":"bin/ios_video_stream",
             "ios_video_pull":"bin/ios_video_pull",
-            "h264_to_jpeg":   "bin/decode"
+            "h264_to_jpeg":   "bin/decode",
+            "ivf":            "bin/ivf_pull"
           },
           "repos":{
             "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
