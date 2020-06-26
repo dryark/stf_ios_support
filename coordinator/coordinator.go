@@ -73,6 +73,7 @@ type RunningDev struct {
     wdaStarted    bool
     process       map[string] *GenericProc
     devUnitStarted bool
+    periodic      chan bool
 }
 
 type BaseProgs struct {
@@ -373,6 +374,7 @@ func NewRunningDev(
         process: make( map[string] *GenericProc ),
         devUnitStarted: false,
         lock: &sync.Mutex{},
+        periodic: make( chan bool ),
     }
     
     devd.name = getDeviceName( uuid )
@@ -486,6 +488,7 @@ func event_loop(
             if devd, ok = runningDevs[uuid]; !ok {
                 devMapLock.Unlock()
                 devd = NewRunningDev( gConfig, runningDevs, devMapLock, portMap, uuid )
+                periodic_start( gConfig, devd )
             } else {
                 devMapLock.Unlock()
             }
@@ -524,8 +527,7 @@ func event_loop(
                     "dev_uuid": censor_uuid( uuid ),
                 } ).Info("Device disconnected")
     
-                // send true to the stop heartbeat channel
-                
+                periodic_stop( devd )
                 closeRunningDev( devd, portMap )
     
                 devMapLock.Lock()

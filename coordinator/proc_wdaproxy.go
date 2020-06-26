@@ -7,6 +7,10 @@ import (
   "strings"
 )
 
+func restart_wdaproxy( devd *RunningDev ) {
+    restart_proc_generic( devd, "wdaproxy" )
+}
+
 func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
     uuid := o.devd.uuid
     
