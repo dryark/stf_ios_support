@@ -51,11 +51,15 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
     frameClosure := func( w http.ResponseWriter, r *http.Request ) {
         handleFrame( w, r, devEventCh )
     }
+    wdaRestartClosure := func( w http.ResponseWriter, r *http.Request ) {
+        handleWdaRestart( w, r, runningDevs )
+    }
     http.HandleFunc( "/dev_connect", connectClosure )
     http.HandleFunc( "/dev_disconnect", disconnectClosure )
     http.HandleFunc( "/new_interface", ifaceClosure )
     http.HandleFunc( "/frame", frameClosure )
     http.HandleFunc( "/log", logClosure )
+    http.HandleFunc( "/wdarestart", wdaRestartClosure )
     err := http.ListenAndServe( listen_addr, nil )
     log.WithFields( log.Fields{
         "type": "http_server_fail",
@@ -120,8 +124,9 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
         mirror := "<font color='green'>on</font>"
         if dev.process["mirror"] == nil { mirror = "off" }
 
-        //proxy := "<font color='green'>on</font>"
-        //if dev.proxy == nil { proxy = "off" }
+        proxyProc := dev.process["wdaproxy"]
+        proxy := "<font color='green'>on</font>"
+        if proxyProc == nil || proxyProc.cmd == nil { proxy = "off" }
 
         device := "<font color='green'>on</font>"
         if dev.process["stf_device_ios"] == nil { device = "off" }
@@ -129,9 +134,10 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
         var str bytes.Buffer
         deviceTpl.Execute( &str, map[string] string {
             "uuid":   "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
+            "rawuuid":   dev.uuid,
             "name":   dev.name,
             "mirror": mirror,
-            //"proxy":  proxy,
+            "proxy":  proxy,
             "device": device,
         } )
         devOut += str.String()
@@ -219,6 +225,16 @@ func newInterface( w http.ResponseWriter, r *http.Request, devEventCh chan<- Dev
     }
 }
 
+func handleWdaRestart( w http.ResponseWriter, r *http.Request, runningDevs map[string] *RunningDev ) {
+    body := new(bytes.Buffer)
+    body.ReadFrom(r.Body)
+    root, _ := uj.Parse( body.Bytes() )
+    
+    uuid := root.Get("uuid").String()
+    devd := runningDevs[ uuid ]
+    restart_wdaproxy( devd )
+}
+
 func handleFrame( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
     body := new(bytes.Buffer)
     body.ReadFrom(r.Body)
@@ -263,6 +279,7 @@ var deviceTpl = template.Must(template.New("device").Parse(`
   <tr>
     <td>WDA Proxy</td>
     <td>{{.proxy}}</td>
+    <td><button id='wdabtn' onclick="wda_restart('{{.rawuuid}}')">Restart</button>
   </tr>
   <tr>
     <td>STF Device-IOS Unit</td>
@@ -275,6 +292,27 @@ var rootTpl = template.Must(template.New("root").Parse(`
 <!DOCTYPE html>
 <html>
 	<head>
+	  <script>
+	    function getel( id ) {
+        return document.getElementById( id );
+      }
+      function req( type, url, handler, body ) {
+        var xhr = new XMLHttpRequest();
+        xhr.open( type, url );
+        xhr.responseType = 'json';
+        xhr.onload = function(x) { handler(x,xhr); }
+        if( type == 'POST' && body ) xhr.send(body);
+        else xhr.send();
+      }
+      function clickAt( pos ) {
+        req( 'POST', 'http://localhost:8100/session/' + session + '/wda/tap/0', function() {}, JSON.stringify( { x: pos[0]/(1080/2)*wid, y: pos[1]/(1920/2)*heg } ) );
+      }
+      window.addEventListener("load", function(evt) {
+      } );
+      function wda_restart( uuid ) {
+        req( 'POST', '/wdarestart', function() {}, JSON.stringify( { uuid: uuid } ) );
+      }
+	  </script>
 	</head>
 	<body>
 	Base Processes:

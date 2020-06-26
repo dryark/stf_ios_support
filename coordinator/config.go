@@ -19,6 +19,7 @@ type Config struct {
     Log        LogConfig     `json:"log"`
     BinPaths   BinPathConfig `json:"bin_paths"`
     Vpn        VPNConfig     `json:"vpn"`
+    Timing     TimingConfig  `json:"timing"`
     ConfigPath string        `json:"config_path"`
     // The following are only used internally
     WDAProxyPort   int
@@ -95,7 +96,10 @@ type FrameServerConfig struct {
     Width int `json:"width"`
     Height int `json:"height"`
 }
-    
+
+type TimingConfig struct {
+    WdaRestart int `json:"wda_restart"`
+}
 
 func read_config( configPath string ) *Config {
     var config Config
@@ -193,6 +197,9 @@ func read_config( configPath string ) *Config {
           "repos":{
             "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
             "wda": "https://github.com/nanoscopic/WebDriverAgent.git"
+          },
+          "timing":{
+            "wda_restart": 240
           }
         }`
         

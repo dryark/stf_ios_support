@@ -41,6 +41,16 @@ func (self *GenericProc) Kill() {
     self.controlCh <- GPMsg{ msgType: 1 }
 }
 
+func (self *GenericProc) Restart() {
+    if self.cmd == nil { return }
+    self.controlCh <- GPMsg{ msgType: 2 }
+}
+
+func restart_proc_generic( devd *RunningDev, name string ) {
+    genProc := devd.process[ name ]
+    genProc.Restart()
+}
+
 func proc_generic( opt ProcOptions ) ( *GenericProc ) {
     controlCh := make( chan GPMsg )
     proc := GenericProc {
@@ -136,6 +146,8 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
                     plog.Debug("Got stop request on control channel")
                     if msg.msgType == 1 { // stop
                         stop = true
+                        proc.cmd.Stop()
+                    } else if msg.msgType == 2 { // restart
                         proc.cmd.Stop()
                     }
                 case line := <- outStream:
