@@ -8,7 +8,11 @@ import (
   "time"
 )
 
-func restart_wdaproxy( devd *RunningDev ) {
+func restart_wdaproxy( devd *RunningDev, onRelease bool ) {
+    if onRelease {
+        test_restart_on_release( devd )
+        return
+    }
     restart_proc_generic( devd, "wdaproxy" )
 }
 func wait_wdaup( devd *RunningDev ) {
