@@ -23,6 +23,7 @@ type ProcOptions struct {
     curIP     string
     noRestart bool
     noWait    bool
+    onStop    func( *RunningDev )
 }
 
 type GPMsg struct {
@@ -167,6 +168,10 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
         backoff.markEnd()
 
         plog.WithFields( log.Fields{ "type": "proc_end" } ).Warn("Process end - "+ opt.procName)
+        
+        if opt.onStop != nil {
+            opt.onStop( devd )
+        }
         
         if opt.noRestart { 
             plog.Debug( "No restart requested" )

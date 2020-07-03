@@ -136,9 +136,42 @@ sub install_info {
   return decode_json( read_file( $receiptFile ) ), $ver;
 }
 
-sub head_version {
+sub files {
+  my $path = shift;
+  opendir( my $DIR, $path );
+  my @files = readdir( $DIR );
+  my @outfiles;
+  for my $file ( @files ) {
+    next if( $file =~ m/^\.+$/ );
+    push( @outfiles, $file );
+  }
+  closedir( $DIR );
+  return @outfiles;
+}
+
+sub pkg_pc_file {
   my ( $pkg ) = @_;
-  my $pc = "/usr/local/lib/pkgconfig/$pkg.pc";
+  #my $pc = "/usr/local/lib/pkgconfig/$pkg.pc";
+  my $path = `find /usr/local/Cellar/$pkg -maxdepth 1 2>/dev/null | tail -1`;
+  chomp $path;
+  return 0 if( !$path );
+  my $pcPath = "$path/lib/pkgconfig/";
+  my @pcFiles = files( $pcPath );
+  my $pc = "";
+  for my $pcFile ( @pcFiles ) {
+    if( $pcFile =~ m/$pkg(\-|\.)/ ) {
+      $pc = "$pcPath/$pcFile";
+      last;
+    }
+  }
+  return 0 if( !$pc );
+  return $pc;
+}
+
+sub head_version {
+  my $pkg = shift;
+  my $pc = pkg_pc_file( $pkg );
+  return 0 if( !$pc );
   my $version = `cat $pc | grep Version | cut -d\\  -f2`;
   chomp $version;
   return $version;
@@ -175,13 +208,19 @@ sub fix_pc {
   my ( $pkg, $ver ) = @_;
   my $f1 = "/usr/local/lib/pkgconfig/$pkg.pc";
   my $f2 = "/usr/local/lib/pkgconfig/$pkg-$ver.pc";
-  if( -e $f1 && ! -e $f2 ) {
-    print "$f2 was missing; creating symlink to $f1\n";
-    `ln -s $f1 $f2`;
+  
+  my $pc = pkg_pc_file( $pkg );
+  if( !$pc ) {
+    print "Could not fix pkgconfig for $pkg; could not locate installed pc file in Cellar\n";
+    return
   }
-  if( -e $f2 && ! -e $f1 ) {
-    print "$f1 was missing; creating symlink to $f2\n";
-    `ln -s $f2 $f1`;  
+  if( ! -e $f2 ) {
+    print "$f2 was missing; creating symlink to $pc\n";
+    `ln -s $pc $f2`;
+  }
+  if( ! -e $f1 ) {
+    print "$f1 was missing; creating symlink to $pc\n";
+    `ln -s $pc $f1`;  
   }
 }
 

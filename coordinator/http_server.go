@@ -51,15 +51,15 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
     frameClosure := func( w http.ResponseWriter, r *http.Request ) {
         handleFrame( w, r, devEventCh )
     }
-    wdaRestartClosure := func( w http.ResponseWriter, r *http.Request ) {
-        handleWdaRestart( w, r, runningDevs )
+    procRestartClosure := func( w http.ResponseWriter, r *http.Request ) {
+        handleProcRestart( w, r, runningDevs )
     }
     http.HandleFunc( "/dev_connect", connectClosure )
     http.HandleFunc( "/dev_disconnect", disconnectClosure )
     http.HandleFunc( "/new_interface", ifaceClosure )
     http.HandleFunc( "/frame", frameClosure )
     http.HandleFunc( "/log", logClosure )
-    http.HandleFunc( "/wdarestart", wdaRestartClosure )
+    http.HandleFunc( "/procrestart", procRestartClosure )
     err := http.ListenAndServe( listen_addr, nil )
     log.WithFields( log.Fields{
         "type": "http_server_fail",
@@ -116,29 +116,47 @@ func reqDevInfo( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
 func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map[string] *RunningDev ) {
     device_trigger := "<font color='green'>on</font>"
     if baseProgs.process["device_trigger"] == nil { device_trigger = "off" }
+    
     stf := "<font color='green'>on</font>"
-    if baseProgs.process["stf_ios_provider"] == nil { stf = "off" }
+    stfProc := baseProgs.process["stf_ios_provider"]
+    if stfProc == nil || stfProc.cmd == nil { stf = "off" }
 
     devOut := ""
     for _, dev := range runningDevs {
-        mirror := "<font color='green'>on</font>"
-        if dev.process["mirror"] == nil { mirror = "off" }
+        ivsProc := dev.process["ios_video_stream"]
+        ios_video_stream := "<font color='green'>on</font>"
+        if ivsProc == nil || ivsProc.cmd == nil { ios_video_stream = "off" }
 
+        wda := "<font color='green'>up</font>"
+        
         proxyProc := dev.process["wdaproxy"]
         proxy := "<font color='green'>on</font>"
-        if proxyProc == nil || proxyProc.cmd == nil { proxy = "off" }
-
+        if proxyProc == nil || proxyProc.cmd == nil {
+            proxy = "off"
+            wda = "down"
+        } else {
+            if dev.wda == false {
+                wda = "starting"
+            }
+        }
+        
+        devUnitProc := dev.process["stf_device_ios"]
         device := "<font color='green'>on</font>"
-        if dev.process["stf_device_ios"] == nil { device = "off" }
+        if devUnitProc == nil || devUnitProc.cmd == nil { device = "off" }
 
+        owner := dev.owner
+        if owner == "" { owner = "none" }
+        
         var str bytes.Buffer
         deviceTpl.Execute( &str, map[string] string {
             "uuid":   "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
             "rawuuid":   dev.uuid,
             "name":   dev.name,
-            "mirror": mirror,
+            "ios_video_stream": ios_video_stream,
             "proxy":  proxy,
-            "device": device,
+            "deviceunit": device,
+            "owner": owner,
+            "wda": wda,
         } )
         devOut += str.String()
     }
@@ -225,14 +243,21 @@ func newInterface( w http.ResponseWriter, r *http.Request, devEventCh chan<- Dev
     }
 }
 
-func handleWdaRestart( w http.ResponseWriter, r *http.Request, runningDevs map[string] *RunningDev ) {
+func handleProcRestart( w http.ResponseWriter, r *http.Request, runningDevs map[string] *RunningDev ) {
     body := new(bytes.Buffer)
     body.ReadFrom(r.Body)
     root, _ := uj.Parse( body.Bytes() )
     
     uuid := root.Get("uuid").String()
+    proc := root.Get("proc").String()
     devd := runningDevs[ uuid ]
-    restart_wdaproxy( devd )
+    if proc == "wdaproxy" {
+        restart_wdaproxy( devd )
+    } else if proc == "stf_device_ios" {
+        restart_device_unit( devd )
+    } else if proc == "ivf" {
+        restart_ivf( devd )
+    }
 }
 
 func handleFrame( w http.ResponseWriter, r *http.Request, devEventCh chan<- DevEvent ) {
@@ -273,8 +298,17 @@ var deviceTpl = template.Must(template.New("device").Parse(`
     <td>{{.name}}</td>
   </tr>
   <tr>
-    <td>Video Mirror</td>
-    <td>{{.mirror}}</td>
+    <td>Owner</td>
+    <td>{{.owner}}</td>
+  </tr>
+  <tr>
+    <td>IOS Video Stream</td>
+    <td>{{.ios_video_stream}}</td>
+  </tr>
+  <tr>
+    <td>IOS AVFoundation Frame Pull ( ivf_pull )</td>
+    <td>{{.ivf_pull}}</td>
+    <td><button onclick="ivf_restart('{{.rawuuid}}')">Restart</button>
   </tr>
   <tr>
     <td>WDA Proxy</td>
@@ -282,8 +316,13 @@ var deviceTpl = template.Must(template.New("device").Parse(`
     <td><button id='wdabtn' onclick="wda_restart('{{.rawuuid}}')">Restart</button>
   </tr>
   <tr>
+    <td>WDA</td>
+    <td>{{.wda}}</td>
+  </tr>
+  <tr>
     <td>STF Device-IOS Unit</td>
-    <td>{{.device}}</td>
+    <td>{{.deviceunit}}</td>
+    <td><button id='dubtn' onclick="devunit_restart('{{.rawuuid}}')">Restart</button>
   </tr>
 </table>
 `))
@@ -310,7 +349,13 @@ var rootTpl = template.Must(template.New("root").Parse(`
       window.addEventListener("load", function(evt) {
       } );
       function wda_restart( uuid ) {
-        req( 'POST', '/wdarestart', function() {}, JSON.stringify( { uuid: uuid } ) );
+        req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'wdaproxy' } ) );
+      }
+      function devunit_restart( uuid ) {
+        req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'stf_device_ios' } ) );
+      }
+      function ivf_restart( uuid ) {
+        req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'ivf' } ) );
       }
 	  </script>
 	</head>

@@ -74,6 +74,8 @@ type RunningDev struct {
     process       map[string] *GenericProc
     devUnitStarted bool
     periodic      chan bool
+    owner         string
+    wda           bool
 }
 
 type BaseProgs struct {
@@ -375,6 +377,7 @@ func NewRunningDev(
         devUnitStarted: false,
         lock: &sync.Mutex{},
         periodic: make( chan bool ),
+        wda: false,
     }
     
     devd.name = getDeviceName( uuid )
