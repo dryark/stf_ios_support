@@ -151,7 +151,7 @@ func read_config( configPath string ) *Config {
             "ip": "",
             "hostname": "",
             "location": "",
-            "admin_token": "",
+            "admin_token": ""
           },
           "video":{
             "enabled": true,

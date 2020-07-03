@@ -95,18 +95,23 @@ var gStop bool
 func main() {
     gStop = false
 
-    var debug      = flag.Bool( "debug"   , false        , "Use debug log level" )
-    var jsonLog    = flag.Bool( "json"    , false        , "Use json log output" )
-    var vpnlist    = flag.Bool( "vpnlist" , false        , "List VPNs then exit" )
-    var loadVpn    = flag.Bool( "loadVpn" , false        , "Setup / Load OpenVPN plist" )
-    var unloadVpn  = flag.Bool( "unloadVpn",false        , "Unload / Remove OpenVPN plist" )
-    var load       = flag.Bool( "load"    , false        , "Load Coordinator plist" )
-    var unload     = flag.Bool( "unload"  , false        , "Unload Coordinator plist" )
-    var addNetPerm = flag.Bool( "addNetPerm", false      , "Add network permission for coordinator app" )
-    var getNetPerm = flag.Bool( "getNetPerm", false      , "Show apps with network permission" )
-    var delNetPerm = flag.Bool( "delNetPerm", false      , "Delete network permission for coordinator app" )
-    var configFile = flag.String( "config", "config.json", "Config file path" )
-    var testVideo  = flag.Bool( "testVideo", false       , "Test Video Streaming" )
+    var debug      = flag.Bool( "debug"     , false        , "Use debug log level" )
+    var jsonLog    = flag.Bool( "json"      , false        , "Use json log output" )
+    var vpnlist    = flag.Bool( "vpnlist"   , false        , "List VPNs then exit" )
+    var loadVpn    = flag.Bool( "loadVpn"   , false        , "Setup / Load OpenVPN plist" )
+    var unloadVpn  = flag.Bool( "unloadVpn" , false        , "Unload / Remove OpenVPN plist" )
+    var load       = flag.Bool( "load"      , false        , "Load Coordinator plist" )
+    var unload     = flag.Bool( "unload"    , false        , "Unload Coordinator plist" )
+    var addNetPerm = flag.Bool( "addNetPerm", false        , "Add network permission for coordinator app" )
+    var getNetPerm = flag.Bool( "getNetPerm", false        , "Show apps with network permission" )
+    var delNetPerm = flag.Bool( "delNetPerm", false        , "Delete network permission for coordinator app" )
+    var configFile = flag.String( "config"  , "config.json", "Config file path" )
+    var testVideo  = flag.Bool( "testVideo" , false        , "Test Video Streaming" )
+    
+    var reserve    = flag.Bool( "reserve"   , false        , "Reserve device in STF" )
+    var release    = flag.Bool( "release"   , false        , "Release device in STF" )
+    var ruuid      = flag.String( "udid"    , ""           , "UDID of device to reserve/release" )
+    
     flag.Parse()
 
     if *vpnlist {
@@ -133,6 +138,25 @@ func main() {
     
     if changeDir {
         os.Chdir( config.Install.RootPath )
+    }
+    
+    if *reserve {
+        res := stf_reserve( config, *ruuid )
+        if res {
+            fmt.Printf("success\n")
+        } else {
+            fmt.Printf("failure\n")
+        }
+        os.Exit(0)
+    }
+    if *release {
+        res := stf_release( config, *ruuid )
+        if res {
+            fmt.Printf("success\n")
+        } else {
+            fmt.Printf("failure\n")
+        }
+        os.Exit(0)
     }
     
     if *loadVpn {

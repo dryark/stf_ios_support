@@ -250,9 +250,14 @@ func handleProcRestart( w http.ResponseWriter, r *http.Request, runningDevs map[
     
     uuid := root.Get("uuid").String()
     proc := root.Get("proc").String()
+    
+    onRelease := false
+    onReleaseNode := root.Get("onRelease")
+    if onReleaseNode != nil { onRelease = true }
+    
     devd := runningDevs[ uuid ]
     if proc == "wdaproxy" {
-        restart_wdaproxy( devd )
+        restart_wdaproxy( devd, onRelease )
     } else if proc == "stf_device_ios" {
         restart_device_unit( devd )
     } else if proc == "ivf" {
@@ -313,7 +318,10 @@ var deviceTpl = template.Must(template.New("device").Parse(`
   <tr>
     <td>WDA Proxy</td>
     <td>{{.proxy}}</td>
-    <td><button id='wdabtn' onclick="wda_restart('{{.rawuuid}}')">Restart</button>
+    <td>
+      <button id='wdabtn' onclick="wda_restart('{{.rawuuid}}')">Restart</button><br>
+      <button id='wdabtn' onclick="wda_restart_on_release('{{.rawuuid}}')">Restart on Release</button>
+    </td>
   </tr>
   <tr>
     <td>WDA</td>
@@ -350,6 +358,9 @@ var rootTpl = template.Must(template.New("root").Parse(`
       } );
       function wda_restart( uuid ) {
         req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'wdaproxy' } ) );
+      }
+      function wda_restart_on_release( uuid ) {
+        req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'wdaproxy', onRelease: 1 } ) );
       }
       function devunit_restart( uuid ) {
         req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'stf_device_ios' } ) );

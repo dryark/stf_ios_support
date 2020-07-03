@@ -8,11 +8,16 @@ func do_restart( config *Config, devd *RunningDev ) {
     if config.Stf.AdminToken != "" {
         stf_reserve( config, devd.uuid )
     }
-    restart_wdaproxy( devd )
+    restart_wdaproxy( devd, false )
     wait_wdaup( devd )
     if config.Stf.AdminToken != "" {
         stf_release( config, devd.uuid )
     }
+}
+
+func test_restart_on_release( devd *RunningDev ) {
+    restart_closure := func() { do_restart( devd.confDup, devd ) }
+    stf_on_release( restart_closure )
 }
 
 func periodic_start( config *Config, devd *RunningDev ) {
