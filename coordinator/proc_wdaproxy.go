@@ -5,10 +5,17 @@ import (
   log "github.com/sirupsen/logrus"
   "strconv"
   "strings"
+  "time"
 )
 
 func restart_wdaproxy( devd *RunningDev ) {
     restart_proc_generic( devd, "wdaproxy" )
+}
+func wait_wdaup( devd *RunningDev ) {
+    for {
+        if devd.wda == true { break }
+        time.Sleep( time.Second * 10 )
+    }
 }
 
 func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
@@ -52,11 +59,16 @@ func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
         }
         return true
     }
+    
+    devd := o.devd
     o.stderrHandler = func( line string, plog *log.Entry ) (bool) {
         if strings.Contains( line, "[WDA] successfully started" ) {
             /*plog.WithFields( log.Fields{
                 "type": "wda_started",
             } ).Info("WDA Running")*/
+            devd.lock.Lock()
+            devd.wda = true
+            devd.lock.Unlock()
             
             devEventCh <- DevEvent{
                 action: 4,
@@ -64,6 +76,11 @@ func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
             }
         }
         return true
+    }
+    o.onStop = func( devd *RunningDev ) {
+        devd.lock.Lock()
+        devd.wda = false
+        devd.lock.Unlock()
     }
             
     proc_generic( o )

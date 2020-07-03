@@ -45,6 +45,7 @@ type STFConfig struct {
     Ip       string `json:"ip"`
     HostName string `json:"hostname"`
     Location string `json:"location"`
+    AdminToken string `json:"admin_token"`
 }
 
 type VideoConfig struct {
@@ -149,7 +150,8 @@ func read_config( configPath string ) *Config {
           "stf":{
             "ip": "",
             "hostname": "",
-            "location": ""
+            "location": "",
+            "admin_token": "",
           },
           "video":{
             "enabled": true,

@@ -7,6 +7,15 @@ import (
     log "github.com/sirupsen/logrus"
 )
 
+func restart_device_unit( devd *RunningDev ) {
+    restart_proc_generic( devd, "stf_device_ios" )
+}
+
+var onRelease func()
+func stf_on_release( newOnRelease func() ) {
+    onRelease = newOnRelease
+}
+
 func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
     vncPort := 0
     if o.config.Video.UseVnc && o.config.Video.Enabled {
@@ -57,7 +66,9 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "clickHeight": o.devd.clickHeight,
         "frame_server": frameServer,
     }
-    o.stdoutHandler = func( line string, plog *log.Entry ) (bool) {
+    
+    devd := o.devd
+    o.stderrHandler = func( line string, plog *log.Entry ) (bool) {
         if strings.Contains( line, "Now owned by" ) {
             pos := strings.Index( line, "Now owned by" )
             pos += len( "Now owned by" ) + 2
@@ -68,6 +79,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
                 "type": "wda_owner_start",
                 "owner": owner,
             } ).Info("Device Owner Start")
+            devd.owner = owner
         }
         if strings.Contains( line, "No longer owned by" ) {
             pos := strings.Index( line, "No longer owned by" )
@@ -79,6 +91,11 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
                 "type": "wda_owner_stop",
                 "owner": owner,
             } ).Info("Device Owner Stop")
+            devd.owner = ""
+            if onRelease != nil {
+                onRelease()
+                onRelease = nil
+            }
         }
         if strings.Contains( line, "responding with identity" ) {
             plog.WithFields( log.Fields{

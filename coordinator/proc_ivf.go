@@ -7,6 +7,10 @@ import (
     log "github.com/sirupsen/logrus"
 )
 
+func restart_ivf( devd *RunningDev ) {
+    restart_proc_generic( devd, "ivf" )
+}
+
 func proc_ivf( o ProcOptions ) {
     devd := o.devd.dup()
     udid := devd.uuid
