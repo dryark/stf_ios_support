@@ -650,7 +650,7 @@ func event_loop(
                     "uuid": censor_uuid( uuid ),
                 } ).Info("Fetched WDA session")
                 
-                resp2, _ := http.Get( wdaBase + "session/" + sessionId + "/window/size" )
+                resp2, _ := http.Get( wdaBase + "/session/" + sessionId + "/window/size" )
                 body2 := new(bytes.Buffer)
                 body2.ReadFrom(resp2.Body)
                 //fmt.Printf("window size response: %s\n", string(body2.Bytes()) )
