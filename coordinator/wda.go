@@ -18,6 +18,11 @@ type WDAType struct {
   devd *RunningDev
 }
 
+func NewWDACaller( base string ) ( *WDAType ) {
+  self := WDAType { base: base }
+  return &self
+}
+
 func NewTempWDA( o ProcOptions ) ( *WDAType ) {
   tempCh := make( chan DevEvent )
   wda := WDAType {

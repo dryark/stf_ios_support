@@ -611,12 +611,11 @@ func event_loop(
                     uuid: uuid,
                 }              
               
-                wdaBase := "http://127.0.0.1:8100/"// + strconv.Itoa( devd.wdaPort ) + "/"
+                wdaBase := "http://127.0.0.1:8100"
                 var sessionId string
                 try := 0
                 for {
-                    resp, _ := http.Get( wdaBase + "status" )
-                    
+                    resp, _ := http.Get( wdaBase + "/status" )
                     body := new(bytes.Buffer)
                     body.ReadFrom(resp.Body)
                     if string(body.Bytes()) != "" {
@@ -627,7 +626,13 @@ func event_loop(
                         fmt.Printf("Status response: %s\n", str )
                         root, _ := uj.Parse( []byte( str ) )
                         //root.Dump()
-                        sessionId = root.Get("sessionId").String()
+                        sessionNode := root.Get("sessionId")
+                        if sessionNode == nil {
+                            wda := NewWDACaller( wdaBase )
+                            sessionId = wda.create_session( "com.apple.Preferences" )
+                        } else {
+                            sessionId = sessionNode.String()
+                        }
                         
                         break
                     }
