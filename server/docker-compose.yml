@@ -52,9 +52,12 @@ services:
   auth:
     image: ${STF_IMAGE}
     restart: unless-stopped
+    volumes:
+      - ./runcli.js:/app/runcli.js
     environment:
       - SECRET
-    command: stf auth-mock --app-url http://${HOSTNAME}/ --port 3000
+      - RETHINKDB_PORT_28015_TCP
+    command: node runcli.js auth-mock --app-url http://${HOSTNAME}/ --port 3000
   processor:
     image: ${STF_IMAGE}
     restart: unless-stopped
@@ -102,7 +105,9 @@ services:
     image: ${STF_IMAGE}
     environment:
       - RETHINKDB_PORT_28015_TCP
-    command: stf migrate
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    command: node runcli.js migrate
     depends_on:
       - rethinkdb
   reaper:
@@ -115,21 +120,27 @@ services:
       - rethinkdb
       - dev-triproxy
       - triproxy
+    volumes:
+      - ./runcli.js:/app/runcli.js
     command: >
-      stf reaper dev
+      node runcli.js reaper dev
       --connect-push tcp://dev-triproxy:7270
       --connect-sub tcp://triproxy:7150
       --heartbeat-timeout 30000
   storage-plugin-apk:
     image: ${STF_IMAGE}
     restart: unless-stopped
-    command: stf storage-plugin-apk --port 3000 --storage-url http://${PUBLIC_IP}/
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    command: node runcli.js storage-plugin-apk --port 3000 --storage-url http://${PUBLIC_IP}/
     depends_on:
       - storage-temp
   storage-plugin-image:
     image: ${STF_IMAGE}
     restart: unless-stopped
-    command: stf storage-plugin-image --port 3000 --storage-url http://${PUBLIC_IP}/
+    volumes:
+      - ./runcli.js:/app/runcli.js
+    command: node runcli.js storage-plugin-image --port 3000 --storage-url http://${PUBLIC_IP}/
     depends_on:
       - storage-temp
   storage-temp:
@@ -137,7 +148,8 @@ services:
     restart: unless-stopped
     volumes:
       - storage-temp:/app/data
-    command: stf storage-temp --port 3000 --save-dir /app/data
+      - ./runcli.js:/app/runcli.js
+    command: node runcli.js storage-temp --port 3000 --save-dir /app/data
   websocket:
     image: ${STF_IMAGE}
     restart: unless-stopped
@@ -173,6 +185,8 @@ services:
       --port 3000
       --connect-sub tcp://triproxy:7150
       --connect-push tcp://triproxy:7170
+      --connect-sub-dev tcp://dev-triproxy:7250
+      --connect-push-dev tcp://dev-triproxy:7270
     ports:
       - 10001:9229
     volumes:
@@ -183,4 +197,5 @@ services:
       - migrate
       - rethinkdb
       - triproxy
+      - dev-triproxy
 
