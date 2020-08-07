@@ -1,4 +1,4 @@
-FROM openstf/stf:latest
+FROM livxtrm/devicefarmer:latest
 
 USER root
 RUN mkdir data && chown stf:stf data
