@@ -107,6 +107,7 @@ func main() {
     var delNetPerm = flag.Bool( "delNetPerm", false        , "Delete network permission for coordinator app" )
     var configFile = flag.String( "config"  , "config.json", "Config file path" )
     var testVideo  = flag.Bool( "testVideo" , false        , "Test Video Streaming" )
+    var doUnlock   = flag.Bool( "unlock"    , false        , "Unlock the IOS device" )
     
     var reserve    = flag.Bool( "reserve"   , false        , "Reserve device in STF" )
     var release    = flag.Bool( "release"   , false        , "Release device in STF" )
@@ -223,6 +224,36 @@ func main() {
     portMap := NewPortMap( config )
     
     devEventCh := make( chan DevEvent )
+    
+    if *doUnlock {
+        devId := getFirstDeviceId()
+        fmt.Printf("First device ID: %s\n", devId )
+        
+        devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
+        
+        o := ProcOptions {
+            config: config,
+            baseProgs: &baseProgs,
+            lineLog: lineLog,
+            devd: devd,
+            curIP: "127.0.0.1",
+        }
+        
+        wda := NewTempWDA( o )
+        
+        time.Sleep( time.Second * 5 )
+        
+        isLocked := wda.is_locked()
+        if isLocked {
+            fmt.Println("Locked; unlocking...")
+            wda.unlock()
+            fmt.Println("Unlocked")
+        } else {
+            fmt.Println("Already unlocked")
+        }
+        
+        os.Exit(0)
+    }
     
     if *testVideo {
         devId := getFirstDeviceId()
@@ -653,7 +684,7 @@ func event_loop(
                 resp2, _ := http.Get( wdaBase + "/session/" + sessionId + "/window/size" )
                 body2 := new(bytes.Buffer)
                 body2.ReadFrom(resp2.Body)
-                //fmt.Printf("window size response: %s\n", string(body2.Bytes()) )
+                fmt.Printf("window size response: %s\n", string(body2.Bytes()) )
                 root2, _ := uj.Parse( body2.Bytes() )
                 
                 val := root2.Get("value")

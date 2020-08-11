@@ -156,6 +156,19 @@ func wda_session( base string ) ( string ) {
   return sid;
 }
 
+func ( self *WDAType ) is_locked() ( bool ) {
+  resp, _ := http.Get( self.base + "/wda/locked" )
+  respStr := resp_to_str( resp )
+  fmt.Printf("response str:%s\n", respStr)
+  content, _ := uj.Parse( []byte( respStr ) )
+  //fmt.Printf("output:%s\n", content )
+  return content.Get("value").Bool()
+}
+
+func ( self *WDAType ) unlock() {
+  http.Post( self.base + "/wda/unlock", "application/json", strings.NewReader( "{}" ) )
+}
+
 func source( base string ) ( string ) {
   resp, _ := http.Get( base + "/source" )
   res := resp_to_str( resp )
