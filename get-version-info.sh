@@ -65,6 +65,7 @@ else:
     "ios_video_stream": git_info( 'repos/ios_video_stream' ),
     "wdaproxy": git_info( 'repos/wdaproxy' ),
     "ios_support": git_info( '.' ),
+    "ios_avf_pull": git_info( 'repos/ios_avf_pull' )
   }
   if os.path.exists( 'bin/wda/build_info.json' ):
     fh = open( 'bin/wda/build_info.json', 'r' )

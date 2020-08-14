@@ -61,7 +61,11 @@ bin/ivf_pull: repos/ios_avf_pull/ivf_pull
 	cp repos/ios_avf_pull/ivf_pull bin/ivf_pull
 
 repos/ios_avf_pull/ivf_pull: repos/ios_avf_pull repos/ios_avf_pull/ivf_pull.m repos/ios_avf_pull/uclop.h | repos/ios_avf_pull
-	$(MAKE) -C repos/ios_avf_pull
+	$(eval GIT_COMMIT=$(shell jq '.ios_avf_pull.commit' temp/current_versions.json -j))
+	$(eval GIT_DATE=$(shell jq '.ios_avf_pull.date' temp/current_versions.json -j))
+	$(eval GIT_REMOTE=$(shell jq '.ios_avf_pull.remote' temp/current_versions.json -j))
+	$(eval EASY_VERSION=$(shell jq '.version' repos/ios_avf_pull/version.json -j))
+	GIT_COMMIT="$(GIT_COMMIT)" GIT_DATE="$(GIT_DATE)" GIT_REMOTE="$(GIT_REMOTE)" EASY_VERSION="$(EASY_VERSION)" $(MAKE) -C repos/ios_avf_pull
 
 # --- COORDINATOR ---
 
@@ -70,7 +74,11 @@ coordinator: bin/coordinator
 coordinator_sources := $(wildcard coordinator/*.go)
 
 bin/coordinator: $(coordinator_sources)
-	$(MAKE) -C coordinator
+	$(eval GIT_COMMIT=$(shell jq '.ios_support.commit' temp/current_versions.json -j))
+	$(eval GIT_DATE=$(shell jq '.ios_support.date' temp/current_versions.json -j))
+	$(eval GIT_REMOTE=$(shell jq '.ios_support.remote' temp/current_versions.json -j))
+	$(eval EASY_VERSION=$(shell jq '.version' version.json -j))
+	GIT_COMMIT="$(GIT_COMMIT)" GIT_DATE="$(GIT_DATE)" GIT_REMOTE="$(GIT_REMOTE)" EASY_VERSION="$(EASY_VERSION)" $(MAKE) -C coordinator
 
 # --- WDAPROXY WRAPPER ---
 

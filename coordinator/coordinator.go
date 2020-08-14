@@ -92,6 +92,11 @@ type BaseProgs struct {
 
 var gStop bool
 
+var GitCommit string
+var GitDate string
+var GitRemote string
+var EasyVersion string
+
 func main() {
     gStop = false
 
@@ -108,6 +113,7 @@ func main() {
     var configFile = flag.String( "config"  , "config.json", "Config file path" )
     var testVideo  = flag.Bool( "testVideo" , false        , "Test Video Streaming" )
     var doUnlock   = flag.Bool( "unlock"    , false        , "Unlock the IOS device" )
+    var doVersion  = flag.Bool( "version"   , false        , "Show coordinator version info" )
     
     var reserve    = flag.Bool( "reserve"   , false        , "Reserve device in STF" )
     var release    = flag.Bool( "release"   , false        , "Release device in STF" )
@@ -115,6 +121,11 @@ func main() {
     
     flag.Parse()
 
+    if *doVersion {
+        fmt.Printf("Commit:%s\nDate:%s\nRemote:%s\nVersion:%s\n", GitCommit, GitDate, GitRemote, EasyVersion )
+        os.Exit(0)
+    }
+    
     if *vpnlist {
         vpns := vpns_getall()
 

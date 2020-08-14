@@ -12,6 +12,9 @@ if( -e "temp/check-ok-$mainT" ) {
 }
 
 my $versions = `./get-version-info.sh --unix --wdasource`;
+open( my $vfile, ">temp/current_versions.json" );
+print $vfile $versions;
+close( $vfile );
 $versions =~ s/:/=>/g;
 $versions =~ s/"/'/g;
 
