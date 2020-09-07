@@ -7,7 +7,9 @@ my $mainT = 0;
 if( $main =~ m/Date:\s+([0-9]+)/ ) {
     $mainT = $1;
 }
-if( -e "temp/check-ok-$mainT" ) {
+my $arg = $ARGV[0];
+if( -e "temp/check-ok-$mainT" && ( !$arg || $arg ne 'force' ) ) {
+	print "Versions already checked; skipping version check\n";
     exit;
 }
 
@@ -22,10 +24,15 @@ my $ob = eval( $versions );
 
 my $have_issues = 0;
 my $reqs = {
-    h264_to_jpeg     => { min => 1588831486 },
-    ios_video_stream => { min => 1589311851, message => "Then run `make cleanivs` them `make`" },
-    wdaproxy         => { min => 1589245810, message => "Then run `make cleanwdaproxy` then `make`" },
-    wda              => { min => 1588413226, message => "Then run `make cleanwda` them `make`" }
+    # h264_to_jpeg is no longer the primary video mechanism
+    # h264_to_jpeg     => { min => 1588831486 },
+    
+    ios_video_stream => { min => 1597980831, message => "Then run `make cleanivs` them `make`" },
+    wdaproxy         => { min => 1594408035, message => "Then run `make cleanwdaproxy` then `make`" },
+    wda              => { min => 1596738353, message => "Then run `make cleanwda` them `make`", name => 'WebDriverAgent' },
+    ios_avf_pull     => { min => 1597380907 },
+    stf              => { min => 1597980993, name => 'stf-ios-provider' },
+    device_trigger   => { min => 1578609558, name => 'osx_ios_device_trigger' }
 };
 for my $name ( keys %$reqs ) {
     my $repo = $ob->{ $name };
@@ -35,6 +42,7 @@ for my $name ( keys %$reqs ) {
     }
     my $remote = $repo->{remote};
     my $date = $repo->{date};
+    my $dirname = $repo->{name} || $name;
     $remote =~ s/=>/:/;
     my $req = $reqs->{ $name };
     if( $req->{ min } ) {

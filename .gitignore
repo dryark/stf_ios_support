@@ -2,10 +2,10 @@
 repos
 bin
 offline
-coordinator/icon/stf.icns
-coordinator/icon/stf.iconset*
 config.json
 logs
 view_log
 wda_wrapper/go.sum
-STF Coordinator.app/
+temp
+dist.tgz
+cache/*
