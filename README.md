@@ -1,21 +1,40 @@
 ## STF IOS Support
+
+### Prerequisites
+1. A machine running MacOS ( to build and run the "provider" )
+1. A machine running Linux with Docker container support ( to run the STF server )
+
 ### Build machine setup
 1. Clone this repo down to your build machine
 1. Install XCode
 1. Add your developer Apple ID to XCode
 
     1. XCode -> XCode menu -> Preferences -> Accounts Tab
-    1. `+` under `Apple IDs` list
+    1. Click `+` under `Apple IDs` list
     1. Choose `Apple ID`
-    1. Login to your account so that dev certs can be downloaded
+    1. Login to your account
+    1. Select `Manage Certificates`
+    1. Click `+` in the lower left corner
+    1. Select `Apple Development`
+1. Clone the various needed repos ( includes WebDriverAgent )
+
+    1. Run `make clone`
+1. Configure WebDriverAgent to use your identity for signing
+
+    1. Open `repos/WebDriverAgent/WebDriverAgent.xcodeproj` in XCode
+    1. Select the WebDriverAgentLib target
+    1. Go to the `Signing & Capabilities` tab
+    1. Select your team under `Team`
+    1. Select the WebDriverAgentRunner target
+    1. Go to the `Signing & Capabilities` tab
+    1. Select your team under `Team`
 1. Run `./init.sh`
 
 ### Deploy server side:
-1. On your STF server machine
-    1. Pull STF server image `docker pull openstf/stf`
-	1. Copy `docker-compose.yml` and `.env` from server/
-	1. Generate certs for your system / domain
-	1. Update `docker-compose.yml` cert paths and `.env`
+1. On your Linux machine
+    1. Copy `server` folder to your Linux machine
+    1. Run `server/cert/gencert.sh` to generate a self-signed cert ( or use your own )
+	1. Update `server/.env` to reflect the IP and hostname for your server
 	1. Start STF
 
 		1. docker-compose up
@@ -40,7 +59,7 @@
 
     1. Use the API?? https://developer.apple.com/documentation/appstoreconnectapi/devices
     1. Follow these instructions: https://www.telerik.com/blogs/how-to-add-ios-devices-to-your-developer-profile
-       I couldn't find updated instructions on Apples website. If you find them please let me know so I can link to them.
+       I couldn't find updated instructions on Apple's website. If you find them please let me know so I can link to them.
 1. Plug your IOS device in
 1. Pair it with your system
 1. Have Xcode setup the "developer image" on your IOS device:
@@ -61,11 +80,15 @@
     1. The brew --HEAD version that is installed by init.sh does not build correctly right now because HEAD is broken,
        and additionally HEAD of libimobiledevice depends on HEAD of libplist which the init.sh script is not setup
        to build and install correctly.
-    1. This all will be taken care of soon. For the time being; be aware that libimobiledevice won't install via init.sh
-       so you'll need to figure out on your own somehow how to get it installed until this repo is updated to automate
-       that process.
-    1. It is possible to build current HEAD of libimobiledevice using --disable-openssl and by brew installing HEAD
-       of libplist. You'll also need to brew install libgcrypt.
+    1. To install libimobiledevice
+         
+         1. `cd repos/`
+         1. `git clone https://github.com/libimobiledevice/libimobiledevice.git`
+         1. `cd libimobiledevice`
+         1. `NOCONFIGURE=1 ./autogen.sh`
+         1. `./configure --disable-openssl`
+         1. `make`
+         1. `make install`
 1. Video streaming will sometimes be left in a "stuck" state
     
     1. ios_video_pull sub-process of coordinator depends on quicktime_video_hack upstream repo/library. That library
@@ -74,12 +97,6 @@
     1. To fix this you can use devreset. This is why the devreset command is mentioned above currently to run before
        starting coordinator. devreset effectively stops the video streaming entirely, resetting it so that it can
        be started up again.
-1. The init.sh script does not created ~/Library/LaunchAgents folder; despite it needing to exist
-
-    1. Your system may already have such a folder for your user, in which case everything will work fine.
-    1. If it doesn't exist, coordinator will be unable to create the plist within it used to start WDA. You'll need
-       to create the folder then to fix this. The error message in this case is somewhat obvious; but this issue
-       will bite many users. Autocreation of this folder will be added soon.
        
 ### Setting up with VPN
 1. Install openvpn-server on your STF server machine
@@ -92,26 +109,12 @@
 
 ### Handling video not working
 1. Run `./view_log proc ios_video_pull` to check for errors fetching h264 data from the IOS device
-1. Run `./view_log -proc h264_to_jpeg` to check for errors decoding h264 into jpegs
 1. Run `./view_log -proc ios_video_stream` to check for errors streaming jpegs via websocket to browser
-
 1. Reboot your IOS device and try again
-
-### Increase clicking speed
-1. Jailbreak your IOS device
-1. Install Veency through Cydia
-1. Configure a VNC password if desired
-1. Alter `config.json`
-
-    1. Set `"use_vnc": true`
-    1. Set `"vnc_scale": 2` ( or 3 depending on your device scale )
-    1. If password used, set `"vnc_password": "[your password]"`
-1. Start coordinator
-1. Clicking is now nearly immediate!
 
 ### Debugging
 1. run `./view_log` to see list of things that log
 1. run `./view_log -proc [one from list]`
 
 ### FAQ
-See https://github.com/tmobile/stf_ios_support/wiki/FAQ
+See https://github.com/devicefarmer/stf_ios_support/wiki/FAQ
