@@ -4,11 +4,11 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web ivf devreset libimd
+all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web ivf devreset libimd launchfolder
 endif
 
 .PHONY:\
- checkout\
+ clone\
  stf\
  ios_video_stream\
  device_trigger\
@@ -21,10 +21,18 @@ endif
  wdaproxyalias\
  wdaproxybin\
  devreset\
- ivf
+ ivf\
+ launchfolder
 
 config.json:
 	cp config.json.example config.json
+
+# --- LaunchAgents Folder ---
+
+launchfolder: ~/Library/LaunchAgents
+
+~/Library/LaunchAgents:
+	@if [ ! -d ~/Library/LaunchAgents ]; then mkdir ~/Library/LaunchAgents; fi;
 
 # --- DEVICE TRIGGER ---
 
@@ -166,7 +174,7 @@ bin/devreset: repos/macos_usbdev_reset/devreset
 
 # --- REPO CLONES ---
 
-checkout: repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider
+clone: repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider
 
 repos/stf-ios-provider/package.json: repos/stf-ios-provider
 
