@@ -37,6 +37,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "--name"                 , o.devd.name,
         "--connect-push"         , fmt.Sprintf("tcp://%s:7270", o.config.Stf.Ip),
         "--connect-sub"          , fmt.Sprintf("tcp://%s:7250", o.config.Stf.Ip),
+        "--connect-port"         , strconv.Itoa( o.devd.usbmuxdPort ),
         "--public-ip"            , curIP,
         "--wda-port"             , strconv.Itoa( o.devd.wdaPort ),
         "--storage-url"          , fmt.Sprintf("https://%s", o.config.Stf.HostName),
