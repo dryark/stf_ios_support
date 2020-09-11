@@ -26,6 +26,7 @@ type Config struct {
     MirrorFeedPort int
     DevIosPort     int
     VncPort        int
+    UsbmuxdPort    int
     DecodeInPort   int
     DecodeOutPort  int
 }
@@ -38,6 +39,7 @@ type NetConfig struct {
     Vnc         string `json:"vnc_ports"`
     Wda         string `json:"proxy_ports"`
     Decode      string `json:"decode_ports"`
+    Usbmuxd     string `json:"usbmuxd_ports"`
     Iface       string `json:"interface"`
 }
 
@@ -145,6 +147,7 @@ func read_config( configPath string ) *Config {
             "vnc_ports":       "5901-5911",
             "proxy_ports":     "8100-8105",
             "decode_ports":    "7878-7888",
+            "usbmuxd_ports":   "9920-9930",
             "interface": "en0"
           },
           "stf":{
@@ -212,6 +215,7 @@ func read_config( configPath string ) *Config {
           VncPort:         5901,
           DecodeOutPort:   7878,
           DecodeInPort:    7879,
+          UsbmuxdPort:     9920,
         }
         
         err = json.Unmarshal( []byte( defaultJson ), &config )

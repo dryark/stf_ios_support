@@ -57,6 +57,7 @@ type RunningDev struct {
     vidPort       int
     devIosPort    int
     vncPort       int
+    usbmuxdPort   int
     wdaStdoutPipe string
     wdaStderrPipe string
     heartbeatChan chan<- bool
@@ -338,6 +339,7 @@ func main() {
         "vid_ports": portMap.vidPorts,
         "wda_ports": portMap.wdaPorts,
         "vnc_ports": portMap.vncPorts,
+        "usbmuxd_ports": portMap.usbmuxdPorts,
         "dev_ios_ports": portMap.devIosPorts,
     } ).Debug("Portmap")
     
@@ -419,7 +421,7 @@ func NewRunningDev(
         portMap *PortMap,
         uuid string ) ( *RunningDev ) {
         
-    wdaPort, vidPort, devIosPort, vncPort, _, _, config := assign_ports( gConfig, portMap )
+    wdaPort, vidPort, devIosPort, vncPort, usbmuxdPort, _, _, config := assign_ports( gConfig, portMap )
   
     devd := RunningDev{
         uuid: uuid,
@@ -429,6 +431,7 @@ func NewRunningDev(
         vidPort:       vidPort,
         devIosPort:    devIosPort,
         vncPort:       vncPort,
+        usbmuxdPort:   usbmuxdPort,
         confDup:       config,
         videoReady:    false,
         streamWidth:   0,
@@ -461,6 +464,7 @@ func NewRunningDev(
         "vid_port": vidPort,
         "wda_port": wdaPort,
         "vnc_port": vncPort,
+        "usbmuxd_port": usbmuxdPort,
         "dev_ios_port": devIosPort,
     } ).Info("Device object created")
     

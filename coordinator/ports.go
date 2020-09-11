@@ -12,25 +12,28 @@ type PortItem struct {
 }
 
 type PortMap struct {
-    wdaPorts    map[int] *PortItem
-    vidPorts    map[int] *PortItem
-    devIosPorts map[int] *PortItem
-    vncPorts    map[int] *PortItem
-    decodePorts map[int] *PortItem
+    wdaPorts     map[int] *PortItem
+    vidPorts     map[int] *PortItem
+    devIosPorts  map[int] *PortItem
+    vncPorts     map[int] *PortItem
+    usbmuxdPorts map[int] *PortItem
+    decodePorts  map[int] *PortItem
 }
 
 func NewPortMap( config *Config ) ( *PortMap ) {
-    wdaPorts    := construct_ports( "WDA", config, config.Network.Wda    )
-    vidPorts    := construct_ports( "Video", config, config.Network.Video  )
-    devIosPorts := construct_ports( "Dev IOS", config, config.Network.DevIos ) 
-    vncPorts    := construct_ports( "VNC", config, config.Network.Vnc    )
-    decodePorts := construct_ports( "Decode", config, config.Network.Decode )
+    wdaPorts     := construct_ports( "WDA", config, config.Network.Wda    )
+    vidPorts     := construct_ports( "Video", config, config.Network.Video  )
+    devIosPorts  := construct_ports( "Dev IOS", config, config.Network.DevIos ) 
+    vncPorts     := construct_ports( "VNC", config, config.Network.Vnc    )
+    decodePorts  := construct_ports( "Decode", config, config.Network.Decode )
+    usbmuxdPorts := construct_ports( "usbmuxd", config, config.Network.Usbmuxd )
     portMap := PortMap {
         wdaPorts: wdaPorts,
         vidPorts: vidPorts,
         devIosPorts: devIosPorts,
         vncPorts: vncPorts,
         decodePorts: decodePorts,
+        usbmuxdPorts: usbmuxdPorts,
     }
     return &portMap
 }
@@ -80,7 +83,7 @@ func assign_port( amap map[int] *PortItem ) (int) {
     return 0
 }
 
-func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,int,int,*Config ) {
+func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,int,int,int,*Config ) {
     dupConfig := *gConfig
 
     wdaPort := assign_port( portMap.wdaPorts )
@@ -95,12 +98,15 @@ func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,int,int
     vncPort := assign_port( portMap.vncPorts )
     dupConfig.VncPort = vncPort
     
+    usbmuxdPort := assign_port( portMap.usbmuxdPorts )
+    dupConfig.UsbmuxdPort = usemuxdPort
+    
     nanoOutPort := assign_port( portMap.decodePorts )
     nanoInPort := assign_port( portMap.decodePorts )
     dupConfig.DecodeOutPort = nanoOutPort
     dupConfig.DecodeInPort = nanoInPort
 
-    return wdaPort, vidPort, devIosPort, vncPort, nanoOutPort, nanoInPort, &dupConfig
+    return wdaPort, vidPort, devIosPort, vncPort, usbmuxdPort, nanoOutPort, nanoInPort, &dupConfig
 }
 
 func free_ports(
@@ -108,6 +114,7 @@ func free_ports(
         vidPort int,
         devIosPort int,
         vncPort int,
+        usbmuxdPort int,
         portMap *PortMap ) {
     wdaItem := portMap.wdaPorts[ wdaPort ]
     wdaItem.available = true
@@ -120,4 +127,7 @@ func free_ports(
     
     vncItem := portMap.vncPorts[ vncPort ]
     vncItem.available = true
+    
+    usbmuxdItem := portMap.usbmuxdPorts[ usbmuxdPort ]
+    usbmuxdItem.available = true
 }
