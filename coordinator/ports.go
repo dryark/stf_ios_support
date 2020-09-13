@@ -99,7 +99,7 @@ func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,int,int
     dupConfig.VncPort = vncPort
     
     usbmuxdPort := assign_port( portMap.usbmuxdPorts )
-    dupConfig.UsbmuxdPort = usemuxdPort
+    dupConfig.UsbmuxdPort = usbmuxdPort
     
     nanoOutPort := assign_port( portMap.decodePorts )
     nanoInPort := assign_port( portMap.decodePorts )
