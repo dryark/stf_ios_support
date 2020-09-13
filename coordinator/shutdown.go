@@ -67,7 +67,7 @@ func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
     devd.lock.Unlock()
     
     if portMap != nil {
-        free_ports( devd.wdaPort, devd.vidPort, devd.devIosPort, devd.vncPort, portMap )
+        free_ports( devd.wdaPort, devd.vidPort, devd.devIosPort, devd.vncPort, devd.usbmuxdPort, portMap )
     }
 
     plog := log.WithFields( log.Fields{
