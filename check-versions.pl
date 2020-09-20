@@ -37,9 +37,16 @@ my $reqs = {
 for my $name ( keys %$reqs ) {
     my $repo = $ob->{ $name };
     if( !$repo ) {
+    	$have_issues = 1;
         print "repos/$name is missing\n";
         next;
     }
+    my $error = $repo->{error};
+    if( $error ) {
+    	$have_issues = 1;
+		print "$name; error: $error\n";
+		next;
+	}
     my $remote = $repo->{remote};
     my $date = $repo->{date};
     my $dirname = $repo->{name} || $name;
