@@ -4,7 +4,24 @@ all: error
 error:
 	$(error preflight errors)
 else
-all: config.json bin/coordinator ios_video_stream ios_video_pull device_trigger wda halias wdaproxyalias view_log wda_wrapper stf bin/wda/web ivf devreset libimd launchfolder
+all: config.json\
+ bin/coordinator\
+ ios_video_stream\
+ ios_video_pull\
+ device_trigger\
+ wda\
+ halias\
+ wdaproxyalias\
+ view_log\
+ stf\
+ bin/wda/web\
+ ivf\
+ devreset\
+ libimd\
+ runner\
+ runnerdist\
+ update_server\
+ launchfolder
 endif
 
 .PHONY:\
@@ -17,12 +34,14 @@ endif
  wda\
  offline\
  coordinator\
- dist\
+ runnerdist\
  wdaproxyalias\
  wdaproxybin\
  devreset\
  ivf\
- launchfolder
+ launchfolder\
+ updatedist\
+ dist
 
 config.json:
 	cp config.json.example config.json
@@ -88,12 +107,25 @@ bin/coordinator: $(coordinator_sources)
 	$(eval EASY_VERSION=$(shell jq '.version' version.json -j))
 	GIT_COMMIT="$(GIT_COMMIT)" GIT_DATE="$(GIT_DATE)" GIT_REMOTE="$(GIT_REMOTE)" EASY_VERSION="$(EASY_VERSION)" $(MAKE) -C coordinator
 
-# --- WDAPROXY WRAPPER ---
+# --- RUNNER ---
 
-wda_wrapper: bin/wda_wrapper
+runner: runner/runner
 
-bin/wda_wrapper: wda_wrapper/wda_wrapper.go
-	$(MAKE) -C wda_wrapper
+runner_sources := $(wildcard runner/*.go)
+
+runner/runner: $(runner_sources)
+	$(eval GIT_COMMIT=$(shell jq '.ios_support.commit' temp/current_versions.json -j))
+	$(eval GIT_DATE=$(shell jq '.ios_support.date' temp/current_versions.json -j))
+	$(eval GIT_REMOTE=$(shell jq '.ios_support.remote' temp/current_versions.json -j))
+	$(eval EASY_VERSION=$(shell jq '.version' version.json -j))
+	GIT_COMMIT="$(GIT_COMMIT)" GIT_DATE="$(GIT_DATE)" GIT_REMOTE="$(GIT_REMOTE)" EASY_VERSION="$(EASY_VERSION)" $(MAKE) -C runner
+
+# --- UPDATE SERVER ---
+
+update_server: update_server/server
+
+update_server/server: $(wildcard update_server/*.go)
+	$(MAKE) -C update_server
 
 # --- IOS VIDEO STREAM ---
 
@@ -254,6 +286,35 @@ offline/repos/stf-ios-provider: repos/stf-ios-provider repos/stf-ios-provider/pa
 bin/wda/web:
 	@if [ ! -L bin/wda/web ]; then ln -s ../../../repos/wdaproxy/web bin/wda/web; fi;
 
+# --- RUNNER DISTRIBUTION ---
+
+runnerdist: runner.tgz
+
+runnerfiles := \
+	runner/gencert.pl \
+	runner/runner \
+	runner/runner.json
+
+runner.tgz: runner/gencert.pl runner/runner runner/runner.json
+	tar -h -czf runner.tgz $(runnerfiles)
+
+# --- UPDATE SERVER DISTRIBUTION ---
+
+updatedist: update_server.tgz
+
+updatefiles := \
+	update_server/server\
+	update_server/updates/updates.json\
+	update_server/updates/remote.pl\
+	update_server/updates/index.html\
+	update_server/updates/v1.json
+
+update_server/updates/v1.tgz: dist.tgz
+	cp dist.tgz update_server/updates/v1.tgz
+
+update_server.tgz: $(updatefiles) update_server/updates/v1.tgz
+	tar -h -czf update_server.tgz $(updatefiles) update_server/updates/v1.tgz
+
 # --- BINARY DISTRIBUTION ---
 
 dist: dist.tgz
@@ -269,16 +330,18 @@ distfiles := \
 
 offlinefiles := \
 	repos/ \
-	logs/ \
+	logs/openvpn.log \
 	build_info.json
 
-dist.tgz: ios_video_stream wda device_trigger halias bin/coordinator offline/repos/stf-ios-provider config.json view_log wdaproxyalias
+offline/build_info.json: bin/coordinator bin/ios_video_stream bin/ivf_pull
 	@./get-version-info.sh > offline/build_info.json
-	mkdir -p offline/logs
-	touch offline/logs/openvpn.log
+
+dist.tgz: offline/build_info.json ios_video_stream wda device_trigger halias bin/coordinator offline/repos/stf-ios-provider config.json view_log wdaproxyalias | offline/repos/stf-ios-provider
+	@if [ ! -d offline/logs ]; then mkdir -p offline/logs; fi;
+	@if [ ! -f offline/logs/openvpn.log ]; then touch offline/logs/openvpn.log; fi;
 	tar -h -czf dist.tgz $(distfiles) -C offline $(offlinefiles)
 
-clean: cleanstf cleanwda cleanlogs cleanivs cleanwdaproxy
+clean: cleanstf cleanwda cleanlogs cleanivs cleanwdaproxy cleanrunner
 	$(MAKE) -C coordinator clean
 	$(RM) build_info.json
 
@@ -293,9 +356,16 @@ cleanivs:
 	$(MAKE) -C repos/ios_video_stream clean
 	$(RM) bin/ios_video_stream
 
+cleanivf:
+	$(MAKE) -C repos/ios_avf_pull clean
+	$(RM) bin/ivf_pull
+
 cleanwda:
 	$(RM) -rf bin/wda
 	cd repos/WebDriverAgent && xcodebuild -scheme WebDriverAgentRunner clean
+
+cleanrunner:
+	$(MAKE) -C runner clean
 
 cleanlogs:
 	$(RM) logs/*

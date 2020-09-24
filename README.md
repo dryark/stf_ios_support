@@ -73,6 +73,40 @@
 1. Permissions dialog boxes appear for coordinator to listen on various ports; select accept for all of them
 1. Device shows up in STF with video and can be controlled. Yay
 
+### Using runner
+Runner is a command that runs coordinator in a loop and also enables installation/update of a distribution.
+Runner is not necessary to use stf_ios_support. It is provided to make it easier to remotely maintain a cluster
+of providers.
+To use it:
+1. Run `make` to build all the things
+1. Run `runner/runner -pass [some password]` to generate crypted password of your choice
+1. Adjust `runner/runner.json`
+
+	1. Update user password with the crypted output of previous step
+	1. Update user to something else ( default user/pass are both replaceme )
+	1. Update update_server to be host/IP address of the server you will use to run update_server
+	1. Update updates path to be path on a provider machine where you want downloaded updates to be saved/cached
+	1. Update install_dir path to be the path where you want `coordinator` to be installed
+	1. Update config path to be a path where `config.json` for `coordinator` will be located on provider machine
+1. Rerun `make` to rebuild `runner.tgz`
+1. Run `make updatedist` to build `update_server.tgz`
+1. Copy `update_server.tgz` to a server
+1. Extract it
+
+	1. `tar -xf update_server`
+1. Run it and leave it running
+
+	1. `update_server/server`
+1. Copy `runner.tgz` to a provider machine
+1. Extract it
+
+	1. `tar -xf runner.tgz`
+1. Stop any instance you may be running of `coordinator` already on the provider
+1. Run it in a visual GUI MacOS session
+1. Go to `https://[provider ip/host]:8021` in your browser
+1. Accept the self-signed cert ( or make your own non-self signed cert and adjust updaet_server config )
+1. Click the update button to download/install/start `coordinator` on the provider
+
 ### Known Issues
 1. libimobiledevice won't install properly right now
 

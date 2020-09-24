@@ -1,0 +1,10 @@
+{
+  "files": [
+    "remote.pl",
+    "v1.tgz"
+  ],
+  "action": "remote.pl v1.tgz",
+  "provides": [
+    [ "coordinator", "1" ]
+  ]
+}

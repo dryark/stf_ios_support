@@ -3,6 +3,7 @@ package main
 import (
   log "github.com/sirupsen/logrus"
   gocmd "github.com/go-cmd/cmd"
+  "time"
 )
 
 type OutputHandler func( string, *log.Entry ) (bool)
@@ -119,8 +120,18 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
         
         statCh := cmd.Start()
         
-        proc.pid = cmd.Status().PID
-        
+        i := 0
+        for {
+            proc.pid = cmd.Status().PID
+            if proc.pid != 0 {
+                break
+            }
+            time.Sleep(50 * time.Millisecond)
+            if i > 4 {
+                break
+            }
+        }
+                
         plog.WithFields( log.Fields{
             "type": "proc_pid",
             "pid": proc.pid,

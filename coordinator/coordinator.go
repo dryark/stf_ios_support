@@ -115,6 +115,7 @@ func main() {
     var testVideo  = flag.Bool( "testVideo" , false        , "Test Video Streaming" )
     var doUnlock   = flag.Bool( "unlock"    , false        , "Unlock the IOS device" )
     var doVersion  = flag.Bool( "version"   , false        , "Show coordinator version info" )
+    var killProcs  = flag.Bool( "killProcs" , false        , "Terminate leftover processes" )
     
     var reserve    = flag.Bool( "reserve"   , false        , "Reserve device in STF" )
     var release    = flag.Bool( "release"   , false        , "Release device in STF" )
@@ -148,6 +149,11 @@ func main() {
     if *debug { fmt.Printf("Loading config\n") }
     config := read_config( *configFile )
     if *debug { fmt.Printf("Config loaded\n") }
+    
+    if *killProcs {
+    	cleanup_procs( config )
+    	os.Exit(0)
+    }
     
     if changeDir {
         os.Chdir( config.Install.RootPath )
