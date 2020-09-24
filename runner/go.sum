@@ -1,0 +1,15 @@
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/go-cmd/cmd v1.2.1 h1:fV4o2i9JX8+TeI1xB1x7Ji/3ndEfJNdaa+7uYGVhkuM=
+github.com/go-cmd/cmd v1.2.1/go.mod h1:F2yJeMVdy5ymftSgCR0zMN7XLhKFJpG5/1brXju8EXU=
+github.com/go-test/deep v1.0.6/go.mod h1:QV8Hv/iy04NyLBxAdO9njL0iVPN1S4d/A3NVv1V36o8=
+github.com/gorilla/template v0.0.0-20130106121210-ad2f1c41567b h1:jMvt85GaJEKEZdIQYsS72I/aVFvIIA4c+0/+P+wDVag=
+github.com/gorilla/template v0.0.0-20130106121210-ad2f1c41567b/go.mod h1:xfqvveesQKRN2vVwJ1nSfDdBGGkj+C+uxQpUqxIU76s=
+github.com/jviney/go-proc v0.2.0 h1:HzS0OfhmrhHrDIW7R1ajsCYu0HN/gB6ayl6BW76Zw5U=
+github.com/jviney/go-proc v0.2.0/go.mod h1:lb9gbAFTP34lAyqc4DEvOo21RDaAT6xO3cEuxrzI+mU=
+github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
+github.com/nanoscopic/ujsonin v1.9.0 h1:lblaLCr1H6g5Iy5IObSZJcvtzBIHK04GVYtuxATPtpk=
+github.com/nanoscopic/ujsonin v1.9.0/go.mod h1:FyHvuWes/DhijYGBTtQB74enYOLiHodd3M3waNV3gWU=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
+github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
+golang.org/x/sys v0.0.0-20190422165155-953cdadca894/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=

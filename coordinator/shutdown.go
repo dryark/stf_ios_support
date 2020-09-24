@@ -20,6 +20,7 @@ func cleanup_procs(config *Config) {
         "device_trigger": config.BinPaths.DeviceTrigger,
         "h264_to_jpeg": config.BinPaths.H264ToJpeg,
         "wdaproxy": "../wdaproxy",
+        "ivf": config.BinPaths.IVF,
     }
     
     // Cleanup hanging processes if any

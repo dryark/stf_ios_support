@@ -1,0 +1,16 @@
+{
+    "users": [
+        {
+            "user": "replaceme",
+            "pass": "e9cfcc4980e32ec6f3e8fca563f4de3c5f53766a8f0cc37accffc8ce1d99ff98"
+        }
+    ],
+    "https": true,
+    "crt": "server.crt",
+    "key": "server.key",
+    "updates": "/Users/user/stf_updates",
+    "install_dir": "/Users/user/stf",
+    "config": "/Users/user/stf/config.json",
+    "update_host": "localhost",
+    "update_port": 8022
+}

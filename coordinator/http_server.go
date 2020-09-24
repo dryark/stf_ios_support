@@ -144,6 +144,10 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
         device := "<font color='green'>on</font>"
         if devUnitProc == nil || devUnitProc.cmd == nil { device = "off" }
 
+        ivfProc := dev.process["ivf"]
+        ivf_pull := "<font color='green'>on</font>"
+        if ivfProc == nil || ivfProc.cmd == nil { ivf_pull = "off" }
+        
         owner := dev.owner
         if owner == "" { owner = "none" }
         
@@ -157,6 +161,7 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
             "deviceunit": device,
             "owner": owner,
             "wda": wda,
+            "ivf_pull": ivf_pull,
         } )
         devOut += str.String()
     }

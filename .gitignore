@@ -9,3 +9,8 @@ wda_wrapper/go.sum
 temp
 dist.tgz
 cache/*
+runner/*.crt
+runner/*.key
+runner/runnercert.conf
+runner/runner
+update_server/server

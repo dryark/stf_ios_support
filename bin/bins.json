@@ -1,0 +1,14 @@
+{
+	"bins": [
+	    {
+	        "short": "coordinator",
+	        "name": "Coordinator",
+	        "cmd": "coordinator -version"
+	    },
+	    {
+	        "short": "ivf_pull",
+	        "name": "IOS AVF Pull",
+	        "cmd": "ivf_pull version"
+	    }
+	]
+}
