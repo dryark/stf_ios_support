@@ -41,7 +41,8 @@ endif
  ivf\
  launchfolder\
  updatedist\
- dist
+ dist\
+ pull
 
 config.json:
 	cp config.json.example config.json
@@ -206,7 +207,17 @@ bin/devreset: repos/macos_usbdev_reset/devreset
 
 # --- REPO CLONES ---
 
-clone: repos/stf_ios_mirrorfeed repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider
+pull:
+	git -C repos/WebDriverAgent pull
+	git -C repos/osx_ios_device_trigger pull
+	git -C repos/stf-ios-provider pull
+	git -C repos/ios_avf_pull pull
+	git -C repo/ios_video_pull pull
+	git -C repos/h264_to_jpeg pull
+	git -C repos/wdaproxy pull
+	git -C repos/libimobiledevice pull
+
+clone: repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider repos/ios_avf_pull repos/ios_video_pull repos/h264_to_jpeg repos/wdaproxy repos/libimobiledevice
 
 repos/stf-ios-provider/package.json: repos/stf-ios-provider
 
