@@ -13,6 +13,9 @@
     1. Click `+` under `Apple IDs` list
     1. Choose `Apple ID`
     1. Login to your account
+1. Download a "Apple Development certificate" for your user
+
+	1. Continue from previous step, right after logging into your Developer account in Xcode
     1. Select `Manage Certificates`
     1. Click `+` in the lower left corner
     1. Select `Apple Development`
@@ -34,6 +37,7 @@
 1. On your Linux machine
     1. Copy `server` folder to your Linux machine
     1. Run `server/cert/gencert.sh` to generate a self-signed cert ( or use your own )
+    1. Note! Plain http STF server is not supported. It can be done, but it shouldn't and tickets to make it so will be closed.
 	1. Update `server/.env` to reflect the IP and hostname for your server
 	1. Start STF
 
@@ -41,10 +45,19 @@
 
 ### Using a standard OpenSTF server:
 1. Setup your server as normal following upstream instructions
+1. Create an SSL certificate for your server using the method you desire.
+1. Configure the OpenSTF server for SSL
 1. Alter stf_ios_support/coordinator/proc_stf_provider --connect-sub and --connect-push lines to match your server config
 
 ### Build provider files:
+1. Copy the first {} block from `config.json.example` into `config.json`. Do not include any comment lines starting with //
 1. Update config.json
+
+	1. Update `xcode_dev_team_id` to be the OU of your developer account. If you add your account into Xcode first, you can then run
+	   `make ou` to display what the OU is. You can also find it by opening the keychain, selecting the Apple Development certificate
+	   for your account, and then looking at what the `Organization Unit` is.
+	1. Update `root_path` to be where provider code should be installed, such as `/Users/user/stf`
+	1. Update `config_path` to match that, such as `/Users/user/stf/config.json`
 1. Run `make` then `make dist`
 
     1. dist.tgz will be created
@@ -55,13 +68,24 @@
 1. Tweak `config.json` as desired
 
 ### Starting provider
-1. Register(provision) your IOS device to your developer account as a developer device
+1. Register(provision) your IOS device to your developer account as a developer device.
 
-    1. Use the API?? https://developer.apple.com/documentation/appstoreconnectapi/devices
+    1. Use the API -or-
+    
+    	1. Follow https://developer.apple.com/documentation/appstoreconnectapi/creating_api_keys_for_app_store_connect_api to create
+    	   an app store connect API key. Give it Developer access.
+    	1. Gain a session using JSON Web Tokens
+    	1. Create a provisioning profile if none exist using profiles: https://developer.apple.com/documentation/appstoreconnectapi/profiles
+    	   See also https://github.com/cidertool/asc-go/blob/f08b8151f7fd92ff54924480338dafbf8a383255/asc/provisioning_profiles.go
+    	1. Post to the devices endpoint to register a device: https://developer.apple.com/documentation/appstoreconnectapi/devices
+    	   See also https://github.com/cidertool/asc-go/blob/f08b8151f7fd92ff54924480338dafbf8a383255/asc/provisioning_devices.go
     1. Follow these instructions: https://www.telerik.com/blogs/how-to-add-ios-devices-to-your-developer-profile
        I couldn't find updated instructions on Apple's website. If you find them please let me know so I can link to them.
 1. Plug your IOS device in
 1. Pair it with your system
+
+	1. Run `idevicepair pair`
+	1. Accept pairing on IOS device screen
 1. Have Xcode setup the "developer image" on your IOS device:
 
     1. Open Xcode

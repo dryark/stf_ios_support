@@ -42,10 +42,26 @@ endif
  launchfolder\
  updatedist\
  dist\
- pull
+ pull\
+ ou
 
 config.json:
 	cp config.json.example config.json
+
+# --- Special Commands ---
+
+ou:
+	$(eval CN=$(shell security find-identity -v -p codesigning | head -1 | cut -d\  -f 5-))
+	@echo CN=$(CN)
+	$(eval OU=$(shell security find-certificate -p -c $(CN) | openssl x509 -noout -subject | tr '/' '\n' | grep OU= | cut -d= -f 2 ))
+	@echo OU=$(OU)
+	@plutil -convert xml1 -o xcode.xml ~/Library/Preferences/com.apple.dt.Xcode.plist
+	@cat xcode.xml | perl -0777 -ple 's/<data>(.+?)<\/data>/<string>$1<\/string>/gs;' > xcode_clean.xml
+	@plutil -convert json -o xcode.json xcode_clean.xml
+	$(eval XCODEUSER=$(shell jq '.DVTDeveloperAccountManagerAppleIDLists["IDE.Prod"][0].username' xcode.json -j))
+	@echo Xcode user=$(XCODEUSER)
+	$(eval XCODEOU=$(shell jq '.IDEProvisioningTeams["$(XCODEUSER)"][1].teamID' xcode.json -j))
+	@echo OU of Xcode user=$(XCODEOU)
 
 # --- LaunchAgents Folder ---
 
