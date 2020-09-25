@@ -132,21 +132,10 @@ To use it:
 1. Click the update button to download/install/start `coordinator` on the provider
 
 ### Known Issues
-1. libimobiledevice won't install properly right now
+1. libimobiledevice won't install properly right now from brew
 
-    1. The brew version cannot be used because it is both far out of date and broken
-    1. The brew --HEAD version that is installed by init.sh does not build correctly right now because HEAD is broken,
-       and additionally HEAD of libimobiledevice depends on HEAD of libplist which the init.sh script is not setup
-       to build and install correctly.
-    1. To install libimobiledevice
-         
-         1. `cd repos/`
-         1. `git clone https://github.com/libimobiledevice/libimobiledevice.git`
-         1. `cd libimobiledevice`
-         1. `NOCONFIGURE=1 ./autogen.sh`
-         1. `./configure --disable-openssl`
-         1. `make`
-         1. `make install`
+	1. `./init.sh`
+    1. `make libimd` ( init.sh actually already runs this )
 1. Video streaming will sometimes be left in a "stuck" state
     
     1. ios_video_pull sub-process of coordinator depends on quicktime_video_hack upstream repo/library. That library
