@@ -1,27 +1,28 @@
 MakefileERR := $(shell ./makefile_preflight.pl)
 ifdef ERR
 all: error
+wdafree: error
 error:
 	$(error preflight errors)
 else
-all: config.json\
+all: wdafree wda bin/wda/web
+wdafree: config.json\
  bin/coordinator\
  ios_video_stream\
  ios_video_pull\
  device_trigger\
- wda\
  halias\
  wdaproxyalias\
  view_log\
  stf\
- bin/wda/web\
  ivf\
  devreset\
  libimd\
  runner\
  runnerdist\
  update_server\
- launchfolder
+ launchfolder\
+ ve_alias
 endif
 
 .PHONY:\
@@ -43,7 +44,9 @@ endif
  updatedist\
  dist\
  pull\
- ou
+ ou\
+ ve_alias\
+ wdafree
 
 config.json:
 	cp config.json.example config.json
@@ -69,6 +72,16 @@ launchfolder: ~/Library/LaunchAgents
 
 ~/Library/LaunchAgents:
 	@if [ ! -d ~/Library/LaunchAgents ]; then mkdir ~/Library/LaunchAgents; fi;
+
+# --- VIDEO ENABLER ---	
+
+ve_alias: bin/video_enabler
+
+bin/video_enabler: repos/ios_video_enabler/video_enabler repos/ios_video_enabler | repos/ios_video_enabler
+	cp repos/ios_video_enabler/video_enabler bin/video_enabler
+
+repos/ios_video_enabler/video_enabler: repos/ios_video_enabler repos/ios_video_enabler/main.m | repos/ios_video_enabler
+	$(MAKE) -C repos/ios_video_enabler
 
 # --- DEVICE TRIGGER ---
 
@@ -232,6 +245,7 @@ pull:
 	git -C repos/h264_to_jpeg pull
 	git -C repos/wdaproxy pull
 	git -C repos/libimobiledevice pull
+	git -C repos/ios_video_enabler pull
 
 clone: repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider repos/ios_avf_pull repos/ios_video_pull repos/h264_to_jpeg repos/wdaproxy repos/libimobiledevice
 
@@ -276,6 +290,9 @@ repos/libimobiledevice:
 
 repos/ios_avf_pull:
 	git clone https://github.com/nanoscopic/ios_avf_pull.git repos/ios_avf_pull
+
+repos/ios_video_enabler:
+	git clone https://github.com/nanoscopic/ios_video_enabler.git repos/ios_video_enabler
 
 # --- LibIMobileDevice ---
 

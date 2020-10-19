@@ -126,15 +126,26 @@ type VpnEvent struct {
     text2  string
 }
 
-func openvpn_NewLauncher( config *Config ) (*Launcher) {
-    vpnConfig := config.Vpn.OvpnConfig
-  
+func openvpn_NewLauncher( config *Config, cmdLineVpnFile string, cmdLineVpnLabel string ) (*Launcher) {
+	var vpnConfig string
+	if cmdLineVpnFile != "" {
+		vpnConfig = cmdLineVpnFile
+	} else {
+		vpnConfig = config.Vpn.OvpnConfig
+    }
+    
     arguments := []string {
         config.BinPaths.Openvpn,
         "--config", vpnConfig,
     }
     
-    label := fmt.Sprintf("com.tmobile.coordinator.openvpn")
+    var label string
+    if cmdLineVpnLabel != "" {
+    	label = cmdLineVpnLabel
+    } else {
+    	label = fmt.Sprintf("com.tmobile.coordinator.openvpn")
+    }
+    
     wd := config.Vpn.OvpnWd
     keepalive := true
     asRoot := true
@@ -145,13 +156,13 @@ func openvpn_NewLauncher( config *Config ) (*Launcher) {
     return vpnLauncher
 }
 
-func openvpn_load( config *Config ) {
-    vpnLauncher := openvpn_NewLauncher( config )
+func openvpn_load( config *Config, cmdLineVpnFile string, cmdLineVpnLabel string ) {
+    vpnLauncher := openvpn_NewLauncher( config, cmdLineVpnFile, cmdLineVpnLabel )
     vpnLauncher.load()
 }
 
 func openvpn_unload( config *Config ) {
-    vpnLauncher := openvpn_NewLauncher( config )
+    vpnLauncher := openvpn_NewLauncher( config, "", "" )
     vpnLauncher.unload()
 }
 
@@ -180,7 +191,7 @@ func check_vpn_status( config *Config, baseProgs *BaseProgs, vpnEventCh chan<- V
                 Error( error )
         }
     } else if vpnType == "openvpn" {
-        vpnLauncher := openvpn_NewLauncher( config )
+        vpnLauncher := openvpn_NewLauncher( config, "", "" )
         
         //wd, _ := os.Getwd()
         //abs, _ := filepath.Abs( "logs/openvpn.log" )

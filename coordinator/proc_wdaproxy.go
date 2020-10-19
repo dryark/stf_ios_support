@@ -42,7 +42,7 @@ func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
     }
     o.args = []string {
         "-p", strconv.Itoa(o.config.WDAProxyPort),
-        "-q", strconv.Itoa(o.config.WDAProxyPort),
+        "-q", strconv.Itoa(8100),//o.config.WDAProxyPort),
         "-d",
         "-W", ".",
         "-u", uuid,
