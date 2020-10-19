@@ -31,7 +31,7 @@
     "dev_ios": "9240-9250",
     "vnc": "5901-5911",
     "wda": "8100-8105",
-    "interface": "en0"
+    "interface": "auto"
   },
   "stf": {
     "ip": "",

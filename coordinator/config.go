@@ -83,6 +83,7 @@ type BinPathConfig struct {
     Iproxy        string `json:"iproxy"`
     WdaWrapper    string `json:"wdawrapper"`
     IVF           string `json:"ivf"`
+    VideoEnabler  string `json:"video_enabler"`
 }
 
 type VPNConfig struct {
@@ -148,7 +149,7 @@ func read_config( configPath string ) *Config {
             "proxy_ports":     "8100-8105",
             "decode_ports":    "7878-7888",
             "usbmuxd_ports":   "9920-9930",
-            "interface": "en0"
+            "interface": "auto"
           },
           "stf":{
             "ip": "",
@@ -197,7 +198,8 @@ func read_config( configPath string ) *Config {
             "ios_video_stream":"bin/ios_video_stream",
             "ios_video_pull":"bin/ios_video_pull",
             "h264_to_jpeg":   "bin/decode",
-            "ivf":            "bin/ivf_pull"
+            "ivf":            "bin/ivf_pull",
+            "video_enabler":  "bin/video_enabler"
           },
           "repos":{
             "stf": "https://github.com/nanoscopic/stf-ios-provider.git",

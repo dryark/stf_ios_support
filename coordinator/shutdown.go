@@ -1,18 +1,20 @@
 package main
 
 import (
-  "os"
-  "os/signal"
-  //"strings"
-  "syscall"
-  "time"
-  log "github.com/sirupsen/logrus"
-  ps "github.com/jviney/go-proc"
+	"fmt"
+    "os"
+    "os/signal"
+    //"strings"
+    "syscall"
+    "time"
+    log "github.com/sirupsen/logrus"
+    //ps "github.com/jviney/go-proc"
+    si "github.com/elastic/go-sysinfo"
 )
 
 func cleanup_procs(config *Config) {
     plog := log.WithFields( log.Fields{
-        "type": "proc_cleanup_kill",
+        "type": "proc_cleanup",
     } )
 
     procMap := map[string]string {
@@ -22,37 +24,135 @@ func cleanup_procs(config *Config) {
         "wdaproxy": "../wdaproxy",
         "ivf": config.BinPaths.IVF,
     }
+     
+	// Cleanup hanging processes if any
+    procs, listErr := si.Processes()
+    if listErr != nil {
+    	fmt.Printf( "listErr:%s\n", listErr )
+    	os.Exit(1)
+    }
     
-    // Cleanup hanging processes if any
-    procs := ps.GetAllProcessesInfo()
+    var hangingPids []int
+    
     for _, proc := range procs {
-        cmd := proc.CommandLine
+    	info, infoErr := proc.Info()
+    	if infoErr != nil {
+    	    //fmt.Printf( "infoErr:%s\n", infoErr )
+    	    continue
+    	}
+    	
+        cmd := info.Args
         //cmdFlat := strings.Join( cmd, " " )
         
         for k,v := range procMap {
             if cmd[0] == v {
-                plog.WithFields( log.Fields{ "proc": k } ).Info("Leftover " + k + " - Sending SIGTERM")
-                syscall.Kill( proc.Pid, syscall.SIGTERM )
+                pid := proc.PID()
+                plog.WithFields( log.Fields{
+                    "proc": k,
+                    "pid": pid,
+                } ).Warn("Leftover " + k + " - Sending SIGTERM")
+                
+                syscall.Kill( pid, syscall.SIGTERM )
+                hangingPids = append( hangingPids, pid ) 
             }
         }
         
+        /*if strings.Contains( cmdFlat, "node" ) {
+        	log.WithFields( log.Fields{
+                "cmdLine": cmdFlat,
+            } ).Info("Leftover Node proc")
+        }*/
+        
         // node --inspect=[ip]:[port] runmod.js device-ios
         if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "device-ios" {
+            pid := proc.PID()
+            
             plog.WithFields( log.Fields{
                 "proc": "device-ios",
-            } ).Debug("Leftover Proc - Sending SIGTERM")
+                "pid": pid,
+            } ).Warn("Leftover Proc - Sending SIGTERM")
 
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
+            syscall.Kill( pid, syscall.SIGTERM )
+            hangingPids = append( hangingPids, pid ) 
         }
 
         // node --inspect=[ip]:[port] runmod.js provider
         if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "provider" {
+            pid := proc.PID()
+            
             plog.WithFields( log.Fields{
                 "proc": "stf_provider",
-            } ).Debug("Leftover Proc - Sending SIGTERM")
-
-            syscall.Kill( proc.Pid, syscall.SIGTERM )
+                "pid": pid,
+            } ).Warn("Leftover Proc - Sending SIGTERM")
+            
+            syscall.Kill( pid, syscall.SIGTERM )
+            hangingPids = append( hangingPids, pid ) 
         }
+    }
+    
+    if len( hangingPids ) > 0 {
+        // Give the processes half a second to shudown cleanly
+        time.Sleep( time.Millisecond * 500 )
+        
+        // Send kill to processes still around
+        for _, pid := range( hangingPids ) {
+            proc, _ := si.Process( pid )
+            if proc != nil {
+                info, infoErr := proc.Info()
+                arg0 := "unknown"
+                if infoErr == nil {
+                    args := info.Args
+                    arg0 = args[0]
+                } else {
+                    // If the process vanished before here; it errors out fetching info
+                    continue
+                }
+                
+                plog.WithFields( log.Fields{
+                    "arg0": arg0,
+                } ).Warn("Leftover Proc - Sending SIGKILL")
+                syscall.Kill( pid, syscall.SIGKILL )
+            }
+        }
+    
+        // Spend up to 500 ms waiting for killed processes to vanish
+        i := 0
+        for {
+            i = i + 1
+            time.Sleep( time.Millisecond * 100 )
+            allGone := 1
+            for _, pid := range( hangingPids ) {
+                proc, _ := si.Process( pid )
+                if proc != nil {
+                    _, infoErr := proc.Info()
+                    if infoErr != nil {
+                        continue
+                    }
+                    allGone = 0
+                }
+            }
+            if allGone == 1 && i > 5 {
+                break
+            }
+        }
+        
+        // Write out error messages for processes that could not be killed
+        for _, pid := range( hangingPids ) {
+                proc, _ := si.Process( pid )
+                if proc != nil {
+                    info, infoErr := proc.Info()
+                    arg0 := "unknown"
+                    if infoErr != nil {
+                        continue
+                    }
+                    args := info.Args
+                    arg0 = args[0]
+                    
+                    plog.WithFields( log.Fields{
+                        "arg0": arg0,
+                    } ).Error("Kill attempted and failed")
+                }
+            }
     }
 }
 

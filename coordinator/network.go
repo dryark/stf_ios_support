@@ -4,11 +4,36 @@ import (
   "fmt"
   "net"
   "os"
+  "os/exec"
   "strings"
+  "regexp"
   log "github.com/sirupsen/logrus"
 )
 
-func ifAddr( ifName string ) ( addrOut string ) {
+func getDefaultIf() ( string ) {
+	out, err := exec.Command( "/usr/sbin/netstat", "-nr", "-f", "inet" ).Output()
+    if err != nil {
+        fmt.Printf("Error from netstat: %s\n", err )
+        return ""
+    }
+    lines := strings.Split( string(out), "\n" )
+    iFace := ""
+    space := regexp.MustCompile(`\s+`)
+    		
+    for _, line := range lines {
+    	if strings.Contains( line, "default " ) {
+    		line = space.ReplaceAllString( line, " " )
+    		
+    		parts := strings.Split( line, " " )
+    		if parts[0] == "default" {
+    			iFace = parts[3]
+    		}
+    	}
+    }
+    return iFace
+}
+
+func ifAddr( ifName string ) ( addrOut string, okay bool ) {
     ifaces, err := net.Interfaces()
     if err != nil {
         fmt.Printf( err.Error() )
@@ -40,7 +65,11 @@ func ifAddr( ifName string ) ( addrOut string ) {
             }
         }
     }
-    return addrOut
+    if addrOut != "" {
+    	return addrOut, true
+    }
+    fmt.Printf("Network interface %s not found, exiting\n", ifName )
+    return "", false
 }
 
 func get_net_info( config *Config ) ( string, string, bool ) {
@@ -79,7 +108,7 @@ func get_net_info( config *Config ) ( string, string, bool ) {
 }
 
 func ifaceCurIP( tunName string ) string {
-    ipStr := ifAddr( tunName )
+    ipStr, _ := ifAddr( tunName )
     if ipStr != "" {
         log.WithFields( log.Fields{
             "type": "net_interface_info",

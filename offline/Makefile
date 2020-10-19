@@ -1,4 +1,4 @@
-all: libimd
+all: /usr/local/bin/ideviceinfo
 
 # --- Basic Directories ---
 
@@ -6,8 +6,6 @@ repos:
 	mkdir repos
 
 # --- LibIMobileDevice ---
-
-libimd: /usr/local/bin/ideviceinfo
 
 /usr/local/bin/ideviceinfo: repos/libimobiledevice repos/libimobiledevice/tools/ideviceinfo | repos/libimobiledevice
 	$(MAKE) -C repos/libimobiledevice install

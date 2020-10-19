@@ -104,7 +104,11 @@ func main() {
     var debug      = flag.Bool( "debug"     , false        , "Use debug log level" )
     var jsonLog    = flag.Bool( "json"      , false        , "Use json log output" )
     var vpnlist    = flag.Bool( "vpnlist"   , false        , "List VPNs then exit" )
+    
     var loadVpn    = flag.Bool( "loadVpn"   , false        , "Setup / Load OpenVPN plist" )
+    var vpnFile    = flag.String("vpnFile"  , ""           , "OpenVPN file to user" )
+    var vpnLabel   = flag.String("vpnLabel" , ""           , "Plist label to use for VPN" )
+    
     var unloadVpn  = flag.Bool( "unloadVpn" , false        , "Unload / Remove OpenVPN plist" )
     var load       = flag.Bool( "load"      , false        , "Load Coordinator plist" )
     var unload     = flag.Bool( "unload"    , false        , "Unload Coordinator plist" )
@@ -113,6 +117,7 @@ func main() {
     var delNetPerm = flag.Bool( "delNetPerm", false        , "Delete network permission for coordinator app" )
     var configFile = flag.String( "config"  , "config.json", "Config file path" )
     var testVideo  = flag.Bool( "testVideo" , false        , "Test Video Streaming" )
+    var resetVideo = flag.Bool( "resetVideo", false        , "Reset Media Services on device" )
     var doUnlock   = flag.Bool( "unlock"    , false        , "Unlock the IOS device" )
     var doVersion  = flag.Bool( "version"   , false        , "Show coordinator version info" )
     var killProcs  = flag.Bool( "killProcs" , false        , "Terminate leftover processes" )
@@ -179,7 +184,7 @@ func main() {
     }
     
     if *loadVpn {
-        openvpn_load( config )
+        openvpn_load( config, *vpnFile, *vpnLabel )
         os.Exit(0)
     }
     if *unloadVpn {
@@ -295,6 +300,7 @@ func main() {
         proc_ios_video_stream( o, "none" )
         
         if videoMethod == "avfoundation" {
+        	proc_video_enabler( o )
             proc_ivf( o )
         } else if videoMethod == "ivp" {
             proc_h264_to_jpeg( o )
@@ -313,13 +319,25 @@ func main() {
         os.Exit(0)
     }
     
-    log.Debug("Starting ZMQ Pull")
-    coro_zmqPull( runningDevs, &devMapLock, lineLog, pubEventCh, devEventCh )
-    log.Debug("Starting ZMQ ReqRep")
-    coro_zmqReqRep( runningDevs )
-    log.Debug("Starting ZMQ Pub")
-    coro_zmqPub( pubEventCh )
-
+    if *resetVideo {
+    	devId := getFirstDeviceId()
+        fmt.Printf("First device ID: %s\n", devId )
+        
+        devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
+        
+        o := ProcOptions {
+            config: config,
+            baseProgs: &baseProgs,
+            lineLog: lineLog,
+            devd: devd,
+            curIP: "127.0.0.1",
+        }
+        
+    	aio_reset_media_services( o )
+    	
+    	os.Exit(0)
+    }
+    
     var ifName     string
     var curIP      string
     var vpnMissing bool
@@ -334,11 +352,35 @@ func main() {
         }
     } else {
         ifName = config.Network.Iface
-        curIP = ifAddr( ifName )
+        if ifName == "auto" {
+        	ifName = getDefaultIf()
+        	if ifName == "" {
+        		fmt.Println("auto network interface specified but could not determine default interface")
+        		os.Exit(1)
+        	}
+        	log.WithFields( log.Fields{
+				"type": "default_iface",
+				"interface_name": ifName,
+			} ).Info( "auto network interface set; using ", ifName )
+        }
+        
+        var okay bool
+        curIP, okay = ifAddr( ifName )
+        if !okay {
+        	os.Exit(0)
+        }
         baseProgs.okStage1 = true
     }
-
+    
     cleanup_procs( config )
+
+    log.Debug("Starting ZMQ Pull")
+    coro_zmqPull( runningDevs, &devMapLock, lineLog, pubEventCh, devEventCh )
+    log.Debug("Starting ZMQ ReqRep")
+    coro_zmqReqRep( runningDevs )
+    log.Debug("Starting ZMQ Pub")
+    coro_zmqPub( pubEventCh )
+
 
     log.WithFields( log.Fields{
         "type":     "portmap",
@@ -524,7 +566,7 @@ func event_loop(
             vpnEvent := <- vpnEventCh
             if vpnEvent.action == 0 {
                 tunName = vpnEvent.text1
-                curIP = ifAddr( tunName )
+                curIP, _ = ifAddr( tunName )
                 baseProgs.okVpn = true
             }
             
@@ -592,6 +634,7 @@ func event_loop(
                     proc_ios_video_stream( o, tunName )
                     
                     if videoMethod == "avfoundation" {
+                    	proc_video_enabler( o )
                         proc_ivf( o )
                     } else if videoMethod == "ivp" {
                         proc_h264_to_jpeg( o )
