@@ -83,12 +83,16 @@ bin/video_enabler: repos/ios_video_enabler/video_enabler repos/ios_video_enabler
 repos/ios_video_enabler/video_enabler: repos/ios_video_enabler repos/ios_video_enabler/main.m | repos/ios_video_enabler
 	$(MAKE) -C repos/ios_video_enabler
 
+repos/ios_video_enabler/main.m: | repos/ios_video_enabler
+
 # --- DEVICE TRIGGER ---
 
 device_trigger: bin/osx_ios_device_trigger
 
 bin/osx_ios_device_trigger: repos/osx_ios_device_trigger repos/osx_ios_device_trigger/osx_ios_device_trigger/main.cpp
 	$(MAKE) -C repos/osx_ios_device_trigger
+
+repos/osx_ios_device_trigger/osx_ios_device_trigger/main.cpp: | repos/osx_ios_device_trigger
 
 # --- VIEW LOG ---
 
@@ -277,7 +281,7 @@ repos/h264_to_jpeg/tracker.h: repos/h264_to_jpeg
 repos/h264_to_jpeg:
 	git clone https://github.com/nanoscopic/h264_to_jpeg.git repos/h264_to_jpeg
 
-repos/wdaproxy/main.go: repos/wdaproxy	
+repos/wdaproxy/main.go: repos/wdaproxy
 
 repos/wdaproxy:
 	git clone https://github.com/nanoscopic/wdaproxy.git repos/wdaproxy
@@ -313,7 +317,7 @@ repos/libimobiledevice/Makefile: | repos/libimobiledevice
 stf: repos/stf-ios-provider/package-lock.json
 
 repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider/package.json
-	cd repos/stf-ios-provider && PATH=/usr/local/opt/node\@12/bin:$(PATH) npm install
+	cd repos/stf-ios-provider && PATH="/usr/local/opt/node@12/bin:$(PATH)" npm install
 	touch repos/stf-ios-provider/package-lock.json
 
 # --- OFFLINE STF ---
