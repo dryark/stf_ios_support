@@ -8,7 +8,7 @@ import (
     "os"
     "os/exec"
     "path/filepath"
-    //"strconv"
+    "strconv"
     "strings"
     "sync"
     "time"
@@ -706,7 +706,7 @@ func event_loop(
                     uuid: uuid,
                 }              
               
-                wdaBase := "http://127.0.0.1:8100"
+                wdaBase := "http://127.0.0.1:" + strconv.Itoa(wdaPort)
                 var sessionId string
                 try := 0
                 for {
