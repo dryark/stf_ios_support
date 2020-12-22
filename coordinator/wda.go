@@ -97,7 +97,13 @@ func ( self *WDAType ) el_by_name( sid string, name string ) ( string ) {
   log.Info( "visiting " + url )
   resp, _ := http.Post( url, "application/json", strings.NewReader( json ) )
   res := resp_to_val( resp )
-  return res.Get("ELEMENT").String()
+  //log.Info( "response " + resp_to_str( resp ) )
+  el := res.Get("ELEMENT")
+  if el != nil {
+      return el.String()
+  }
+  log.Error( "could not find element with name %s", name )
+  return ""
 }
 
 func ( self *WDAType ) click( sid string, eid string ) {
@@ -108,6 +114,21 @@ func ( self *WDAType ) click( sid string, eid string ) {
     log.Error( "got resp" + strconv.Itoa( resp.StatusCode ) + "from " + url )
   }
   //res := resp_to_val( resp )
+}
+
+func ( self *WDAType ) force_touch( sid string, eid string ) {
+  url := self.base + "/session/" + sid + "/wda/element/" + eid + "/forceTouch"
+  log.Info( "visiting " + url )
+  
+  json := `{
+    "duration": 1,
+    "pressure": 1000
+  }`
+  
+  resp, _ := http.Post( url, "application/json", strings.NewReader( json ) )
+  if resp.StatusCode != 200 {
+    log.Error( "got resp" + strconv.Itoa( resp.StatusCode ) + "from " + url )
+  }
 }
 
 func ( self *WDAType ) scroll_to( sid string, eid string ) {
@@ -149,11 +170,61 @@ func ( self *WDAType ) create_session( bundle string ) ( string ) {
   return res.Get("sessionId").String()
 }
 
+func ( self *WDAType ) swipe( sid string, x1 int, y1 int, x2 int, y2 int ) ( string ) {
+  log.Info( "Swiping:", x1, y1, x2, y2 )
+  json := fmt.Sprintf( `{
+    "actions": [
+      {
+        "action": "press",
+        "options": {
+          "x":%d,
+          "y":%d
+        }
+      },
+      {
+        "action":"wait",
+        "options": {
+          "ms": 500
+        }
+      },
+      {
+        "action": "moveTo",
+        "options": {
+          "x":%d,
+          "y":%d
+        }
+      },
+      {
+        "action":"release",
+        "options":{}
+      }
+    ]
+  }`, x1, y1, x2, y2 )
+  resp, _ := http.Post( self.base + "/session/" + sid + "/wda/touch/perform", "application/json", strings.NewReader( json ) )
+  res := resp_to_str( resp )
+  log.Info( "response " + res )
+  return res
+}
+
+func ( self *WDAType ) launch_app( sid string, app string ) ( string ) {
+  log.Info( "Launching:", app )
+  json := fmt.Sprintf( `{
+    "bundleId": "%s",
+    "shouldWaitForQuiescence": false,
+    "arguments": [],
+    "environment": []
+  }`, app )
+  resp, _ := http.Post( self.base + "/session/" + sid + "/wda/apps/launch", "application/json", strings.NewReader( json ) )
+  res := resp_to_str( resp )
+  log.Info( "response " + res )
+  return res
+}
+
 func wda_session( base string ) ( string ) {
   resp, _ := http.Get( base + "/status" )
   content, _ := uj.Parse( []byte( resp_to_str( resp ) ) )
   sid := content.Get("sessionId").String()
-  return sid;
+  return sid
 }
 
 func ( self *WDAType ) is_locked() ( bool ) {
@@ -163,6 +234,34 @@ func ( self *WDAType ) is_locked() ( bool ) {
   content, _ := uj.Parse( []byte( respStr ) )
   //fmt.Printf("output:%s\n", content )
   return content.Get("value").Bool()
+}
+
+func ( self *WDAType ) start_broadcast( sid string, app_name string ) {
+  self.control_center( sid )
+  
+  devEl := self.el_by_name( sid, "Screen Recording" )
+  self.force_touch( sid, devEl )
+  
+  devEl = self.el_by_name( sid, app_name )
+  self.click( sid, devEl )
+  
+  devEl = self.el_by_name( sid, "Start Broadcast" )
+  self.click( sid, devEl )
+}
+
+func ( self *WDAType ) control_center( sid string ) {
+  width, height := self.window_size( sid )
+  midx := width / 2
+  maxy := height - 1
+  self.swipe( sid, midx, maxy, midx, maxy - 100 )
+}
+
+func ( self *WDAType ) window_size( sid string ) ( int, int ) {
+  resp, _ := http.Get( self.base + "/session/" + sid + "/window/size" )
+  val := resp_to_val( resp )
+  width := val.Get("width").Int()
+  height := val.Get("height").Int()
+  return width, height
 }
 
 func ( self *WDAType ) unlock() {
@@ -197,6 +296,15 @@ func resp_to_str( resp *http.Response ) ( string ) {
   buf := new( bytes.Buffer )
   buf.ReadFrom( body )
   return buf.String()  
+}
+
+func resp_to_json( resp *http.Response ) ( *uj.JNode ) {
+  rawContent := resp_to_str( resp )
+  if !strings.HasPrefix( rawContent, "{" ) {
+    return nil // &JNode{ nodeType: 1, hash: NewNodeHash() }
+  }
+  content, _ := uj.Parse( []byte( rawContent ) )
+  return content
 }
 
 func resp_to_val( resp *http.Response ) ( *uj.JNode ) {

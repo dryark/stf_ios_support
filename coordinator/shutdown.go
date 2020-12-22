@@ -23,6 +23,7 @@ func cleanup_procs(config *Config) {
         "h264_to_jpeg": config.BinPaths.H264ToJpeg,
         "wdaproxy": "../wdaproxy",
         "ivf": config.BinPaths.IVF,
+        "ios-deploy": config.BinPaths.IosDeploy,
     }
      
 	// Cleanup hanging processes if any

@@ -122,7 +122,27 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
         
         i := 0
         for {
-            proc.pid = cmd.Status().PID
+            status := cmd.Status()
+            
+            if status.Error != nil {
+                plog.WithFields( log.Fields{
+                    "type": "proc_err",
+                    "error": status.Error,
+                } ).Error("Error starting - " + opt.procName)
+                
+                return
+            }
+            
+            if status.Exit != -1 {
+                plog.WithFields( log.Fields{
+                    "type": "proc_exit",
+                    "exit": status.Exit,
+                } ).Error("Error starting - " + opt.procName)
+                
+                return
+            }
+            
+            proc.pid = status.PID
             if proc.pid != 0 {
                 break
             }
@@ -136,15 +156,6 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
             "type": "proc_pid",
             "pid": proc.pid,
         } ).Debug("Process pid")
-        
-        /*if err != nil {
-            plog.WithFields( log.Fields{
-                "type": "proc_err",
-                "error": err,
-            } ).Error("Error starting - " + opt.procName)
-
-            proc.proc = nil
-        }*/
         
         outStream := cmd.Stdout
         errStream := cmd.Stderr

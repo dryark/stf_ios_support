@@ -87,9 +87,9 @@ func coro_zmqPub( pubEventCh <-chan PubEvent ) {
     }()
 }
 
-func reqDevInfoJSON( uuid string ) (string) {
+func reqDevInfoJSON( config *Config, uuid string ) (string) {
     res := ""
-    info := getAllDeviceInfo( uuid )
+    info := getAllDeviceInfo( config, uuid )
 
     names := map[string] string {
         "DeviceName":      "Device Name",

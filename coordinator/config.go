@@ -7,6 +7,7 @@ import (
     "os"
     
     log "github.com/sirupsen/logrus"
+    uj "github.com/nanoscopic/ujsonin/mod"
 )
 
 type Config struct {
@@ -21,6 +22,8 @@ type Config struct {
     Vpn        VPNConfig     `json:"vpn"`
     Timing     TimingConfig  `json:"timing"`
     ConfigPath string        `json:"config_path"`
+    DeviceDetector string    `json:"device_detector"`
+    IosCLI     string        `json:"ios_cli"`
     // The following are only used internally
     WDAProxyPort   int
     MirrorFeedPort int
@@ -29,6 +32,7 @@ type Config struct {
     UsbmuxdPort    int
     DecodeInPort   int
     DecodeOutPort  int
+    ujson          * uj.JNode
 }
 
 type NetConfig struct {
@@ -60,8 +64,9 @@ type VideoConfig struct {
 }
 
 type InstallConfig struct {
-    RootPath   string `json:"root_path"`
-    ConfigPath string `json:"config_path"`
+    RootPath      string `json:"root_path"`
+    ConfigPath    string `json:"config_path"`
+    SetWorkingDir bool   `json:"set_working_dir"`
 }
 
 type LogConfig struct {
@@ -84,6 +89,7 @@ type BinPathConfig struct {
     WdaWrapper    string `json:"wdawrapper"`
     IVF           string `json:"ivf"`
     VideoEnabler  string `json:"video_enabler"`
+    IosDeploy     string `json:"ios-deploy"`
 }
 
 type VPNConfig struct {
@@ -103,6 +109,32 @@ type FrameServerConfig struct {
 
 type TimingConfig struct {
     WdaRestart int `json:"wda_restart"`
+}
+
+type DeviceConfig struct {
+    Width int
+    Height int
+}
+
+func get_device_config( config *Config, udid string ) ( *DeviceConfig ) {
+    dev := DeviceConfig{}
+    
+    devs := config.ujson.Get("devices")
+    if devs == nil {
+        return nil
+    }
+    
+    /*devs.ForEach( func( conf *uj.JNode ) {
+        oneid := conf.Get("udid").String()
+        if oneid == udid {
+            dev.Width = conf.Get("width").Int()
+            dev.Height = conf.Get("height").Int()
+        }
+    } )*/
+    dev.Width = 735
+    dev.Height = 1134
+    
+    return &dev
 }
 
 func read_config( configPath string ) *Config {
@@ -140,6 +172,8 @@ func read_config( configPath string ) *Config {
         
         defaultJson := `{
           "wda_folder": "./bin/wda",
+          "device_detector": "api",
+          "ios_cli": "ios-deploy",
           "xcode_dev_team_id": "",
           "network": {
             "coordinator_port": 8027,
@@ -163,7 +197,9 @@ func read_config( configPath string ) *Config {
             "use_vnc": false,
             "vnc_scale": 2,
             "vnc_password": "",
-            "frame_rate": 5
+            "frame_rate": 5,
+            "app_name": "vidtest2",
+            "app_bundle_id": "com.dryark.vidtest2"
           },
           "frameserver":{
             "secure": false,
@@ -174,6 +210,7 @@ func read_config( configPath string ) *Config {
           },
           "install":{
             "root_path": "",
+            "set_working_dir": false,
             "config_path": ""
           },
           "log":{
@@ -199,7 +236,8 @@ func read_config( configPath string ) *Config {
             "ios_video_pull":"bin/ios_video_pull",
             "h264_to_jpeg":   "bin/decode",
             "ivf":            "bin/ivf_pull",
-            "video_enabler":  "bin/video_enabler"
+            "video_enabler":  "bin/video_enabler",
+            "ios-deploy": "bin/ios-deploy"
           },
           "repos":{
             "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
@@ -207,7 +245,9 @@ func read_config( configPath string ) *Config {
           },
           "timing":{
             "wda_restart": 240
-          }
+          },
+          "devices":[
+          ]
         }`
         
         config = Config{
@@ -229,6 +269,8 @@ func read_config( configPath string ) *Config {
         if err != nil {
           log.Fatal( "2 ", err )
         }
+        
+        config.ujson, _ = uj.Parse( jsonBytes )
         
         //jsonCombined, _ := json.MarshalIndent(config, "", "  ")
         //fmt.Printf("Combined config:%s\n", string( jsonCombined ) )

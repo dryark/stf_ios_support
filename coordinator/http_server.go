@@ -5,6 +5,7 @@ import (
   "encoding/json"
   "fmt"
   "net/http"
+  "strconv"
   "strings"
   "text/template"
   
@@ -15,7 +16,7 @@ import (
 func coro_http_server( config *Config, devEventCh chan<- DevEvent, baseProgs *BaseProgs, runningDevs map [string] *RunningDev, lineTracker *InMemTracker ) {
     // start web server waiting for trigger http command for device connect and disconnect
     var listen_addr = fmt.Sprintf( "0.0.0.0:%d", config.Network.Coordinator )
-    go startServer( devEventCh, listen_addr, baseProgs, runningDevs, lineTracker )
+    go startServer( config, devEventCh, listen_addr, baseProgs, runningDevs, lineTracker )
 }
 
 func coro_mini_http_server( config *Config, devEventCh chan<- DevEvent, devd *RunningDev ) {
@@ -23,7 +24,7 @@ func coro_mini_http_server( config *Config, devEventCh chan<- DevEvent, devd *Ru
     go startMiniServer( devEventCh, devd, listen_addr )
 }
 
-func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *BaseProgs, runningDevs map[string] *RunningDev, lineTracker *InMemTracker ) {
+func startServer( config *Config, devEventCh chan<- DevEvent, listen_addr string, baseProgs *BaseProgs, runningDevs map[string] *RunningDev, lineTracker *InMemTracker ) {
     log.WithFields( log.Fields{
         "type": "http_start",
     } ).Debug("HTTP server started")
@@ -32,7 +33,7 @@ func startServer( devEventCh chan<- DevEvent, listen_addr string, baseProgs *Bas
         handleRoot( w, r, baseProgs, runningDevs )
     }
     devinfoClosure := func( w http.ResponseWriter, r *http.Request ) {
-        reqDevInfo( w, r, baseProgs, runningDevs )
+        reqDevInfo( config, w, r, baseProgs, runningDevs )
     }
     logClosure := func( w http.ResponseWriter, r *http.Request ) {
         handleLog( w, r, baseProgs, runningDevs, lineTracker )
@@ -88,10 +89,10 @@ func fixUuid( uuid string ) (string) {
     return uuid
 }
 
-func reqDevInfo( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map[string] *RunningDev ) {
+func reqDevInfo( config *Config, w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, runningDevs map[string] *RunningDev ) {
     query := r.URL.Query()
     uuid := query.Get("uuid")
-    info := getAllDeviceInfo( uuid )
+    info := getAllDeviceInfo( config, uuid )
 
     names := map[string] string {
         "DeviceName":      "Device Name",
@@ -162,6 +163,8 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
             "owner": owner,
             "wda": wda,
             "ivf_pull": ivf_pull,
+            "vid_port": strconv.Itoa( dev.vidPort ),
+            "vid_stream_port": strconv.Itoa( dev.streamPort ),
         } )
         devOut += str.String()
     }
@@ -267,6 +270,8 @@ func handleProcRestart( w http.ResponseWriter, r *http.Request, runningDevs map[
         restart_device_unit( devd )
     } else if proc == "ivf" {
         restart_ivf( devd )
+    } else if proc == "ios_video_stream" {
+        restart_ios_video_stream( devd )
     }
 }
 
@@ -313,7 +318,8 @@ var deviceTpl = template.Must(template.New("device").Parse(`
   </tr>
   <tr>
     <td>IOS Video Stream</td>
-    <td>{{.ios_video_stream}}</td>
+    <td>{{.ios_video_stream}} ports:{{.vid_port}},{{.vid_stream_port}}</td>
+    <td><button onclick="vidstream_restart('{{.rawuuid}}')">Restart</button>
   </tr>
   <tr>
     <td>IOS AVFoundation Frame Pull ( ivf_pull )</td>
@@ -372,6 +378,9 @@ var rootTpl = template.Must(template.New("root").Parse(`
       }
       function ivf_restart( uuid ) {
         req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'ivf' } ) );
+      }
+      function vidstream_restart( uuid ) {
+        req( 'POST', '/procrestart', function() {}, JSON.stringify( { uuid: uuid, proc:'ios_video_stream' } ) );
       }
 	  </script>
 	</head>

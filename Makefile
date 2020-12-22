@@ -17,12 +17,12 @@ wdafree: config.json\
  stf\
  ivf\
  devreset\
- libimd\
  runner\
  runnerdist\
  update_server\
  launchfolder\
- ve_alias
+ ve_alias \
+ idalias
 endif
 
 .PHONY:\
@@ -46,7 +46,9 @@ endif
  pull\
  ou\
  ve_alias\
- wdafree
+ wdafree\
+ idalias\
+ idbin
 
 config.json:
 	cp config.json.example config.json
@@ -113,7 +115,19 @@ hbin: repos/h264_to_jpeg/decode
 
 repos/h264_to_jpeg/decode: repos/h264_to_jpeg repos/h264_to_jpeg/hw_decode.c repos/h264_to_jpeg/tracker.h | repos/h264_to_jpeg
 	$(MAKE) -C repos/h264_to_jpeg
-	
+
+# --- IOS-DEPLOY ---
+
+idalias: bin/ios-deploy
+
+bin/ios-deploy: repos/ios-deploy/ios-deploy
+	cp repos/ios-deploy/ios-deploy bin/ios-deploy
+
+idbin: repos/ios-deploy/ios-deploy
+
+repos/ios-deploy/ios-deploy: repos/ios-deploy repos/ios-deploy/ios-deploy.m | repos/ios-deploy
+	$(MAKE) -C repos/ios-deploy
+
 # --- IOS_AVF_PULL ---
 
 ivf: bin/ivf_pull
@@ -268,7 +282,7 @@ repos/ios_video_pull:
 repos/WebDriverAgent/WebDriverAgent.xcodeproj: repos/WebDriverAgent
 
 repos/WebDriverAgent:
-	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/nanoscopic/WebDriverAgent.git"' config.json -j))
+	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/appium/WebDriverAgent.git"' config.json -j))
 	$(eval REPO_BR=$(shell jq '.repo_wda_branch // "master"' config.json -j))
 	git clone $(REPO) repos/WebDriverAgent --branch $(REPO_BR)
 
@@ -297,6 +311,9 @@ repos/ios_avf_pull:
 
 repos/ios_video_enabler:
 	git clone https://github.com/nanoscopic/ios_video_enabler.git repos/ios_video_enabler
+
+repos/ios-deploy:
+	git clone https://github.com/nanoscopic/ios-deploy.git repos/ios-deploy
 
 # --- LibIMobileDevice ---
 

@@ -6,14 +6,18 @@ import (
     log "github.com/sirupsen/logrus"
 )
 
-func proc_ios_video_stream( o ProcOptions, tunName string ) {
+func restart_ios_video_stream( devd *RunningDev ) {
+    restart_proc_generic( devd, "ios_video_stream" )
+}
+
+func proc_ios_video_stream( o ProcOptions, tunName string, frameInIp string ) {
     devd := o.devd.dup()
     udid := devd.uuid
     port := o.config.MirrorFeedPort
     
     nanoIn := o.config.DecodeInPort
     
-    inSpec := fmt.Sprintf("tcp://127.0.0.1:%d", nanoIn)
+    inSpec := fmt.Sprintf("tcp://%s:%d", frameInIp, nanoIn)
     
     coordinator := fmt.Sprintf( "127.0.0.1:%d", o.config.Network.Coordinator )
     

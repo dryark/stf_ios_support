@@ -15,7 +15,8 @@
   },
   "install": {
     "root_path": "[desired stf provider install folder]",
-    "config_path": "[desired stf provider install folder]/config.json"
+    "config_path": "[desired stf provider install folder]/config.json",
+    "set_working_dir": false
   }
 }
 
@@ -47,6 +48,7 @@
   "install": {
     "root_path": "",
     "config_path": "",
+    "set_working_dir": false
   },
   "log": {
     "main": "logs/coordinator",

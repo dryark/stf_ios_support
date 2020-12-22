@@ -5,15 +5,22 @@ import (
   "strings"
   "time"
   log "github.com/sirupsen/logrus"
+  uj "github.com/nanoscopic/ujsonin/mod"
 )
 
-func getDeviceName( uuid string ) (string) {
+func getDeviceName( config *Config, uuid string ) (string) {
     i := 0
     var nameStr string
     for {
         i++
         if i > 10 { return "" }
-        name, _ := exec.Command( "/usr/local/bin/idevicename", "-u", uuid ).Output()
+        
+        var name []byte
+        if config.IosCLI == "ios-deploy" {
+            name, _ = exec.Command( config.BinPaths.IosDeploy, "-i", uuid, "-g", "DeviceName" ).Output()
+        } else {
+            name, _ = exec.Command( "/usr/local/bin/idevicename", "-u", uuid ).Output()
+        }
         if name == nil || len(name) == 0 {
             log.WithFields( log.Fields{
                 "type": "ilib_getname_fail",
@@ -31,8 +38,8 @@ func getDeviceName( uuid string ) (string) {
     return nameStr
 }
 
-func getAllDeviceInfo( uuid string ) map[string] string {
-    rawInfo := getDeviceInfo( uuid, "" )
+func getAllDeviceInfo( config *Config, uuid string ) map[string] string {
+    rawInfo := getDeviceInfo( config, uuid, "" )
     lines := strings.Split( rawInfo, "\n" )
     info := make( map[string] string )
     for _, line := range lines {
@@ -46,7 +53,7 @@ func getAllDeviceInfo( uuid string ) map[string] string {
     return info
 }
 
-func getDeviceInfo( uuid string, keyName string ) (string) {
+func getDeviceInfo( config *Config, uuid string, keyName string ) (string) {
     i := 0
     var nameStr string
     for {
@@ -73,7 +80,18 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
             "type": "ilib_getinfo_call",
             "ops": ops,
         } ).Info("ideviceinfo call")
-        name, _ := exec.Command( "/usr/local/bin/ideviceinfo", ops... ).Output()
+        
+        var name []byte
+        
+        if config.IosCLI == "ios-deploy" {
+            if( keyName == "" ) {
+                keyName = "DeviceName,EthernetAddress,ModelNumber,HardwareModel,PhoneNumber,ProductType,ProductVersion,UniqueDeviceID,InternationalCircuitCardIdentity,InternationalMobileEquipmentIdentity,InternationalMobileSubscriberIdentity"
+            } 
+            name, _ = exec.Command( config.BinPaths.IosDeploy, "-i", uuid, "-g", keyName ).Output()
+        } else {
+            name, _ = exec.Command( "/usr/local/bin/ideviceinfo", ops... ).Output()
+        }
+        
         if name == nil || len(name) == 0 {
             log.WithFields( log.Fields{
                 "type": "ilib_getinfo_fail",
@@ -92,12 +110,26 @@ func getDeviceInfo( uuid string, keyName string ) (string) {
     return nameStr
 }
 
-func getFirstDeviceId() ( string ) {
-    deviceIds := getDeviceIds()
+func getFirstDeviceId( config *Config ) ( string ) {
+    deviceIds := getDeviceIds( config )
     return deviceIds[0]
 }
 
-func getDeviceIds() ( []string ) {
+func getDeviceIds( config *Config ) ( []string ) {
+    if config.IosCLI == "ios-deploy" {
+        ids := []string{}
+        jsonText, _ := exec.Command( config.BinPaths.IosDeploy, "-d", "-j", "-t", "1" ).Output()
+        root, _ := uj.Parse( []byte( "[" + string(jsonText) + "]" ) )
+        
+        root.ForEach( func( evNode *uj.JNode ) {
+            ev := evNode.Get("Event").String()
+            if ev == "DeviceDetected" {
+                dev := evNode.Get("Device")
+                ids = append( ids, dev.Get("DeviceIdentifier").String() )
+            }
+        } )
+        return ids
+    }
     output, _ := exec.Command( "/usr/local/bin/idevice_id", "-l" ).Output()
     lines := strings.Split( string(output), "\n" )
     return lines

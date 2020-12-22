@@ -1,3 +1,4 @@
+10
 .DS_Store
 repos
 bin
@@ -14,3 +15,4 @@ runner/*.key
 runner/runnercert.conf
 runner/runner
 update_server/server
+**/*~

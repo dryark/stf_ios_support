@@ -66,6 +66,7 @@ type RunningDev struct {
     videoReady    bool
     streamWidth   int
     streamHeight  int
+    streamPort    int
     clickWidth    int
     clickHeight   int
     clickScale    int
@@ -160,7 +161,7 @@ func main() {
     	os.Exit(0)
     }
     
-    if changeDir {
+    if changeDir || config.Install.SetWorkingDir {
         os.Chdir( config.Install.RootPath )
     }
     
@@ -249,7 +250,7 @@ func main() {
     devEventCh := make( chan DevEvent )
     
     if *doUnlock {
-        devId := getFirstDeviceId()
+        devId := getFirstDeviceId( config )
         fmt.Printf("First device ID: %s\n", devId )
         
         devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
@@ -279,7 +280,7 @@ func main() {
     }
     
     if *testVideo {
-        devId := getFirstDeviceId()
+        devId := getFirstDeviceId( config )
         fmt.Printf("First device ID: %s\n", devId )
         
         devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
@@ -297,7 +298,7 @@ func main() {
             ivp_enable( o )
         }
                 
-        proc_ios_video_stream( o, "none" )
+        proc_ios_video_stream( o, "none", "127.0.0.1" )
         
         if videoMethod == "avfoundation" {
         	proc_video_enabler( o )
@@ -320,7 +321,7 @@ func main() {
     }
     
     if *resetVideo {
-    	devId := getFirstDeviceId()
+    	devId := getFirstDeviceId( config )
         fmt.Printf("First device ID: %s\n", devId )
         
         devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
@@ -469,7 +470,7 @@ func NewRunningDev(
         portMap *PortMap,
         uuid string ) ( *RunningDev ) {
         
-    wdaPort, vidPort, devIosPort, vncPort, usbmuxdPort, _, _, config := assign_ports( gConfig, portMap )
+    wdaPort, vidPort, devIosPort, vncPort, usbmuxdPort, _, streamPort, config := assign_ports( gConfig, portMap )
   
     devd := RunningDev{
         uuid: uuid,
@@ -484,6 +485,7 @@ func NewRunningDev(
         videoReady:    false,
         streamWidth:   0,
         streamHeight:  0,
+        streamPort:    streamPort,
         clickWidth:    0,
         clickHeight:   0,
         clickScale:    1000,
@@ -497,9 +499,14 @@ func NewRunningDev(
         wda: false,
     }
     
-    devd.name = getDeviceName( uuid )
+    devd.name = getDeviceName( config, uuid )
     
-    devd.iosVersion = getDeviceInfo( uuid, "ProductVersion" )
+    devd.iosVersion = getDeviceInfo( config, uuid, "ProductVersion" )
+    
+    devConf := get_device_config( config, uuid )
+    
+    devd.streamWidth = devConf.Width
+    devd.streamHeight = devConf.Height
     
     devMapLock.Lock()
     runningDevs[uuid] = &devd
@@ -605,17 +612,26 @@ func event_loop(
                 curIP: curIP,
             }
             
+            brandNew := false
             devMapLock.Lock()
             if devd, ok = runningDevs[uuid]; !ok {
                 devMapLock.Unlock()
                 devd = NewRunningDev( gConfig, runningDevs, devMapLock, portMap, uuid )
                 periodic_start( gConfig, devd )
+                brandNew = true
             } else {
                 devMapLock.Unlock()
             }
             o.devd = devd
             
-            if devEvent.action == 0 { // device connect
+            if devEvent.action == 0 && brandNew == false {
+                log.WithFields( log.Fields{
+                    "type":     "dev_connect",
+                    "dev_uuid": censor_uuid( uuid ),                
+                } ).Info("Duplicate Device connect...")
+            }
+            
+            if devEvent.action == 0 && brandNew == true { // device connect
                 devName := devd.name
     
                 log.WithFields( log.Fields{
@@ -631,14 +647,16 @@ func event_loop(
                 o.config = devd.confDup
                 
                 if o.config.Video.Enabled {
-                    proc_ios_video_stream( o, tunName )
-                    
                     if videoMethod == "avfoundation" {
-                    	proc_video_enabler( o )
+                        proc_ios_video_stream( o, tunName, "127.0.0.1" )
+                    	 proc_video_enabler( o )
                         proc_ivf( o )
                     } else if videoMethod == "ivp" {
+                        proc_ios_video_stream( o, tunName, "127.0.0.1" )
                         proc_h264_to_jpeg( o )
                         proc_ios_video_pull( o )
+                    } else if videoMethod == "app" {
+                        proc_ios_video_stream( o, tunName, curIP )
                     }
                 }
             }
@@ -706,7 +724,7 @@ func event_loop(
                     uuid: uuid,
                 }              
               
-                wdaBase := "http://127.0.0.1:" + strconv.Itoa(wdaPort)
+                wdaBase := "http://127.0.0.1:" + strconv.Itoa( wdaPort )
                 var sessionId string
                 try := 0
                 for {
@@ -733,7 +751,7 @@ func event_loop(
                     }
                     //fmt.Printf("trying again to getting wda session\n")
                     try++
-                    if try > 6 {
+                    if try > 36 {
                         break
                     }
                     time.Sleep( time.Second * 1 )
@@ -778,6 +796,15 @@ func event_loop(
                     devd.heartbeatChan = coro_heartbeat( uuid, pubEventCh )
                 }
                 
+                if videoMethod == "app" {
+                    va_write_config( o.config, uuid, strconv.Itoa( o.config.DecodeInPort ), curIP )
+                    
+                    wda := NewWDACaller( wdaBase )
+                    wda.launch_app( sessionId, "com.dryark.vidtest2" )
+                    //sid := wda_session( wdaBase )
+                    wda.start_broadcast( sessionId, "vidtest2" )
+                }
+                
                 continue_dev_start( o, curIP )
             }
             if devEvent.action == 5 { // WDA Startup failed
@@ -790,21 +817,23 @@ func event_loop(
             if devd != nil && !devd.wdaStarted {
                 o.config = devd.confDup
                 
-                if !o.config.Video.Enabled || ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) {
-                    o.devd.wdaStarted = true
-                    
-                    time.Sleep( time.Second * 2 )
-                    
-                    fmt.Printf("trying to get ios version\n")
-                    
-                    log.WithFields( log.Fields{
-                        "type":     "ios_version",
-                        "dev_name": o.devd.name,
-                        "dev_uuid": uuid,
-                        "ios_version": o.devd.iosVersion,
-                    } ).Debug("IOS Version")
-    
-                    proc_wdaproxy( o, devEventCh, false )
+                if !o.config.Video.Enabled ||
+                    ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) ||
+                    videoMethod == "app" {
+                        o.devd.wdaStarted = true
+                        
+                        time.Sleep( time.Second * 2 )
+                        
+                        fmt.Printf("trying to get ios version\n")
+                        
+                        log.WithFields( log.Fields{
+                            "type":     "ios_version",
+                            "dev_name": o.devd.name,
+                            "dev_uuid": uuid,
+                            "ios_version": o.devd.iosVersion,
+                        } ).Debug("IOS Version")
+            
+                        proc_wdaproxy( o, devEventCh, false )
                 }
             }
         }

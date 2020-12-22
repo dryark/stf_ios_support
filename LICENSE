@@ -1,21 +1,226 @@
-MIT License
+Copyright (c) 2020 David Helkowski
 
-Copyright (c) 2019 David Helkowski
+Free Use Anti-Corruption License
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+=======================================================================
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The content of this project is licensed for free conditional use by those
+not employed by THE RESTRICTED PARTY. The conditional aspect is that the use
+does not benefit THE RESTRICTED PARTY.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE RESTRICTED PARTY is any person or legal entity meeting any of the
+following conditions:
+1. A person who is employed directly or transitively by a RESTRICTED ENTITY.
+2. A legal entity engaged in contractual business for a RESTRICTED ENTITY.
+
+A DIRECT RESTRICTED ENTITY is defined to be any of the following:
+- Accenture          https://en.wikipedia.org/wiki/Accenture
+- Amazon             https://en.wikipedia.org/wiki/Amazon_(company)
+- Apple
+- AptEdge            https://aptedge.io
+- Avalara            https://www.avalara.com
+- Baltimore Sun
+- BCG                https://en.wikipedia.org/wiki/Boston_Consulting_Group
+- BrowserStack       https://www.browserstack.com
+- The Canton Group   https://cantongroup.com
+- Comcast
+- Cruise LLC         https://en.wikipedia.org/wiki/Cruise_(autonomous_vehicle)
+- Disney
+- Ebay
+- Epic Games
+- EQT Partners       https://en.wikipedia.org/wiki/EQT_Partners
+- Equifax
+- Experian
+- Extrahop           https://www.extrahop.com
+- Facebook
+- Fox Entertainment Group
+- Headspin           https://www.headspin.io
+- IBM
+- Insight Global     https://www.insightglobal.com
+- Jamf               https://www.jamf.com
+- Kobiton            https://www.kobiton.com
+- Logic 20/20        https://www.logic2020.com
+- Micro Focus        https://en.wikipedia.org/wiki/Micro_Focus
+- Mobica             https://mobica.com
+- NBC
+- Nintendo           https://en.wikipedia.org/wiki/Nintendo
+- Oracle Corporation https://en.wikipedia.org/wiki/Oracle_Corporation
+- Palantir
+- Perfecto           https://www.perfecto.io
+- ProKarma           https://pkglobal.com
+- Sauce Labs         https://saucelabs.com
+- Sinclair           https://en.wikipedia.org/wiki/Sinclair_Broadcast_Group
+- Sony Corporation   https://en.wikipedia.org/wiki/Sony
+- Sprint Corporation https://en.wikipedia.org/wiki/Sprint_Corporation
+- Systems Alliance   https://www.systemsalliance.com
+- SUSE               https://en.wikipedia.org/wiki/SUSE
+- TEKsystems         https://www.teksystems.com
+- TMobile            https://en.wikipedia.org/wiki/T-Mobile
+- TransUnion
+- T. Rowe Price      https://en.wikipedia.org/wiki/T._Rowe_Price
+- Verizon
+- Wells Fargo
+- Zulily
+
+The links given are to clarify which companies exactly are meant. Should
+those links become invalid the original content of those links on the
+date 11/24/2020 shall apply.
+
+A RESTRICTED ENTITY is defined to be any of the following:
+1. A DIRECT RESTRICTED ENTITY
+2. An owner of a RESTRICTED ENTITY
+3. A subsidiary or any functional business unit of a RESTRICTED ENTITY
+4. Any entity of which 50% of its annual revenue comes from work done for
+a RESTRICTED ENTITY
+5. An entity that broke off from a RESTRICTED ENTITY ( such as a company
+splitting up into different legal entities )
+6. An international counterpart of a RESTRICTED ENTITY.
+
+LICENSEE refers to any party ( person or legal entity ) accepting this
+license and hence making use of THE CONTENT or utilizing any of the
+permissions provided by the license. By definition a LICENSEE cannot be
+a RESTRICTED ENTITY.
+
+THE CONTENT refers to the content in full, any portion of it, and anything
+derived from it.
+
+LICENSEE agrees not to provide THE CONTENT to THE RESTRICTED PARTY, nor to
+allow THE CONTENT to be used in any way by THE RESTRICTED PARTY.
+
+THE RESTRICTION is defined to be this license in full, specifically to
+refer to the way the license restricts use of THE CONTENT in any way by
+THE RESTRICTED PARTY.
+
+THE RESTRICTION shall apply to all projects with Copyright
+ownership by THE RESTRICTED PARTY. This shall remain true even if the
+project contributions themselves are done by a person not in THE
+RESTRICTED PARTY. Example: No project with a copyright ownership by Amazon
+may use this project in any way.
+
+To those wondering why THE RESTRICTION has been applied it is due to the
+author's personal experience with these companies and their blatant disregard
+for the open source community as well as their illegal methods of interacting
+with their employees, clients, and customers.
+
+Some additional reasons for your consideration:
+- Amazon: Refused to release a rewrite of Apache Avro as open source when
+the sole developer requested it. Additionally Amazon has extensive modifications
+to tens of thousands of open source libraries that they refuse to contribute
+back to the upstream creators. Amazon is a plague on the earth. Amazon also
+holds many software patents which they claim are only used "in defense", but it
+is a complete lie. See their various suits over their ridiculous "One Click"
+patent.
+
+- Apple: Consistently ignores developers reaching out to them to attempt to
+get information / support on their products.
+
+- Avalara: Illegal employment practices. Specfically around reasons for
+termination ( past history )
+
+- Disney: Copyright should not be eternal. "The vault"
+
+- Ebay: "Buy it now" patent; https://patents.google.com/patent/US5845265
+
+- Epic Games: Paying off game companies to make themselves into an
+intentional illegal monopoly on offering those games.
+
+- Headspin: Refused to release iOS support for STF. Abandoned most support
+for STF and left it to languish.
+
+- Micro Focus / SUSE / EQT: Refused to release build process information for
+their k8s distribution, only offering the raw source code. This was an
+intentional effort to skirt open source requirements and prevent usage of
+their k8s offering without paying for support. When directly told that this
+was wrong, the leaders at the highest levels of the company responded that
+this was intentional and they want to prevent fully open source usage.
+
+- Baltimore Sun / NBC: Refusal to acknowledge and comply with "Right to forget"
+
+- Boston Consulting Group: You know "The Bobs" from Office Space? That's them. 
+
+- Nintendo: Threatened to sue David Helkowski at the age of 15 for creating
+the fan site N64.org. Eventually they realized that was nonsense and
+purchased the domain for the measly sum of $100. Nintendo is/are really
+horrible in the way they handle fair usage of their IP. Other examples are
+their takedowns of emulators of their systems. RIP UltraHLE.
+
+- Oracle: Due to their ridiculous attempts to Copyright an API and their
+general behavior with Java.
+
+- Palantir: Spying on US citizens.
+
+- Sinclair Broadcast Group: Deliberate license breaking/abuse. Refused to
+correct their practices and continues to use software illegally.
+
+- Sony: Due to revoking OtherOS on the PS3 despite it being a labelled
+feature on the box we bought the PS3 in. Most never received their $55 for
+this, and few wantthat $55. They want OtherOS back. Also due to their
+constant updates to device firmware that in no way enhance the devices and
+are purely reactions to attempt to prevent fair usage of their devices in an
+open source fashion. Sony also released malware to attempt to prevent copying
+of their CDs 
+( See https://en.wikipedia.org/wiki/Sony_BMG_copy_protection_rootkit_scandal )
+
+- Sprint: Because they are now owned by TMobile.
+
+- TMobile / Insight Global / Logic 20/20: Refusal to give reasonable
+accomodation for Autistic engineers. ( and termination for being Autistic )
+
+- T.Rowe Price: Terrible internal security practices.
+
+- Comcast / Verizon: Unethical "overage charges" / violation of Net Neutrality
+
+- Wells Fargo: Unethical late fees
+
+- Kobiton / Perfecto / BrowserStack / Sauce Labs: All reverse engineered
+Apple APIs and refuse to share the information gained to the open source
+community automating iOS devices.
+
+Considering their disregard for law and common morality it is likely this
+license will not prevent their illegal usage of the software, but it is an
+attempt to prevent it none the less.
+
+For an understanding of the moral framework these judgements are made from
+see https://github.com/nanoscopic/beliefN
+( specifically the points that information should be free, non-cooperation
+with immoral people, and the legal framework available should be used as
+possible to do so )
+
+=======================================================================
+
+Permission is hereby granted, free of charge, to LICENSEE, to conditionally
+use, modify, publish, distribute, or sell copies of THE CONTENT.
+
+These permissions are granted with the following conditions:
+
+1. THE CONTENT may not be distributed or sold to THE RESTRICTED PARTY.
+
+2. Access to a service containing or utilizing THE CONTENT may not be
+given, sold, or licensed to THE RESTRICTED PARTY. 
+
+3. Any service containing or utilizing THE CONTENT shall be considered a
+derivative of this license and therefore by bound by THE RESTRICTION.
+This includes use of THE CONTENT by way of dynamic libraries, indirect calls,
+scripting, virtualization, containerization, or instantiation as a remote
+callable service. Such restricted software must be prevented from being
+used by THE RESTRICTED PARTY.
+
+4. THE CONTENT cannot be sold to THE RESTRICTED PARTY.
+
+5. THE CONTENT may not be published to or distributed through a system
+owned or controlled by THE RESTRICTED PARTY.
+
+6. Any derivatives of THE CONTENT must be licensed under this same license.
+By same license this means the contents of this LICENSE file in its
+entirety. No modifications may be made to the license.
+
+7. The above copyright notice and this LICENSE file must be included in
+all copies and derivative forms of THE CONTENT.
+
+8. LICENSEE understands and agrees that this content is provided "as is",
+without warranty of any kind, express or implied, including but not limited
+to the warranties of merchantability, fitness for a particular purpose and
+noninfringement. In no event shall the authors or copyright holders be liable
+for any claim, damages or other liability, whether in an action of contract,
+tort or otherwise, arising from, out of or in connection with THE CONTENT or
+the use or other dealings of it.

@@ -24,6 +24,7 @@ func wait_wdaup( devd *RunningDev ) {
 
 func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
     uuid := o.devd.uuid
+    config := o.config
     
     if temp {
       o.procName = "wdaproxytemp"
@@ -39,11 +40,14 @@ func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
     o.startFields = log.Fields {
         "wdaPort": o.config.WDAProxyPort,
         "iosVersion": o.devd.iosVersion,
+        "--iosDeploy": config.BinPaths.IosDeploy,
     }
     o.args = []string {
         "-p", strconv.Itoa(o.config.WDAProxyPort),
         "-q", strconv.Itoa(8100),//o.config.WDAProxyPort),
         "-d",
+        fmt.Sprintf("--iosDeploy=%s", config.BinPaths.IosDeploy),
+        fmt.Sprintf("--mobileDevice=%s", "/usr/local/bin/mobiledevice"),
         "-W", ".",
         "-u", uuid,
         fmt.Sprintf("--iosversion=%s", o.devd.iosVersion),
@@ -67,9 +71,9 @@ func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
     devd := o.devd
     o.stderrHandler = func( line string, plog *log.Entry ) (bool) {
         if strings.Contains( line, "[WDA] successfully started" ) {
-            /*plog.WithFields( log.Fields{
+            plog.WithFields( log.Fields{
                 "type": "wda_started",
-            } ).Info("WDA Running")*/
+            } ).Info("WDA Running")
             devd.lock.Lock()
             devd.wda = true
             devd.lock.Unlock()

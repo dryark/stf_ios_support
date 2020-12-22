@@ -2,6 +2,7 @@ package main
 
 import (
     "fmt"
+    "os"
     "strconv"
     "strings"
     log "github.com/sirupsen/logrus"
@@ -30,6 +31,8 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         frameServer = fmt.Sprintf("ws://%s:%d/echo", curIP, o.devd.vidPort)
     }
     
+    curDir, _ := os.Getwd()
+    
     o.args = []string{
         fmt.Sprintf("--inspect=0.0.0.0:%d", o.devd.devIosPort),
         "runmod.js"              , "device-ios",
@@ -51,6 +54,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "--click-width"          , strconv.Itoa( o.devd.clickWidth ),
         "--click-height"         , strconv.Itoa( o.devd.clickHeight ),
         "--click-scale"          , strconv.Itoa( o.devd.clickScale ),
+        "--ios-deploy-path"      , ( curDir + "/" + o.config.BinPaths.IosDeploy ),
     }
     o.startFields = log.Fields {
         "server_ip": o.config.Stf.Ip,
