@@ -32,6 +32,7 @@ class StfIosSupport < Formula
   depends_on "nanomsg"
   depends_on "libgcrypt"
   depends_on "gnutls"
+  depends_on "mobiledevice"
   # depends_on "libplist" # need to install with --HEAD
   # depends_on "libusbmuxd" # need to install with --HEAD
 end
