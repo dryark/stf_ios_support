@@ -504,9 +504,10 @@ func NewRunningDev(
     devd.iosVersion = getDeviceInfo( config, uuid, "ProductVersion" )
     
     devConf := get_device_config( config, uuid )
-    
-    devd.streamWidth = devConf.Width
-    devd.streamHeight = devConf.Height
+    if devConf != nil {
+        devd.streamWidth = devConf.Width
+        devd.streamHeight = devConf.Height
+    }
     
     devMapLock.Lock()
     runningDevs[uuid] = &devd
