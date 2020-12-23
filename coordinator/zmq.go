@@ -256,9 +256,9 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
 
                         log.Info("X4")
                         pubEventCh <- PubEvent{
-                            action: 0, // connected
-                            uuid: uuid,
-                            name: devName,
+                            action:  0, // connected
+                            uuid:    uuid,
+                            name:    devName,
                             wdaPort: wdaPort,
                             vidPort: vidPort,
                         }
@@ -307,9 +307,9 @@ func coro_zmqPull( runningDevs map[string] *RunningDev, devMapLock *sync.Mutex, 
                         height, _ := strconv.Atoi( msg["height"] )
                         devEvent := DevEvent{
                             action: 3,
-                            width: width,
+                            width:  width,
                             height: height,
-                            uuid: uuid,
+                            uuid:   uuid,
                         }
                         
                         devEventCh <- devEvent
@@ -340,18 +340,18 @@ func coro_zmqReqRep( runningDevs map[string] *RunningDev ) {
         _, err := repSock.Bind( spec )
         if err != nil {
             plog.WithFields( log.Fields{
-                "type": "err_zmq",
+                "type":     "err_zmq",
                 "zmq_spec": spec,
-                "err": err,
+                "err":      err,
             } ).Fatal("ZMQ binding error")
         }
 
         repOb, err := zmq.NewReadWriter(repSock)
         if err != nil {
             plog.WithFields( log.Fields{
-                "type": "err_zmq",
+                "type":     "err_zmq",
                 "zmq_spec": spec,
-                "err": err,
+                "err":      err,
             } ).Fatal("error making readwriter")
         }
         defer repOb.Destroy()
@@ -371,7 +371,7 @@ func coro_zmqReqRep( runningDevs map[string] *RunningDev ) {
             if err != nil && err != io.EOF {
                 plog.WithFields( log.Fields{
                     "type": "err_zmq",
-                    "err": err,
+                    "err":  err,
                 } ).Error("Error reading zmq")
             } else {
                 msg := string( buf )
@@ -390,7 +390,7 @@ func coro_zmqReqRep( runningDevs map[string] *RunningDev ) {
                 } else {
                     plog.WithFields( log.Fields{
                         "type": "err_zmq",
-                        "msg": string( buf ),
+                        "msg":  string( buf ),
                     } ).Error("Received unknown message")
 
                     response := []byte("response")

@@ -13,9 +13,9 @@ import (
 )
 
 type WDAType struct {
-  base string
+  base    string
   channel chan DevEvent
-  devd *RunningDev
+  devd    *RunningDev
 }
 
 func NewWDACaller( base string ) ( *WDAType ) {

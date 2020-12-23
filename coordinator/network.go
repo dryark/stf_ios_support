@@ -82,7 +82,7 @@ func get_net_info( config *Config ) ( string, string, bool ) {
     if err != "" {
         log.WithFields( log.Fields{
             "type": "vpn_err",
-            "err": err,
+            "err":  err,
         } ).Info( err )
         return "", "", true
     }
@@ -98,9 +98,9 @@ func get_net_info( config *Config ) ( string, string, bool ) {
         vpnMissing = true
     } else {
         log.WithFields( log.Fields{
-            "type": "info_vpn",
+            "type":           "info_vpn",
             "interface_name": tunName,
-            "ip": curIP,
+            "ip":             curIP,
         } ).Info("VPN Info - ip")
     }
 
@@ -111,13 +111,13 @@ func ifaceCurIP( tunName string ) string {
     ipStr, _ := ifAddr( tunName )
     if ipStr != "" {
         log.WithFields( log.Fields{
-            "type": "net_interface_info",
+            "type":           "net_interface_info",
             "interface_name": tunName,
-            "ip": ipStr,
+            "ip":             ipStr,
         } ).Debug("Interface Details")
     } else {
         log.WithFields( log.Fields{
-            "type": "err_net_interface",
+            "type":           "err_net_interface",
             "interface_name": tunName,
         } ).Fatal("Could not find interface")
     }

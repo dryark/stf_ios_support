@@ -22,14 +22,14 @@ type InMemTracker struct {
 }
 
 type JSONLog struct {
-	  file      *os.File
-	  fileName  string
-	  formatter *log.JSONFormatter
-	  failed    bool
-	  hupData   *HupData
-	  id        int
+	  file         *os.File
+	  fileName     string
+	  formatter    *log.JSONFormatter
+	  failed       bool
+	  hupData      *HupData
+	  id           int
 	  inMemTracker *InMemTracker
-	  mutex     sync.Mutex
+	  mutex        sync.Mutex
 }
 
 type HupData struct {
@@ -69,9 +69,9 @@ func ( hook *JSONLog ) Fire( entry *log.Entry ) error {
         hook.file = fh
 
         log.WithFields( log.Fields{
-            "type": "sighup",
+            "type":  "sighup",
             "state": "reopen",
-            "file": hook.fileName,
+            "file":  hook.fileName,
         } ).Info("HUP requested")
         //fmt.Fprintf( os.Stdout, "Hup %s\n", hook.fileName )
     }
@@ -134,12 +134,12 @@ func AddJSONLog( logger *log.Logger, fileName string, id int, hupData *HupData )
     }
 
     fileHook := JSONLog{
-        file:      logFile,
-        fileName:  fileName,
-        formatter: &log.JSONFormatter{},
-        failed:    false,
-        hupData:   hupData,
-        id:        id,
+        file:         logFile,
+        fileName:     fileName,
+        formatter:    &log.JSONFormatter{},
+        failed:       false,
+        hupData:      hupData,
+        id:           id,
         inMemTracker: NewInMemTracker(),
     }
 

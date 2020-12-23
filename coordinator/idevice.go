@@ -25,7 +25,7 @@ func getDeviceName( config *Config, uuid string ) (string) {
             log.WithFields( log.Fields{
                 "type": "ilib_getname_fail",
                 "uuid": uuid,
-                "try": i,
+                "try":  i,
             } ).Debug("idevicename returned nothing")
 
             time.Sleep( time.Millisecond * 100 )
@@ -62,8 +62,8 @@ func getDeviceInfo( config *Config, uuid string, keyName string ) (string) {
             log.WithFields( log.Fields{
                 "type": "ilib_getinfo_fail",
                 "uuid": uuid,
-                "key": keyName,
-                "try": i,
+                "key":  keyName,
+                "try":  i,
             } ).Error("ideviceinfo failed after 20 attempts over 20 seconds")
             return ""
         }
@@ -78,7 +78,7 @@ func getDeviceInfo( config *Config, uuid string, keyName string ) (string) {
 
         log.WithFields( log.Fields{
             "type": "ilib_getinfo_call",
-            "ops": ops,
+            "ops":  ops,
         } ).Info("ideviceinfo call")
         
         var name []byte

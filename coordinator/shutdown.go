@@ -19,11 +19,11 @@ func cleanup_procs(config *Config) {
 
     procMap := map[string]string {
         "ios_video_stream": config.BinPaths.IosVideoStream,
-        "device_trigger": config.BinPaths.DeviceTrigger,
-        "h264_to_jpeg": config.BinPaths.H264ToJpeg,
-        "wdaproxy": "../wdaproxy",
-        "ivf": config.BinPaths.IVF,
-        "ios-deploy": config.BinPaths.IosDeploy,
+        "device_trigger":   config.BinPaths.DeviceTrigger,
+        "h264_to_jpeg":     config.BinPaths.H264ToJpeg,
+        "wdaproxy":         "../wdaproxy",
+        "ivf":              config.BinPaths.IVF,
+        "ios-deploy":       config.BinPaths.IosDeploy,
     }
      
 	// Cleanup hanging processes if any
@@ -50,7 +50,7 @@ func cleanup_procs(config *Config) {
                 pid := proc.PID()
                 plog.WithFields( log.Fields{
                     "proc": k,
-                    "pid": pid,
+                    "pid":  pid,
                 } ).Warn("Leftover " + k + " - Sending SIGTERM")
                 
                 syscall.Kill( pid, syscall.SIGTERM )
@@ -70,7 +70,7 @@ func cleanup_procs(config *Config) {
             
             plog.WithFields( log.Fields{
                 "proc": "device-ios",
-                "pid": pid,
+                "pid":  pid,
             } ).Warn("Leftover Proc - Sending SIGTERM")
 
             syscall.Kill( pid, syscall.SIGTERM )
@@ -83,7 +83,7 @@ func cleanup_procs(config *Config) {
             
             plog.WithFields( log.Fields{
                 "proc": "stf_provider",
-                "pid": pid,
+                "pid":  pid,
             } ).Warn("Leftover Proc - Sending SIGTERM")
             
             syscall.Kill( pid, syscall.SIGTERM )
@@ -203,7 +203,7 @@ func coro_sigterm( runningDevs map [string] *RunningDev, baseProgs *BaseProgs, c
     go func() {
         <- c
         log.WithFields( log.Fields{
-            "type": "sigterm",
+            "type":  "sigterm",
             "state": "begun",
         } ).Info("Shutdown started")
 
@@ -218,7 +218,7 @@ func coro_sigterm( runningDevs map [string] *RunningDev, baseProgs *BaseProgs, c
         cleanup_procs( config )
 
         log.WithFields( log.Fields{
-            "type": "sigterm",
+            "type":  "sigterm",
             "state": "done",
         } ).Info("Shutdown finished")
 

@@ -25,8 +25,8 @@ func proc_ivf( o ProcOptions ) {
     o.procName = "ivf"
     o.args = []string {
         "nano",
-        "--udid", udid,
-        "--out", toStreamSpec,
+        "--udid",      udid,
+        "--out",       toStreamSpec,
         "--frameSkip", "2",
     }
     proc_generic( o )

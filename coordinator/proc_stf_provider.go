@@ -24,7 +24,7 @@ func proc_stf_provider( o ProcOptions, curIP string ) {
         "server_ip":       serverIP,
         "client_hostname": clientHostname,
         "server_hostname": serverHostname,
-        "location": location,
+        "location":        location,
     }
     o.binary = "/usr/local/opt/node@12/bin/node"
     o.args = []string {

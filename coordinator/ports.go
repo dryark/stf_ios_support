@@ -28,11 +28,11 @@ func NewPortMap( config *Config ) ( *PortMap ) {
     decodePorts  := construct_ports( "Decode", config, config.Network.Decode )
     usbmuxdPorts := construct_ports( "usbmuxd", config, config.Network.Usbmuxd )
     portMap := PortMap {
-        wdaPorts: wdaPorts,
-        vidPorts: vidPorts,
-        devIosPorts: devIosPorts,
-        vncPorts: vncPorts,
-        decodePorts: decodePorts,
+        wdaPorts:     wdaPorts,
+        vidPorts:     vidPorts,
+        devIosPorts:  devIosPorts,
+        vncPorts:     vncPorts,
+        decodePorts:  decodePorts,
         usbmuxdPorts: usbmuxdPorts,
     }
     return &portMap
@@ -110,12 +110,12 @@ func assign_ports( gConfig *Config, portMap *PortMap ) ( int,int,int,int,int,int
 }
 
 func free_ports(
-        wdaPort int,
-        vidPort int,
-        devIosPort int,
-        vncPort int,
+        wdaPort     int,
+        vidPort     int,
+        devIosPort  int,
+        vncPort     int,
         usbmuxdPort int,
-        portMap *PortMap ) {
+        portMap     *PortMap ) {
     wdaItem := portMap.wdaPorts[ wdaPort ]
     wdaItem.available = true
 

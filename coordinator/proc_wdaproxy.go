@@ -27,19 +27,19 @@ func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
     config := o.config
     
     if temp {
-      o.procName = "wdaproxytemp"
+      o.procName  = "wdaproxytemp"
       o.noRestart = true
-      o.noWait = false
+      o.noWait    = false
     } else {
-      o.procName = "wdaproxy"
-      o.noWait = true
+      o.procName  = "wdaproxy"
+      o.noWait    = true
       o.noRestart = false
     }
     
     o.binary = "../wdaproxy" //o.config.BinPaths.WdaProxy
     o.startFields = log.Fields {
-        "wdaPort": o.config.WDAProxyPort,
-        "iosVersion": o.devd.iosVersion,
+        "wdaPort":     o.config.WDAProxyPort,
+        "iosVersion":  o.devd.iosVersion,
         "--iosDeploy": config.BinPaths.IosDeploy,
     }
     o.args = []string {
@@ -80,7 +80,7 @@ func proc_wdaproxy( o ProcOptions, devEventCh chan<- DevEvent, temp bool ) {
             
             devEventCh <- DevEvent{
                 action: 4,
-                uuid: uuid,
+                uuid:   uuid,
             }
         }
         return true

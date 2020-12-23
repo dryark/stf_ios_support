@@ -23,17 +23,17 @@ func proc_ios_video_stream( o ProcOptions, tunName string, frameInIp string ) {
     
     o.binary = o.config.BinPaths.IosVideoStream
     o.startFields = log.Fields {
-        "tunName": tunName,
+        "tunName":  tunName,
         "pullSpec": inSpec,
-        "port": port,
+        "port":     port,
     }
     o.procName = "ios_video_stream"
     o.args = []string {
         "-stream",
-        "-port", strconv.Itoa( port ),
-        "-udid", udid,
-        "-interface", tunName,
-        "-pullSpec", inSpec,
+        "-port",        strconv.Itoa( port ),
+        "-udid",        udid,
+        "-interface",   tunName,
+        "-pullSpec",    inSpec,
         "-coordinator", coordinator,
     }
     secure := o.config.FrameServer.Secure
@@ -43,7 +43,7 @@ func proc_ios_video_stream( o ProcOptions, tunName string, frameInIp string ) {
         o.args = append( o.args,
             "--secure",
             "--cert", cert,
-            "--key", key,
+            "--key",  key,
         )
     }
     proc_generic( o )

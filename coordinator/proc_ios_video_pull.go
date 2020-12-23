@@ -22,7 +22,7 @@ func proc_ios_video_pull( o ProcOptions ) {
     o.procName = "ios_video_pull"
     o.args = []string {
         "-pull",
-        "-udid", udid,
+        "-udid",     udid,
         "-pushSpec", outSpec,
     }
     o.stdoutHandler = func( line string, plog *log.Entry ) (bool) {

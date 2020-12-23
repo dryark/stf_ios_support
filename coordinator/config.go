@@ -11,19 +11,19 @@ import (
 )
 
 type Config struct {
-    WdaFolder  string        `json:"wda_folder"`
-    Network    NetConfig     `json:"network"`
-    Stf        STFConfig     `json:"stf"`
-    Video      VideoConfig   `json:"video"`
-    FrameServer FrameServerConfig `json:"frameserver"`
-    Install    InstallConfig `json:"install"`
-    Log        LogConfig     `json:"log"`
-    BinPaths   BinPathConfig `json:"bin_paths"`
-    Vpn        VPNConfig     `json:"vpn"`
-    Timing     TimingConfig  `json:"timing"`
-    ConfigPath string        `json:"config_path"`
-    DeviceDetector string    `json:"device_detector"`
-    IosCLI     string        `json:"ios_cli"`
+    WdaFolder      string        `json:"wda_folder"`
+    Network        NetConfig     `json:"network"`
+    Stf            STFConfig     `json:"stf"`
+    Video          VideoConfig   `json:"video"`
+    FrameServer    FrameServerConfig `json:"frameserver"`
+    Install        InstallConfig `json:"install"`
+    Log            LogConfig     `json:"log"`
+    BinPaths       BinPathConfig `json:"bin_paths"`
+    Vpn            VPNConfig     `json:"vpn"`
+    Timing         TimingConfig  `json:"timing"`
+    ConfigPath     string        `json:"config_path"`
+    DeviceDetector string        `json:"device_detector"`
+    IosCLI         string        `json:"ios_cli"`
     // The following are only used internally
     WDAProxyPort   int
     MirrorFeedPort int
@@ -48,9 +48,9 @@ type NetConfig struct {
 }
 
 type STFConfig struct {
-    Ip       string `json:"ip"`
-    HostName string `json:"hostname"`
-    Location string `json:"location"`
+    Ip         string `json:"ip"`
+    HostName   string `json:"hostname"`
+    Location   string `json:"location"`
     AdminToken string `json:"admin_token"`
 }
 
@@ -79,17 +79,17 @@ type LogConfig struct {
 }
 
 type BinPathConfig struct {
-    WdaProxy      string `json:"wdaproxy"`
-    DeviceTrigger string `json:"device_trigger"`
+    WdaProxy       string `json:"wdaproxy"`
+    DeviceTrigger  string `json:"device_trigger"`
     IosVideoStream string `json:"ios_video_stream"`
     IosVideoPull   string `json:"ios_video_pull"`
-    H264ToJpeg    string `json:"h264_to_jpeg"`
-    Openvpn       string `json:"openvpn"`
-    Iproxy        string `json:"iproxy"`
-    WdaWrapper    string `json:"wdawrapper"`
-    IVF           string `json:"ivf"`
-    VideoEnabler  string `json:"video_enabler"`
-    IosDeploy     string `json:"ios-deploy"`
+    H264ToJpeg     string `json:"h264_to_jpeg"`
+    Openvpn        string `json:"openvpn"`
+    Iproxy         string `json:"iproxy"`
+    WdaWrapper     string `json:"wdawrapper"`
+    IVF            string `json:"ivf"`
+    VideoEnabler   string `json:"video_enabler"`
+    IosDeploy      string `json:"ios-deploy"`
 }
 
 type VPNConfig struct {
@@ -100,11 +100,11 @@ type VPNConfig struct {
 }
 
 type FrameServerConfig struct {
-    Secure bool `json:"secure"`
-    Cert string `json:"cert"`
-    Key string `json:"key"`
-    Width int `json:"width"`
-    Height int `json:"height"`
+    Secure bool   `json:"secure"`
+    Cert   string `json:"cert"`
+    Key    string `json:"key"`
+    Width  int    `json:"width"`
+    Height int    `json:"height"`
 }
 
 type TimingConfig struct {
@@ -144,8 +144,8 @@ func read_config( configPath string ) *Config {
         fh, serr := os.Stat( configPath )
         if serr != nil {
             log.WithFields( log.Fields{
-                "type": "err_read_config",
-                "error": serr,
+                "type":        "err_read_config",
+                "error":       serr,
                 "config_path": configPath,
             } ).Fatal("Could not read specified config path")
         }
@@ -161,9 +161,9 @@ func read_config( configPath string ) *Config {
         configFh, err := os.Open( configFile )
         if err != nil {
             log.WithFields( log.Fields{
-                "type": "err_read_config",
+                "type":        "err_read_config",
                 "config_file": configFile,
-                "error": err,
+                "error":       err,
             } ).Fatal("failed reading config file")
         }
         defer configFh.Close()

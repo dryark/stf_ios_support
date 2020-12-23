@@ -9,22 +9,22 @@ import (
 type OutputHandler func( string, *log.Entry ) (bool)
 
 type ProcOptions struct {
-    config    *Config
-    baseProgs *BaseProgs
-    devd      *RunningDev
-    lineLog   *log.Entry
-    procName  string
-    binary    string
-    args      []string
+    config        *Config
+    baseProgs     *BaseProgs
+    devd          *RunningDev
+    lineLog       *log.Entry
+    procName      string
+    binary        string
+    args          []string
     stderrHandler OutputHandler
     stdoutHandler OutputHandler
-    startFields log.Fields
-    startDir  string
-    env       map[string]string
-    curIP     string
-    noRestart bool
-    noWait    bool
-    onStop    func( *RunningDev )
+    startFields   log.Fields
+    startDir      string
+    env           map[string]string
+    curIP         string
+    noRestart     bool
+    noWait        bool
+    onStop        func( *RunningDev )
 }
 
 type GPMsg struct {
@@ -33,9 +33,9 @@ type GPMsg struct {
 
 type GenericProc struct {
     controlCh chan GPMsg
-    backoff *Backoff
-    pid int
-    cmd *gocmd.Cmd
+    backoff   *Backoff
+    pid       int
+    cmd       *gocmd.Cmd
 }
 
 func (self *GenericProc) Kill() {
@@ -90,8 +90,8 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
     
     go func() { for {
         startFields := log.Fields{
-            "type":     "proc_start",
-            "binary":   opt.binary,
+            "type":   "proc_start",
+            "binary": opt.binary,
         }
         if opt.startFields != nil {
             for k, v := range opt.startFields {
@@ -126,7 +126,7 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
             
             if status.Error != nil {
                 plog.WithFields( log.Fields{
-                    "type": "proc_err",
+                    "type":  "proc_err",
                     "error": status.Error,
                 } ).Error("Error starting - " + opt.procName)
                 
@@ -154,7 +154,7 @@ func proc_generic( opt ProcOptions ) ( *GenericProc ) {
                 
         plog.WithFields( log.Fields{
             "type": "proc_pid",
-            "pid": proc.pid,
+            "pid":  proc.pid,
         } ).Debug("Process pid")
         
         outStream := cmd.Stdout

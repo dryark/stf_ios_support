@@ -18,10 +18,10 @@ import (
 )
 
 type DevEvent struct {
-    action int
-    uuid   string
-    width  int
-    height int
+    action     int
+    uuid       string
+    width      int
+    height     int
     clickScale int
 }
 
@@ -47,56 +47,56 @@ func (self *RunningDev) getShuttingDown( base *BaseProgs ) (bool){
 }
 
 type RunningDev struct {
-    uuid          string
-    name          string
-    wdaWrapper    *Launcher
-    shuttingDown  bool
-    lock          *sync.Mutex
-    failed        bool
-    wdaPort       int
-    vidPort       int
-    devIosPort    int
-    vncPort       int
-    usbmuxdPort   int
-    wdaStdoutPipe string
-    wdaStderrPipe string
-    heartbeatChan chan<- bool
-    iosVersion    string
-    confDup       *Config
-    videoReady    bool
-    streamWidth   int
-    streamHeight  int
-    streamPort    int
-    clickWidth    int
-    clickHeight   int
-    clickScale    int
-    okFirstFrame  bool
+    uuid           string
+    name           string
+    wdaWrapper     *Launcher
+    shuttingDown   bool
+    lock           *sync.Mutex
+    failed         bool
+    wdaPort        int
+    vidPort        int
+    devIosPort     int
+    vncPort        int
+    usbmuxdPort    int
+    wdaStdoutPipe  string
+    wdaStderrPipe  string
+    heartbeatChan  chan<- bool
+    iosVersion     string
+    confDup        *Config
+    videoReady     bool
+    streamWidth    int
+    streamHeight   int
+    streamPort     int
+    clickWidth     int
+    clickHeight    int
+    clickScale     int
+    okFirstFrame   bool
     okVidInterface bool
-    wdaStarted    bool
-    process       map[string] *GenericProc
+    wdaStarted     bool
+    process        map[string] *GenericProc
     devUnitStarted bool
-    periodic      chan bool
-    owner         string
-    wda           bool
+    periodic       chan bool
+    owner          string
+    wda            bool
 }
 
 type BaseProgs struct {
-    process    map[string] *GenericProc
-    shuttingDown bool
-    vpnLauncher *Launcher
-    vpnLogWatcher *fsnotify.Watcher
+    process               map[string] *GenericProc
+    shuttingDown          bool
+    vpnLauncher           *Launcher
+    vpnLogWatcher         *fsnotify.Watcher
     vpnLogWatcherStopChan chan<- bool
-    vpnIface   string
-    okStage1   bool
-    okVpn      bool
-    lock       *sync.Mutex
+    vpnIface              string
+    okStage1              bool
+    okVpn                 bool
+    lock                  *sync.Mutex
 }
 
-var gStop bool
+var gStop       bool
 
-var GitCommit string
-var GitDate string
-var GitRemote string
+var GitCommit   string
+var GitDate     string
+var GitRemote   string
 var EasyVersion string
 
 func main() {
@@ -256,11 +256,11 @@ func main() {
         devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
         
         o := ProcOptions {
-            config: config,
+            config:    config,
             baseProgs: &baseProgs,
-            lineLog: lineLog,
-            devd: devd,
-            curIP: "127.0.0.1",
+            lineLog:   lineLog,
+            devd:      devd,
+            curIP:     "127.0.0.1",
         }
         
         wda := NewTempWDA( o )
@@ -286,11 +286,11 @@ func main() {
         devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
         
         o := ProcOptions {
-            config: config,
+            config:    config,
             baseProgs: &baseProgs,
-            lineLog: lineLog,
-            devd: devd,
-            curIP: "127.0.0.1",
+            lineLog:   lineLog,
+            devd:      devd,
+            curIP:     "127.0.0.1",
         }
     
         fmt.Printf( "First device name: %s\n", devd.name )
@@ -327,11 +327,11 @@ func main() {
         devd := NewRunningDev( config, runningDevs, &devMapLock, portMap, devId )
         
         o := ProcOptions {
-            config: config,
+            config:    config,
             baseProgs: &baseProgs,
-            lineLog: lineLog,
-            devd: devd,
-            curIP: "127.0.0.1",
+            lineLog:   lineLog,
+            devd:      devd,
+            curIP:     "127.0.0.1",
         }
         
     	aio_reset_media_services( o )
@@ -384,10 +384,10 @@ func main() {
 
 
     log.WithFields( log.Fields{
-        "type":     "portmap",
-        "vid_ports": portMap.vidPorts,
-        "wda_ports": portMap.wdaPorts,
-        "vnc_ports": portMap.vncPorts,
+        "type":          "portmap",
+        "vid_ports":     portMap.vidPorts,
+        "wda_ports":     portMap.wdaPorts,
+        "vnc_ports":     portMap.vncPorts,
         "usbmuxd_ports": portMap.usbmuxdPorts,
         "dev_ios_ports": portMap.devIosPorts,
     } ).Debug("Portmap")
@@ -395,10 +395,10 @@ func main() {
     baseProgs.shuttingDown = false
 
     procOptions := ProcOptions {
-        config: config,
+        config:    config,
         baseProgs: &baseProgs,
-        lineLog: lineLog,
-        curIP: curIP,
+        lineLog:   lineLog,
+        curIP:     curIP,
     }   
     
     coro_http_server( config, devEventCh, &baseProgs, runningDevs, lineTracker )
@@ -427,10 +427,10 @@ func coordinator_NewLauncher( config *Config ) (*Launcher) {
         "/Applications/STF Coordinator.app/Contents/MacOS/coordinator",
     }
     
-    label := fmt.Sprintf("com.tmobile.coordinator.app")
-    wd := "/Applications/STF Coordinator.app/Contents/MacOS"
+    label     := fmt.Sprintf("com.tmobile.coordinator.app")
+    wd        := "/Applications/STF Coordinator.app/Contents/MacOS"
     keepalive := true
-    asRoot := false
+    asRoot    := false
     cLauncher := NewLauncher( label, arguments, keepalive, wd, asRoot )
     cLauncher.stdout = config.Log.MainApp
     //cLauncher.stderr = config.WDAWrapperStderr
@@ -474,29 +474,29 @@ func NewRunningDev(
   
     devd := RunningDev{
         uuid: uuid,
-        shuttingDown:  false,
-        failed:        false,
-        wdaPort:       wdaPort,
-        vidPort:       vidPort,
-        devIosPort:    devIosPort,
-        vncPort:       vncPort,
-        usbmuxdPort:   usbmuxdPort,
-        confDup:       config,
-        videoReady:    false,
-        streamWidth:   0,
-        streamHeight:  0,
-        streamPort:    streamPort,
-        clickWidth:    0,
-        clickHeight:   0,
-        clickScale:    1000,
-        okFirstFrame:  false,
+        shuttingDown:   false,
+        failed:         false,
+        wdaPort:        wdaPort,
+        vidPort:        vidPort,
+        devIosPort:     devIosPort,
+        vncPort:        vncPort,
+        usbmuxdPort:    usbmuxdPort,
+        confDup:        config,
+        videoReady:     false,
+        streamWidth:    0,
+        streamHeight:   0,
+        streamPort:     streamPort,
+        clickWidth:     0,
+        clickHeight:    0,
+        clickScale:     1000,
+        okFirstFrame:   false,
         okVidInterface: false,
-        wdaStarted:        false,
-        process: make( map[string] *GenericProc ),
+        wdaStarted:     false,
+        process:        make( map[string] *GenericProc ),
         devUnitStarted: false,
-        lock: &sync.Mutex{},
-        periodic: make( chan bool ),
-        wda: false,
+        lock:           &sync.Mutex{},
+        periodic:       make( chan bool ),
+        wda:            false,
     }
     
     devd.name = getDeviceName( config, uuid )
@@ -514,12 +514,12 @@ func NewRunningDev(
     devMapLock.Unlock()
     
     log.WithFields( log.Fields{
-        "type":     "devd_create",
-        "dev_name": devd.name,
-        "dev_uuid": censor_uuid( uuid ),
-        "vid_port": vidPort,
-        "wda_port": wdaPort,
-        "vnc_port": vncPort,
+        "type":         "devd_create",
+        "dev_name":     devd.name,
+        "dev_uuid":     censor_uuid( uuid ),
+        "vid_port":     vidPort,
+        "wda_port":     wdaPort,
+        "vnc_port":     vncPort,
         "usbmuxd_port": usbmuxdPort,
         "dev_ios_port": devIosPort,
     } ).Info("Device object created")
@@ -527,22 +527,22 @@ func NewRunningDev(
     return &devd
 }
 
-func mini_event_loop( devEventCh  <-chan DevEvent, devd *RunningDev ) {
+func mini_event_loop( devEventCh <-chan DevEvent, devd *RunningDev ) {
     for {
         select {
         case devEvent := <- devEventCh:
             uuid := devd.uuid
             if devEvent.action == 3 { // first video frame
-                devd.streamWidth = devEvent.width
+                devd.streamWidth  = devEvent.width
                 devd.streamHeight = devEvent.height
-                devd.clickScale = devEvent.clickScale
+                devd.clickScale   = devEvent.clickScale
                 log.WithFields( log.Fields{
-                    "type": "first_frame",
-                    "proc": "ios_video_stream",
-                    "width": devEvent.width,
-                    "height": devEvent.height,
+                    "type":       "first_frame",
+                    "proc":       "ios_video_stream",
+                    "width":      devEvent.width,
+                    "height":     devEvent.height,
                     "clickScale": devEvent.clickScale,
-                    "uuid": censor_uuid( uuid ),
+                    "uuid":       censor_uuid( uuid ),
                 } ).Info("Video - first frame")
             }
         }
@@ -557,10 +557,10 @@ func event_loop(
         tunName     string,
         pubEventCh  chan<- PubEvent,
         runningDevs map[string] *RunningDev,
-        devMapLock *sync.Mutex,
+        devMapLock  *sync.Mutex,
         portMap     *PortMap,
         lineLog     *log.Entry,
-        baseProgs *BaseProgs,
+        baseProgs   *BaseProgs,
         videoMethod string ) {
     
     gProcOptions := ProcOptions {
@@ -606,11 +606,11 @@ func event_loop(
             var ok = false
             
             o := ProcOptions {
-                config: gConfig,
-                devd: devd,
+                config:    gConfig,
+                devd:      devd,
                 baseProgs: baseProgs,
-                lineLog: lineLog,
-                curIP: curIP,
+                lineLog:   lineLog,
+                curIP:     curIP,
             }
             
             brandNew := false
@@ -695,16 +695,16 @@ func event_loop(
             }
             if devEvent.action == 3 { // first video frame
                 devd.okFirstFrame = true
-                devd.streamWidth = devEvent.width
+                devd.streamWidth  = devEvent.width
                 devd.streamHeight = devEvent.height
-                devd.clickScale = devEvent.clickScale
+                devd.clickScale   = devEvent.clickScale
                 log.WithFields( log.Fields{
-                    "type": "first_frame",
-                    "proc": "ios_video_stream",
-                    "width": devEvent.width,
-                    "height": devEvent.height,
+                    "type":       "first_frame",
+                    "proc":       "ios_video_stream",
+                    "width":      devEvent.width,
+                    "height":     devEvent.height,
                     "clickScale": devEvent.clickScale,
-                    "uuid": censor_uuid( uuid ),
+                    "uuid":       censor_uuid( uuid ),
                 } ).Info("Video - first frame")
             }
             if devEvent.action == 4 { // WDA started
@@ -713,9 +713,9 @@ func event_loop(
                 vidPort := devd.vidPort
 
                 pubEventCh <- PubEvent{
-                    action: 0, // connected
-                    uuid: uuid,
-                    name: devName,
+                    action:  0, // connected
+                    uuid:    uuid,
+                    name:    devName,
                     wdaPort: wdaPort,
                     vidPort: vidPort,
                 }
@@ -760,7 +760,7 @@ func event_loop(
                 
                 log.WithFields( log.Fields{
                     "type": "wda_session",
-                    "id": sessionId,
+                    "id":   sessionId,
                     "uuid": censor_uuid( uuid ),
                 } ).Info("Fetched WDA session")
                 
@@ -771,14 +771,14 @@ func event_loop(
                 root2, _ := uj.Parse( body2.Bytes() )
                 
                 val := root2.Get("value")
-                devd.clickWidth = val.Get("width").Int()
+                devd.clickWidth  = val.Get("width").Int()
                 devd.clickHeight = val.Get("height").Int()
                 
                 log.WithFields( log.Fields{
-                    "type": "device_dimensions",
-                    "width": devd.clickWidth,
+                    "type":  "device_dimensions",
+                    "width":  devd.clickWidth,
                     "height": devd.clickHeight,
-                    "uuid": censor_uuid( uuid ),
+                    "uuid":   censor_uuid( uuid ),
                 } ).Info("Fetched device screen dimensions")
                 
                 o.config = devd.confDup
@@ -828,9 +828,9 @@ func event_loop(
                         fmt.Printf("trying to get ios version\n")
                         
                         log.WithFields( log.Fields{
-                            "type":     "ios_version",
-                            "dev_name": o.devd.name,
-                            "dev_uuid": uuid,
+                            "type":        "ios_version",
+                            "dev_name":    o.devd.name,
+                            "dev_uuid":    uuid,
                             "ios_version": o.devd.iosVersion,
                         } ).Debug("IOS Version")
             

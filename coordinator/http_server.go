@@ -154,17 +154,17 @@ func handleRoot( w http.ResponseWriter, r *http.Request, baseProgs *BaseProgs, r
         
         var str bytes.Buffer
         deviceTpl.Execute( &str, map[string] string {
-            "uuid":   "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
-            "rawuuid":   dev.uuid,
-            "name":   dev.name,
+            "uuid":             "<a href='/devinfo?uuid=" + dev.uuid + "'>" + dev.uuid + "</a>",
+            "rawuuid":          dev.uuid,
+            "name":             dev.name,
             "ios_video_stream": ios_video_stream,
-            "proxy":  proxy,
-            "deviceunit": device,
-            "owner": owner,
-            "wda": wda,
-            "ivf_pull": ivf_pull,
-            "vid_port": strconv.Itoa( dev.vidPort ),
-            "vid_stream_port": strconv.Itoa( dev.streamPort ),
+            "proxy":            proxy,
+            "deviceunit":       device,
+            "owner":            owner,
+            "wda":              wda,
+            "ivf_pull":         ivf_pull,
+            "vid_port":         strconv.Itoa( dev.vidPort ),
+            "vid_stream_port":  strconv.Itoa( dev.streamPort ),
         } )
         devOut += str.String()
     }
@@ -232,11 +232,11 @@ func newInterface( w http.ResponseWriter, r *http.Request, devEventCh chan<- Dev
     json.Unmarshal(body.Bytes(), &ifaceData )
     
     log.WithFields( log.Fields{
-        "type": "iface_body",
-        //"body": body.String(),
+        "type":     "iface_body",
+        //"body":   body.String(),
         //"struct": ifaceData,
-        "uuid": ifaceData.Serial,
-        "class": ifaceData.Class,
+        "uuid":     ifaceData.Serial,
+        "class":    ifaceData.Class,
         "subclass": ifaceData.SubClass,
     } ).Debug("New Interface")
     

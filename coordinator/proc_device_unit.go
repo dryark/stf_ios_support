@@ -57,19 +57,19 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "--ios-deploy-path"      , ( curDir + "/" + o.config.BinPaths.IosDeploy ),
     }
     o.startFields = log.Fields {
-        "server_ip": o.config.Stf.Ip,
-        "client_ip": curIP,
-        "server_host": o.config.Stf.HostName,
-        "video_port": o.devd.vidPort,
-        "node_port": o.devd.devIosPort,
-        "device_name": o.devd.name,
-        "vnc_scale": o.config.Video.VncScale,
-        "stream_width": o.devd.streamWidth,
+        "server_ip":     o.config.Stf.Ip,
+        "client_ip":     curIP,
+        "server_host":   o.config.Stf.HostName,
+        "video_port":    o.devd.vidPort,
+        "node_port":     o.devd.devIosPort,
+        "device_name":   o.devd.name,
+        "vnc_scale":     o.config.Video.VncScale,
+        "stream_width":  o.devd.streamWidth,
         "stream_height": o.devd.streamHeight,
-        "clickScale": o.devd.clickScale,
-        "clickWidth": o.devd.clickWidth,
-        "clickHeight": o.devd.clickHeight,
-        "frame_server": frameServer,
+        "clickScale":    o.devd.clickScale,
+        "clickWidth":    o.devd.clickWidth,
+        "clickHeight":   o.devd.clickHeight,
+        "frame_server":  frameServer,
     }
     
     devd := o.devd
@@ -78,10 +78,10 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
             pos := strings.Index( line, "Now owned by" )
             pos += len( "Now owned by" ) + 2
             ownedStr := line[ pos: ]
-            endpos := strings.Index( ownedStr, "\"" )
-            owner := ownedStr[ :endpos ]
+            endpos   := strings.Index( ownedStr, "\"" )
+            owner    := ownedStr[ :endpos ]
             plog.WithFields( log.Fields{
-                "type": "wda_owner_start",
+                "type":  "wda_owner_start",
                 "owner": owner,
             } ).Info("Device Owner Start")
             devd.owner = owner
@@ -90,10 +90,10 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
             pos := strings.Index( line, "No longer owned by" )
             pos += len( "No longer owned by" ) + 2
             ownedStr := line[ pos: ]
-            endpos := strings.Index( ownedStr, "\"" )
-            owner := ownedStr[ :endpos ]
+            endpos   := strings.Index( ownedStr, "\"" )
+            owner    := ownedStr[ :endpos ]
             plog.WithFields( log.Fields{
-                "type": "wda_owner_stop",
+                "type":  "wda_owner_stop",
                 "owner": owner,
             } ).Info("Device Owner Stop")
             devd.owner = ""
@@ -115,7 +115,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         return true
     }
     o.procName = "stf_device_ios"
-    o.binary = "/usr/local/opt/node@12/bin/node"
+    o.binary   = "/usr/local/opt/node@12/bin/node"
     o.startDir = "./repos/stf-ios-provider"
     proc_generic( o )
 }

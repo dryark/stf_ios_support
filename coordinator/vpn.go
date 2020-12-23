@@ -111,7 +111,7 @@ func vpns_getall() ( map [string] *Vpn ) {
         if state == "EXITING" { state = "DISCONNECTED" }
         auto := autoconnects[i]
         aVpn := Vpn{
-          state: state,
+          state:       state,
           autoConnect: auto,
         }
         vpns[ name ] = &aVpn
@@ -146,9 +146,9 @@ func openvpn_NewLauncher( config *Config, cmdLineVpnFile string, cmdLineVpnLabel
     	label = fmt.Sprintf("com.tmobile.coordinator.openvpn")
     }
     
-    wd := config.Vpn.OvpnWd
-    keepalive := true
-    asRoot := true
+    wd          := config.Vpn.OvpnWd
+    keepalive   := true
+    asRoot      := true
     vpnLauncher := NewLauncher( label, arguments, keepalive, wd, asRoot )
     //vpnLauncher.stdout = config.WDAWrapperStdout
     //vpnLauncher.stderr = config.WDAWrapperStderr
@@ -219,7 +219,7 @@ func check_vpn_status( config *Config, baseProgs *BaseProgs, vpnEventCh chan<- V
         if err != nil {
             log.WithFields( log.Fields{
                 "type": "vpn_watch_file",
-                "err": err,
+                "err":  err,
                 "file": vpnLog,
             } ).Error("Error watching OpenVPN log")
         }
@@ -283,10 +283,10 @@ func scanForInterface( scanner *bufio.Scanner, vpnEventCh chan<- VpnEvent ) {
 }
 
 func scanForLastInterface( scanner *bufio.Scanner, vpnEventCh chan<- VpnEvent ) (bool){
-    lastUpLine := ""
+    lastUpLine   := ""
     lastUpLineNo := 0
-    startLineNo := 0
-    lineNo := 0
+    startLineNo  := 0
+    lineNo       := 0
     for scanner.Scan() {
         line := scanner.Text()
         lineNo = lineNo + 1

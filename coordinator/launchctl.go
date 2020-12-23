@@ -16,15 +16,15 @@ import (
 )
 
 type Launcher struct {
-    label string
+    label     string
     arguments []string
     keepalive bool
-    stdout string
-    stderr string
-    cwd string
-    file string
-    asRoot bool
-    lock sync.Mutex
+    stdout    string
+    stderr    string
+    cwd       string
+    file      string
+    asRoot    bool
+    lock      sync.Mutex
 }
 
 func NewLauncher( label string, arguments []string, keepalive bool, cwd string, asRoot bool ) (*Launcher) {
@@ -37,14 +37,14 @@ func NewLauncher( label string, arguments []string, keepalive bool, cwd string, 
     }
     //strings.Replace
     launcher := Launcher{
-        label: label,
+        label:     label,
         arguments: arguments,
         keepalive: keepalive,
-        stdout: "/dev/null",
-        stderr: "/dev/null",
-        cwd: cwd,
-        file: file,
-        asRoot: asRoot,
+        stdout:    "/dev/null",
+        stderr:    "/dev/null",
+        cwd:       cwd,
+        file:      file,
+        asRoot:    asRoot,
     }
     return &launcher    
 }
@@ -148,12 +148,12 @@ func ( self *Launcher ) load() {
     
     var data bytes.Buffer
     launchTpl.Execute( &data, map[string] string {
-        "label":  self.label,
-        "arguments": argx,
-        "keepalive": keepaliveX,
-        "stdout": self.stdout,
-        "stderr": self.stderr,
-        "cwd": self.cwd,
+        "label":        self.label,
+        "arguments":    argx,
+        "keepalive":    keepaliveX,
+        "stdout":       self.stdout,
+        "stderr":       self.stderr,
+        "cwd":          self.cwd,
         "limitSession": limitSession,
     } )
     
@@ -165,8 +165,8 @@ func ( self *Launcher ) load() {
     err := ioutil.WriteFile( self.file, data.Bytes(), 0600 )
     if err != nil {
         log.WithFields( log.Fields{
-            "type": "launch_err",
-            "file": self.file,
+            "type":  "launch_err",
+            "file":  self.file,
             "error": err,
         } ).Error("Error writing plist file")
     }
