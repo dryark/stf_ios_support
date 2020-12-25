@@ -738,27 +738,33 @@ func event_loop(
                 var sessionId string
                 try := 0
                 for {
-                    resp, _ := http.Get( wdaBase + "/status" )
-                    body := new(bytes.Buffer)
-                    body.ReadFrom(resp.Body)
-                    if string(body.Bytes()) != "" {
-                        str := string(body.Bytes())
-                        
-                        str = strings.Replace( str, "true", "\"true\"", -1 )
-                        str = strings.Replace( str, "false", "\"false\"", -1 )
-                        fmt.Printf("Status response: %s\n", str )
-                        root, _ := uj.Parse( []byte( str ) )
-                        //root.Dump()
-                        sessionNode := root.Get("sessionId")
-                        if sessionNode == nil {
-                            wda := NewWDACaller( wdaBase )
-                            sessionId = wda.create_session( "com.apple.Preferences" )
-                        } else {
-                            sessionId = sessionNode.String()
+                    url := wdaBase + "/status"
+                    resp, statusErr := http.Get( url )
+                    if statusErr != nil {
+                        fmt.Printf("Request to %s failed with err %s", url, statusErr)
+                    } else {
+                        body := new(bytes.Buffer)
+                        body.ReadFrom(resp.Body)
+                        if string(body.Bytes()) != "" {
+                            str := string(body.Bytes())
+                            
+                            str = strings.Replace( str, "true", "\"true\"", -1 )
+                            str = strings.Replace( str, "false", "\"false\"", -1 )
+                            fmt.Printf("Status response: %s\n", str )
+                            root, _ := uj.Parse( []byte( str ) )
+                            //root.Dump()
+                            sessionNode := root.Get("sessionId")
+                            if sessionNode == nil {
+                                wda := NewWDACaller( wdaBase )
+                                sessionId = wda.create_session( "com.apple.Preferences" )
+                            } else {
+                                sessionId = sessionNode.String()
+                            }
+                            
+                            break
                         }
-                        
-                        break
                     }
+                    
                     //fmt.Printf("trying again to getting wda session\n")
                     try++
                     if try > 36 {
