@@ -236,8 +236,8 @@ func ( self *WDAType ) is_locked() ( bool ) {
   return content.Get("value").Bool()
 }
 
-func ( self *WDAType ) start_broadcast( sid string, app_name string ) {
-  self.control_center( sid )
+func ( self *WDAType ) start_broadcast( devd *RunningDev, sid string, app_name string ) {
+  self.control_center( devd, sid )
   
   devEl := self.el_by_name( sid, "Screen Recording" )
   self.force_touch( sid, devEl )
@@ -249,11 +249,31 @@ func ( self *WDAType ) start_broadcast( sid string, app_name string ) {
   self.click( sid, devEl )
 }
 
-func ( self *WDAType ) control_center( sid string ) {
+func ( self *WDAType ) control_center( devd *RunningDev, sid string ) {
+  prod := devd.productNum
+  
+  // ProductTypes that use the new method of bringing up the control center
+  // See https://gist.github.com/adamawolf/3048717
+  var newProds = map[string]bool{
+      "iPhone11": true,
+      "iPhone12": true,
+      "iPhone13": true,
+      "iPad11": true,
+  }
+  var newProdFull = map[string]bool{
+      "iPhone10,3": true,
+      "iPhone10,6": true,
+  }
+  
   width, height := self.window_size( sid )
-  midx := width / 2
-  maxy := height - 1
-  self.swipe( sid, midx, maxy, midx, maxy - 100 )
+  if newProds[ prod ] || newProdFull[ devd.productType ] {
+      maxx := width -1
+      self.swipe( sid, maxx, 0, maxx, 100 )
+  } else {
+      midx := width / 2
+      maxy := height - 1
+      self.swipe( sid, midx, maxy, midx, maxy - 100 )
+  }
 }
 
 func ( self *WDAType ) window_size( sid string ) ( int, int ) {

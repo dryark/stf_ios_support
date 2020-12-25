@@ -39,9 +39,25 @@ func getDeviceName( config *Config, uuid string ) (string) {
 }
 
 func getAllDeviceInfo( config *Config, uuid string ) map[string] string {
+    info := make( map[string] string )
+    
+    if config.IosCLI == "ios-deploy" {
+        mainKeys := "DeviceName,EthernetAddress,ModelNumber,HardwareModel,PhoneNumber,ProductType,ProductVersion,UniqueDeviceID,InternationalCircuitCardIdentity,InternationalMobileEquipmentIdentity,InternationalMobileSubscriberIdentity"
+        keyArr := strings.Split( mainKeys, "," )
+        output, _ := exec.Command( config.BinPaths.IosDeploy, "-j", "-i", uuid, "-g", mainKeys ).Output()
+        root, _ := uj.Parse( output )
+        for _, key := range keyArr {
+            node := root.Get( key )
+            if node != nil {
+                info[ key ] = node.String()
+            }
+        }
+        return info
+    }
+    
     rawInfo := getDeviceInfo( config, uuid, "" )
     lines := strings.Split( rawInfo, "\n" )
-    info := make( map[string] string )
+    
     for _, line := range lines {
         char1 := line[0:1]
         if char1 == " " { continue }

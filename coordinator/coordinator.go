@@ -62,6 +62,8 @@ type RunningDev struct {
     wdaStderrPipe  string
     heartbeatChan  chan<- bool
     iosVersion     string
+    productType    string
+    productNum     string
     confDup        *Config
     videoReady     bool
     streamWidth    int
@@ -501,7 +503,14 @@ func NewRunningDev(
     
     devd.name = getDeviceName( config, uuid )
     
-    devd.iosVersion = getDeviceInfo( config, uuid, "ProductVersion" )
+    allInfo := getAllDeviceInfo( config, uuid )
+    
+    //devd.iosVersion = getDeviceInfo( config, uuid, "ProductVersion" )
+    devd.iosVersion = allInfo["ProductVersion"]
+    prodType := allInfo["ProductType"]
+    devd.productType = prodType
+    typeParts := strings.Split( prodType, "," )
+    devd.productNum = typeParts[0]
     
     devConf := get_device_config( config, uuid )
     if devConf != nil {
@@ -803,7 +812,7 @@ func event_loop(
                     wda := NewWDACaller( wdaBase )
                     wda.launch_app( sessionId, "com.dryark.vidtest2" )
                     //sid := wda_session( wdaBase )
-                    wda.start_broadcast( sessionId, "vidtest2" )
+                    wda.start_broadcast( devd, sessionId, "vidtest2" )
                 }
                 
                 continue_dev_start( o, curIP )
