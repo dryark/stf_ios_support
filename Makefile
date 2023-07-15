@@ -75,7 +75,7 @@ launchfolder: ~/Library/LaunchAgents
 ~/Library/LaunchAgents:
 	@if [ ! -d ~/Library/LaunchAgents ]; then mkdir ~/Library/LaunchAgents; fi;
 
-# --- VIDEO ENABLER ---	
+# --- VIDEO ENABLER ---
 
 ve_alias: bin/video_enabler
 
@@ -99,8 +99,8 @@ repos/osx_ios_device_trigger/osx_ios_device_trigger/main.cpp: | repos/osx_ios_de
 # --- VIEW LOG ---
 
 view_log: view_log.go
-	go get github.com/fsnotify/fsnotify
-	go get github.com/sirupsen/logrus
+	go install github.com/fsnotify/fsnotify@latest
+	go install github.com/sirupsen/logrus@latest
 	go build view_log.go
 
 # --- H264_TO_JPEG ---
@@ -202,7 +202,7 @@ bin/ios_video_pull: repos/ios_video_pull/ios_video_pull
 # --- WDA / WebDriverAgent ---
 
 repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer/Info.plist: | repos/WebDriverAgent
-	cd repos/WebDriverAgent && ./Scripts/bootstrap.sh
+#	cd repos/WebDriverAgent && ./Scripts/bootstrap.sh
 
 wda: bin/wda/build_info.json
 
@@ -334,7 +334,7 @@ repos/libimobiledevice/Makefile: | repos/libimobiledevice
 stf: repos/stf-ios-provider/package-lock.json
 
 repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider/package.json
-	cd repos/stf-ios-provider && PATH="/usr/local/opt/node@12/bin:$(PATH)" npm install
+	cd repos/stf-ios-provider && PATH="/usr/local/opt/node@19/bin:$(PATH)" npm install
 	touch repos/stf-ios-provider/package-lock.json
 
 # --- OFFLINE STF ---

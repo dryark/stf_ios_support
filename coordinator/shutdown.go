@@ -65,7 +65,7 @@ func cleanup_procs(config *Config) {
         }*/
         
         // node --inspect=[ip]:[port] runmod.js device-ios
-        if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "device-ios" {
+        if cmd[0] == "/usr/local/opt/node/bin/node" && cmd[3] == "device-ios" {
             pid := proc.PID()
             
             plog.WithFields( log.Fields{
@@ -78,7 +78,7 @@ func cleanup_procs(config *Config) {
         }
 
         // node --inspect=[ip]:[port] runmod.js provider
-        if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "provider" {
+        if cmd[0] == "/usr/local/opt/node/bin/node" && cmd[3] == "provider" {
             pid := proc.PID()
             
             plog.WithFields( log.Fields{

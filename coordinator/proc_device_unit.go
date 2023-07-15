@@ -115,7 +115,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         return true
     }
     o.procName = "stf_device_ios"
-    o.binary   = "/usr/local/opt/node@12/bin/node"
+    o.binary   = "/usr/local/opt/node/bin/node"
     o.startDir = "./repos/stf-ios-provider"
     proc_generic( o )
 }
