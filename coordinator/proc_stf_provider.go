@@ -26,7 +26,7 @@ func proc_stf_provider( o ProcOptions, curIP string ) {
         "server_hostname": serverHostname,
         "location":        location,
     }
-    o.binary = "/usr/local/opt/node@19/bin/node"
+    o.binary = o.config.BinPaths.Node
     o.args = []string {
         "--inspect=127.0.0.1:9230",
         "runmod.js"      , "provider",
