@@ -99,8 +99,6 @@ repos/osx_ios_device_trigger/osx_ios_device_trigger/main.cpp: | repos/osx_ios_de
 # --- VIEW LOG ---
 
 view_log: view_log.go
-	go install github.com/fsnotify/fsnotify@latest
-	go install github.com/sirupsen/logrus@latest
 	go build view_log.go
 
 # --- H264_TO_JPEG ---

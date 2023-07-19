@@ -21,10 +21,10 @@ function assert_has_xcodebuild() {
     XCODE_MAJOR_VERSION=`echo $XCODE_VERSION | perl -pe 's/([0-9]+)\.[0-9]+/$1/'`
     XCODE_MINOR_VERSION=`echo $XCODE_VERSION | perl -pe 's/[0-9]+\.([0-9]+)/$1/'`
   fi
-  
+
   #echo "XCODE Version: $XCODE_VERSION"
   #echo "XCODE Version: Major = $XCODE_MAJOR_VERSION, Minor = $XCODE_MINOR_VERSION"
-  
+
   if [ $XCODE_MAJOR_VERSION > 10 ]; then
     echo -e "${GR}Xcode $XCODE_VERSION installed$RST"
   elif [ "$XCODE_VERSION" == "10.3" ]; then
@@ -39,8 +39,16 @@ function assert_has_xcodebuild() {
 install_brew_if_needed
 assert_has_xcodebuild
 ./util/brewser.pl installdeps stf_ios_support.rb
+
 ./util/brewser.pl ensurehead libplist 2.2.1
 ./util/brewser.pl fixpc libplist 2.0
-#./util/brewser.pl ensurehead libusbmuxd 2.0.3
+
+brew install --build-from-source --HEAD libimobiledevice-glue.rb
+./util/brewser.pl fixpc libimobiledevice-glue 1.0
+
+brew install --build-from-source --HEAD libusbmuxd.rb
 ./util/brewser.pl fixpc libusbmuxd 2.0
-#make libimd
+
+brew install --build-from-source --HEAD libimobiledevice.rb
+
+make libimd
