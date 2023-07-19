@@ -25,26 +25,26 @@ func cleanup_procs(config *Config) {
         "ivf":              config.BinPaths.IVF,
         "ios-deploy":       config.BinPaths.IosDeploy,
     }
-     
+
 	// Cleanup hanging processes if any
     procs, listErr := si.Processes()
     if listErr != nil {
     	fmt.Printf( "listErr:%s\n", listErr )
     	os.Exit(1)
     }
-    
+
     var hangingPids []int
-    
+
     for _, proc := range procs {
     	info, infoErr := proc.Info()
     	if infoErr != nil {
     	    //fmt.Printf( "infoErr:%s\n", infoErr )
     	    continue
     	}
-    	
+
         cmd := info.Args
         //cmdFlat := strings.Join( cmd, " " )
-        
+
         for k,v := range procMap {
             if cmd[0] == v {
                 pid := proc.PID()
@@ -52,49 +52,49 @@ func cleanup_procs(config *Config) {
                     "proc": k,
                     "pid":  pid,
                 } ).Warn("Leftover " + k + " - Sending SIGTERM")
-                
+
                 syscall.Kill( pid, syscall.SIGTERM )
-                hangingPids = append( hangingPids, pid ) 
+                hangingPids = append( hangingPids, pid )
             }
         }
-        
+
         /*if strings.Contains( cmdFlat, "node" ) {
         	log.WithFields( log.Fields{
                 "cmdLine": cmdFlat,
             } ).Info("Leftover Node proc")
         }*/
-        
+
         // node --inspect=[ip]:[port] runmod.js device-ios
-        if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "device-ios" {
+        if cmd[0] == config.BinPaths.Node && cmd[3] == "device-ios" {
             pid := proc.PID()
-            
+
             plog.WithFields( log.Fields{
                 "proc": "device-ios",
                 "pid":  pid,
             } ).Warn("Leftover Proc - Sending SIGTERM")
 
             syscall.Kill( pid, syscall.SIGTERM )
-            hangingPids = append( hangingPids, pid ) 
+            hangingPids = append( hangingPids, pid )
         }
 
         // node --inspect=[ip]:[port] runmod.js provider
-        if cmd[0] == "/usr/local/opt/node@12/bin/node" && cmd[3] == "provider" {
+        if cmd[0] == config.BinPaths.Node && cmd[3] == "provider" {
             pid := proc.PID()
-            
+
             plog.WithFields( log.Fields{
                 "proc": "stf_provider",
                 "pid":  pid,
             } ).Warn("Leftover Proc - Sending SIGTERM")
-            
+
             syscall.Kill( pid, syscall.SIGTERM )
-            hangingPids = append( hangingPids, pid ) 
+            hangingPids = append( hangingPids, pid )
         }
     }
-    
+
     if len( hangingPids ) > 0 {
         // Give the processes half a second to shudown cleanly
         time.Sleep( time.Millisecond * 500 )
-        
+
         // Send kill to processes still around
         for _, pid := range( hangingPids ) {
             proc, _ := si.Process( pid )
@@ -108,14 +108,14 @@ func cleanup_procs(config *Config) {
                     // If the process vanished before here; it errors out fetching info
                     continue
                 }
-                
+
                 plog.WithFields( log.Fields{
                     "arg0": arg0,
                 } ).Warn("Leftover Proc - Sending SIGKILL")
                 syscall.Kill( pid, syscall.SIGKILL )
             }
         }
-    
+
         // Spend up to 500 ms waiting for killed processes to vanish
         i := 0
         for {
@@ -136,7 +136,7 @@ func cleanup_procs(config *Config) {
                 break
             }
         }
-        
+
         // Write out error messages for processes that could not be killed
         for _, pid := range( hangingPids ) {
                 proc, _ := si.Process( pid )
@@ -148,7 +148,7 @@ func cleanup_procs(config *Config) {
                     }
                     args := info.Args
                     arg0 = args[0]
-                    
+
                     plog.WithFields( log.Fields{
                         "arg0": arg0,
                     } ).Error("Kill attempted and failed")
@@ -167,7 +167,7 @@ func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
     devd.lock.Lock()
     devd.shuttingDown = true
     devd.lock.Unlock()
-    
+
     if portMap != nil {
         free_ports( devd.wdaPort, devd.vidPort, devd.devIosPort, devd.vncPort, devd.usbmuxdPort, portMap )
     }
@@ -188,7 +188,7 @@ func closeRunningDev( devd *RunningDev, portMap *PortMap ) {
 func closeBaseProgs( baseProgs *BaseProgs ) {
     baseProgs.shuttingDown = true
     vpn_shutdown( baseProgs )
-    
+
     plog := log.WithFields( log.Fields{ "type": "proc_cleanup_kill" } )
 
     for k,v := range( baseProgs.process ) {
@@ -210,10 +210,10 @@ func coro_sigterm( runningDevs map [string] *RunningDev, baseProgs *BaseProgs, c
         // This triggers zmq to stop receiving
         // We don't actually wait after this to ensure it has finished cleanly... oh well :)
         gStop = true
-        
+
         closeAllRunningDevs( runningDevs )
         closeBaseProgs( baseProgs )
-        
+
         time.Sleep( time.Millisecond * 1000 )
         cleanup_procs( config )
 

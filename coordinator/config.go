@@ -5,7 +5,7 @@ import (
     "fmt"
     "io/ioutil"
     "os"
-    
+
     log "github.com/sirupsen/logrus"
     uj "github.com/nanoscopic/ujsonin/mod"
 )
@@ -90,6 +90,7 @@ type BinPathConfig struct {
     IVF            string `json:"ivf"`
     VideoEnabler   string `json:"video_enabler"`
     IosDeploy      string `json:"ios-deploy"`
+    Node           string `json:"node"`
 }
 
 type VPNConfig struct {
@@ -118,12 +119,12 @@ type DeviceConfig struct {
 
 func get_device_config( config *Config, udid string ) ( *DeviceConfig ) {
     dev := DeviceConfig{}
-    
+
     devs := config.ujson.Get("devices")
     if devs == nil {
         return nil
     }
-    
+
     /*devs.ForEach( func( conf *uj.JNode ) {
         oneid := conf.Get("udid").String()
         if oneid == udid {
@@ -133,13 +134,13 @@ func get_device_config( config *Config, udid string ) ( *DeviceConfig ) {
     } )*/
     dev.Width = 735
     dev.Height = 1134
-    
+
     return &dev
 }
 
 func read_config( configPath string ) *Config {
     var config Config
-    
+
     for {
         fh, serr := os.Stat( configPath )
         if serr != nil {
@@ -149,7 +150,7 @@ func read_config( configPath string ) *Config {
                 "config_path": configPath,
             } ).Fatal("Could not read specified config path")
         }
-        
+
         var configFile string
         switch mode := fh.Mode(); {
             case mode.IsDir():
@@ -157,7 +158,7 @@ func read_config( configPath string ) *Config {
             case mode.IsRegular():
                 configFile = configPath
         }
-    
+
         configFh, err := os.Open( configFile )
         if err != nil {
             log.WithFields( log.Fields{
@@ -167,9 +168,9 @@ func read_config( configPath string ) *Config {
             } ).Fatal("failed reading config file")
         }
         defer configFh.Close()
-    
+
         jsonBytes, _ := ioutil.ReadAll( configFh )
-        
+
         defaultJson := `{
           "wda_folder": "./bin/wda",
           "device_detector": "api",
@@ -237,7 +238,8 @@ func read_config( configPath string ) *Config {
             "h264_to_jpeg":   "bin/decode",
             "ivf":            "bin/ivf_pull",
             "video_enabler":  "bin/video_enabler",
-            "ios-deploy": "bin/ios-deploy"
+            "ios-deploy": "bin/ios-deploy",
+            "node": "/usr/local/opt/node/bin/node"
           },
           "repos":{
             "stf": "https://github.com/nanoscopic/stf-ios-provider.git",
@@ -249,7 +251,7 @@ func read_config( configPath string ) *Config {
           "devices":[
           ]
         }`
-        
+
         config = Config{
           MirrorFeedPort:  8000,
           WDAProxyPort:    8100,
@@ -259,23 +261,23 @@ func read_config( configPath string ) *Config {
           DecodeInPort:    7879,
           UsbmuxdPort:     9920,
         }
-        
+
         err = json.Unmarshal( []byte( defaultJson ), &config )
         if err != nil {
           log.Fatal( "1 ", err )
         }
-        
+
         err = json.Unmarshal( jsonBytes, &config )
         if err != nil {
           log.Fatal( "2 ", err )
         }
-        
+
         config.ujson, _ = uj.Parse( jsonBytes )
-        
+
         //jsonCombined, _ := json.MarshalIndent(config, "", "  ")
         //fmt.Printf("Combined config:%s\n", string( jsonCombined ) )
         //os.Exit(0)
-        
+
         if config.ConfigPath != "" {
             configPath = config.ConfigPath
             continue

@@ -22,7 +22,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
     if o.config.Video.UseVnc && o.config.Video.Enabled {
         vncPort = o.devd.vncPort
     }
-    
+
     secure := o.config.FrameServer.Secure
     var frameServer string
     if secure {
@@ -30,9 +30,9 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
     } else {
         frameServer = fmt.Sprintf("ws://%s:%d/echo", curIP, o.devd.vidPort)
     }
-    
+
     curDir, _ := os.Getwd()
-    
+
     o.args = []string{
         fmt.Sprintf("--inspect=0.0.0.0:%d", o.devd.devIosPort),
         "runmod.js"              , "device-ios",
@@ -71,7 +71,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         "clickHeight":   o.devd.clickHeight,
         "frame_server":  frameServer,
     }
-    
+
     devd := o.devd
     o.stderrHandler = func( line string, plog *log.Entry ) (bool) {
         if strings.Contains( line, "Now owned by" ) {
@@ -115,8 +115,7 @@ func proc_device_ios_unit( o ProcOptions, uuid string, curIP string) {
         return true
     }
     o.procName = "stf_device_ios"
-    o.binary   = "/usr/local/opt/node@12/bin/node"
+    o.binary   = o.config.BinPaths.Node
     o.startDir = "./repos/stf-ios-provider"
     proc_generic( o )
 }
-            

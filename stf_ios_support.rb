@@ -25,7 +25,7 @@ class StfIosSupport < Formula
   # depends_on "libimobiledevice" # need to install with --HEAD
   depends_on "go" => :build
   depends_on :xcode => "10.3"
-  depends_on "node@12"
+  depends_on "node"
   depends_on "libsodium"
   depends_on "czmq"
   depends_on "jpeg-turbo"

@@ -1,4 +1,4 @@
-FROM livxtrm/devicefarmer:latest
+FROM devicefarmer:latest
 
 USER root
 RUN mkdir data && chown stf:stf data

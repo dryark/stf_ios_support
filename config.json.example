@@ -17,6 +17,9 @@
     "root_path": "[desired stf provider install folder]",
     "config_path": "[desired stf provider install folder]/config.json",
     "set_working_dir": false
+  },
+  "bin_paths": {
+    "node": "/usr/local/opt/node/bin/node"
   }
 }
 
@@ -69,7 +72,8 @@
     "openvpn": "/usr/local/opt/openvpn/sbin/openvpn",
     "iproxy": "/usr/local/bin/iproxy",
     "wdawrapper": "bin/wda_wrapper",
-    "ffmpeg": "bin/ffmpeg"
+    "ffmpeg": "bin/ffmpeg",
+    "node": "/usr/local/opt/node/bin/node"
   },
   "repos": {
     "stf": "https://github.com/nanoscopic/stf-ios-provider.git",

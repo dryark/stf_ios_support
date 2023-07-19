@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import json
 import os
@@ -19,21 +19,21 @@ def git_info( dir ):
     cmd = ["/usr/bin/git","-C","./"+dir,"log","-1", "--no-merges"]
 
   try:
-    res = subprocess.check_output( cmd, stderr=subprocess.STDOUT )
+    res = subprocess.check_output( cmd, stderr=subprocess.STDOUT ).decode('utf-8')
   except subprocess.CalledProcessError as e:
     #sys.stderr.write( e.output )
     return {
       "error": "missing"#e.output
     }
-  
-  remote = subprocess.check_output( ["/usr/bin/git", "-C", "./" + dir, "remote","-v"] )
-  
+
+  remote = subprocess.check_output( ["/usr/bin/git", "-C", "./" + dir, "remote","-v"] ).decode('utf-8')
+
   res = res[:-1] # remove trailing "\n"
   remote = remote[:-1]
   remote = remote.split("\n")[0].split("\t") # just first line
-  
+
   parts = res.split("\n")
-  
+
   return {
     "commit": parts[0][7:],          # remove 'commit '
     "author": parts[1][7:].lstrip(), # remove 'Author:' and spaces
@@ -42,7 +42,7 @@ def git_info( dir ):
   }
 
 def xcode_version():
-  res = subprocess.check_output( ["/usr/bin/xcodebuild", "-version"] )
+  res = subprocess.check_output( ["/usr/bin/xcodebuild", "-version"] ).decode('utf-8')
   res = res[:-1]
   return res.split("\n")
 
@@ -73,5 +73,5 @@ else:
     if args.wdasource != 1:
       data["wda"] = wda_root["wda"]
 
-print json.dumps( data, indent = 2 )
+print(json.dumps( data, indent = 2 ))
 

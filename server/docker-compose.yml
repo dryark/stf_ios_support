@@ -84,7 +84,7 @@ services:
       --bind-dealer "tcp://*:7160"
       --bind-pull "tcp://*:7170"
     volumes:
-      - ./runcli.js:/app/runcli.js  
+      - ./runcli.js:/app/runcli.js
     ports:
       - 10005:9229
   dev-triproxy:
@@ -188,11 +188,10 @@ services:
       --connect-sub-dev tcp://dev-triproxy:7250
       --connect-push-dev tcp://dev-triproxy:7270
     ports:
-      - 10001:9229
+      - "10001:9229"
+      - "9229:9229"
     volumes:
       - ./runcli.js:/app/runcli.js
-    ports:
-      - 9229:9229
     depends_on:
       - migrate
       - rethinkdb

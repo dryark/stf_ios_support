@@ -9,16 +9,16 @@ import (
 
 func proc_stf_provider( o ProcOptions, curIP string ) {
     o.binary = o.config.BinPaths.IosVideoStream
-    
+
     serverHostname := o.config.Stf.HostName
     clientHostname, _ := os.Hostname()
     serverIP := o.config.Stf.Ip
-    
+
     location := fmt.Sprintf("macmini/%s", clientHostname)
     if o.config.Stf.Location != "" {
         location = o.config.Stf.Location
     }
-            
+
     o.startFields = log.Fields {
         "client_ip":       curIP,
         "server_ip":       serverIP,
@@ -26,7 +26,7 @@ func proc_stf_provider( o ProcOptions, curIP string ) {
         "server_hostname": serverHostname,
         "location":        location,
     }
-    o.binary = "/usr/local/opt/node@12/bin/node"
+    o.binary = o.config.BinPaths.Node
     o.args = []string {
         "--inspect=127.0.0.1:9230",
         "runmod.js"      , "provider",
