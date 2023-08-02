@@ -1,8 +1,8 @@
-TARGET = ../bin/wda_wrapper
+TARGET = ../view_log
 
 all: $(TARGET)
 
-$(TARGET): wda_wrapper.go go.sum
+$(TARGET): view_log.go go.sum
 	go build -o $(TARGET) .
 
 go.sum:

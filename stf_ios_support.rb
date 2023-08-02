@@ -23,7 +23,9 @@ class StfIosSupport < Formula
   depends_on "libtool"
   depends_on "wget"
   # depends_on "libimobiledevice" # need to install with --HEAD
-  depends_on "go" => :build
+  depends_on "go@1.16" => :build
+  depends_on "ossp-uuid"
+  depends_on "socat"
   depends_on :xcode => "10.3"
   depends_on "node@12"
   depends_on "libsodium"

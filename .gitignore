@@ -5,8 +5,6 @@ bin
 offline
 config.json
 logs
-view_log
-wda_wrapper/go.sum
 temp
 dist.tgz
 cache/*

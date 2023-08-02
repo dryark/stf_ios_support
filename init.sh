@@ -43,4 +43,6 @@ assert_has_xcodebuild
 ./util/brewser.pl fixpc libplist 2.0
 ./util/brewser.pl ensurehead libusbmuxd 2.0.3
 ./util/brewser.pl fixpc libusbmuxd 2.0
+./util/brewser.pl ensurehead libimobiledevice 1.3.1
+./util/brewser.pl fixpc libimobiledevice 1.0
 #make libimd

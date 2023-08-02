@@ -833,9 +833,9 @@ func event_loop(
             if devd != nil && !devd.wdaStarted {
                 o.config = devd.confDup
                 
-                if !o.config.Video.Enabled ||
-                    ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) ||
-                    videoMethod == "app" {
+//                if !o.config.Video.Enabled ||
+//                    ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) ||
+//                    videoMethod == "app" {
                         o.devd.wdaStarted = true
                         
                         time.Sleep( time.Second * 2 )
@@ -850,7 +850,7 @@ func event_loop(
                         } ).Debug("IOS Version")
             
                         proc_wdaproxy( o, devEventCh, false )
-                }
+//                }
             }
         }
     }
