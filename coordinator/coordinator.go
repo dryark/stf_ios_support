@@ -832,25 +832,21 @@ func event_loop(
                         
             if devd != nil && !devd.wdaStarted {
                 o.config = devd.confDup
-                
-//                if !o.config.Video.Enabled ||
-//                    ( o.devd.okVidInterface == true && o.devd.okFirstFrame == true ) ||
-//                    videoMethod == "app" {
-                        o.devd.wdaStarted = true
+
+                o.devd.wdaStarted = true
                         
-                        time.Sleep( time.Second * 2 )
+                time.Sleep( time.Second * 2 )
                         
-                        fmt.Printf("trying to get ios version\n")
+                fmt.Printf("trying to get ios version\n")
                         
-                        log.WithFields( log.Fields{
-                            "type":        "ios_version",
-                            "dev_name":    o.devd.name,
-                            "dev_uuid":    uuid,
-                            "ios_version": o.devd.iosVersion,
-                        } ).Debug("IOS Version")
+                log.WithFields( log.Fields{
+                    "type":        "ios_version",
+                    "dev_name":    o.devd.name,
+                    "dev_uuid":    uuid,
+                    "ios_version": o.devd.iosVersion,
+                } ).Debug("IOS Version")
             
-                        proc_wdaproxy( o, devEventCh, false )
-//                }
+                proc_wdaproxy( o, devEventCh, false )
             }
         }
     }
