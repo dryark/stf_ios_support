@@ -202,7 +202,6 @@ bin/ios_video_pull: repos/ios_video_pull/ios_video_pull
 # --- WDA / WebDriverAgent ---
 
 repos/WebDriverAgent/Carthage/Checkouts/RoutingHTTPServer/Info.plist: | repos/WebDriverAgent
-	cd repos/WebDriverAgent && ./Scripts/bootstrap.sh
 
 wda: bin/wda/build_info.json
 
