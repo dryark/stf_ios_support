@@ -128,9 +128,7 @@ Twitter or any other official channels.
 
 This error initial by new dependenses: https://github.com/libimobiledevice/libimobiledevice-glue
 
-In Homebrew no formulae for it: https://github.com/Homebrew/homebrew-core/pull/87059
-
-1. Resolve by: https://github.com/libimobiledevice/libimobiledevice/issues/1217
+1. Resolve:
 
     1. `brew create --set-name libimobiledevice-glue-1.0 "https://github.com/libimobiledevice/libimobiledevice-glue.git"`
     1. Save file without changes
