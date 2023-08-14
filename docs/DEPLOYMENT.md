@@ -70,7 +70,7 @@ location ~ "^/frames/(?<client_ip>[^/]+)/(?<client_port>800[0-9])/x$" {
 1. Download actual profiles for device by Xcode or TestFlight:
 https://docs.fastlane.tools/actions/sigh/
 
-## 4. Prepare dependenses on build machine
+## 4. Prepare dependencies on build machine
 1. Run `./init.sh`
 1. View error:
 ```bash
