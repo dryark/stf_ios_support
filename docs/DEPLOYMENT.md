@@ -1,10 +1,7 @@
 # Deployment
 
 ## Tested working configuration
-- PC: MacMini 2018 (x86_64)
-- OS: MacOS Ventura 13.5
-- IDE: XCode 14.3.1
-- Mobile devices: iPhone and iPad different years with iOS versions: 14.1, 14.2, 14.6, 14.7, 15.0, 15.4.1, 16.6
+- Built using: XCode 14.3.1 on MacOS Ventura 13.5
 
 ## 1. Prepare PC (build machine)
 1. Install XCode
