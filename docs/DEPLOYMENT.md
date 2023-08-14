@@ -1,8 +1,5 @@
 # Deployment
 
-## Relevance
-This instruction actual on 2023/08/09
-
 ## Tested working configuration
 - PC: MacMini 2018 (x86_64)
 - OS: MacOS Ventura 13.5
