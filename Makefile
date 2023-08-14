@@ -98,10 +98,12 @@ repos/osx_ios_device_trigger/osx_ios_device_trigger/main.cpp: | repos/osx_ios_de
 
 # --- VIEW LOG ---
 
-view_log: view_log.go
-	go get github.com/fsnotify/fsnotify
-	go get github.com/sirupsen/logrus
-	go build view_log.go
+view_log: view_log/view_log
+
+view_log_sources: $(wildcard view_log/*.go)
+
+view_log/view_log: $(view_log_sources)
+	$(MAKE) -C view_log
 
 # --- H264_TO_JPEG ---
 
@@ -269,7 +271,7 @@ clone: repos/WebDriverAgent repos/osx_ios_device_trigger repos/stf-ios-provider 
 repos/stf-ios-provider/package.json: repos/stf-ios-provider
 
 repos/stf-ios-provider:
-	$(eval REPO=$(shell jq '.repo_stf // "https://github.com/nanoscopic/stf-ios-provider.git"' config.json -j))
+	$(eval REPO=$(shell if test -f config.json; then jq '.repo_stf // "https://github.com/nanoscopic/stf-ios-provider.git"' -j config.json; else echo "https://github.com/nanoscopic/stf-ios-provider.git"; fi))
 	git clone $(REPO) repos/stf-ios-provider --branch master
 
 repos/ios_video_stream:
@@ -281,8 +283,8 @@ repos/ios_video_pull:
 repos/WebDriverAgent/WebDriverAgent.xcodeproj: repos/WebDriverAgent
 
 repos/WebDriverAgent:
-	$(eval REPO=$(shell jq '.repo_wda // "https://github.com/appium/WebDriverAgent.git"' config.json -j))
-	$(eval REPO_BR=$(shell jq '.repo_wda_branch // "master"' config.json -j))
+	$(eval REPO=$(shell if test -f config.json; then jq '.repo_wda // "https://github.com/appium/WebDriverAgent.git"' -j config.json; else echo "https://github.com/appium/WebDriverAgent.git"; fi))
+	$(eval REPO_BR=$(shell if test -f config.json; then jq '.repo_wda_branch // "master"' -j config.json; else echo "master"; fi))
 	git clone $(REPO) repos/WebDriverAgent --branch $(REPO_BR)
 
 repos/osx_ios_device_trigger:
@@ -333,7 +335,7 @@ repos/libimobiledevice/Makefile: | repos/libimobiledevice
 stf: repos/stf-ios-provider/package-lock.json
 
 repos/stf-ios-provider/package-lock.json: repos/stf-ios-provider/package.json
-	cd repos/stf-ios-provider && PATH="/usr/local/opt/node@12/bin:$(PATH)" npm install
+	cd repos/stf-ios-provider && PATH="/usr/local/opt/node@14/bin:$(PATH)" npm install
 	touch repos/stf-ios-provider/package-lock.json
 
 # --- OFFLINE STF ---
@@ -405,16 +407,13 @@ dist.tgz: offline/build_info.json ios_video_stream wda device_trigger halias bin
 	@if [ ! -f offline/logs/openvpn.log ]; then touch offline/logs/openvpn.log; fi;
 	tar -h -czf dist.tgz $(distfiles) -C offline $(offlinefiles)
 
-clean: cleanstf cleanwda cleanlogs cleanivs cleanwdaproxy cleanrunner
+clean: cleanwda cleanviewlog cleanlogs cleanivs cleanwdaproxy cleanrunner
 	$(MAKE) -C coordinator clean
 	$(RM) build_info.json
 
 cleanwdaproxy:
 	$(MAKE) -C repos/wdaproxy clean
 	$(RM) bin/wdaproxy
-
-cleanstf:
-	$(MAKE) -C repos/stf clean
 
 cleanivs:
 	$(MAKE) -C repos/ios_video_stream clean
@@ -430,6 +429,9 @@ cleanwda:
 
 cleanrunner:
 	$(MAKE) -C runner clean
+
+cleanviewlog:
+	$(MAKE) -C view_log clean
 
 cleanlogs:
 	$(RM) logs/*

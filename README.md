@@ -1,5 +1,7 @@
 ## STF IOS Support
 
+[Actual instruction for deploy service on 2023/08/09](docs/DEPLOYMENT.md)
+
 ### Prerequisites
 1. A machine running MacOS ( to build and run the "provider" )
 1. A machine running Linux with Docker container support ( to run the STF server )
